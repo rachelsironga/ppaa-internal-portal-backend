@@ -49,8 +49,8 @@ SIMPLE_JWT = {
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 # CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4000",  # React frontend
-    "http://127.0.0.1:4000",  # If using Live Server in VS Code
+    "http://localhost:4001",  # React frontend
+    "http://127.0.0.1:4001",  # If using Live Server in VS Code
 ]
 
 

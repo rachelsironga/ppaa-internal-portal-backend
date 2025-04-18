@@ -1,10 +1,10 @@
-from django.urls import path, include
+from django.urls import path
 
-from api.migrations.modules.approval_action import ApprovalActionView
-from api.migrations.modules.approval_level import ApprovalLevelView
-from api.migrations.modules.approval_module import ApprovalModuleView
-from api.migrations.modules.approval_module_level import ApprovalModuleLevelView
-from api.migrations.modules.department import DepartmentView
+from api.modules.approval_action import ApprovalActionView
+from api.modules.approval_level import ApprovalLevelView
+from api.modules.approval_module import ApprovalModuleView
+from api.modules.approval_module_level import ApprovalModuleLevelView
+from api.modules.department import DepartmentView
 
 urlpatterns = [
     path('departments', DepartmentView.as_view(), name='view'),
