@@ -154,15 +154,47 @@ class RequestInternetEmailAccess(ApprovalRequest):
     def __str__(self):
         return f"request_internet_email_access: {self.title} | {self.start_date} - {self.end_date}"
 
-class RequestJeeverAccess(ApprovalRequest):
+class RequestJeevaAccess(ApprovalRequest):
     start_date: str = models.DateField(blank=True, null=True)
     end_date: str = models.DateField(blank=True, null=True)
     access_data = models.JSONField()  # { "user":[], "revoke":[] }
 
     class Meta:
-        db_table = 'request_jeever_access'
+        db_table = 'request_jeeva_access'
 
     def __str__(self):
-        return f"request_jeever_access: {self.title} | {self.start_date} - {self.end_date}"
+        return f"request_jeeva_access: {self.title} | {self.start_date} - {self.end_date}"
+
+
+
+class JeevaRole(BaseModel):
+    """Defines a jeeva roles"""
+    name = models.CharField(max_length=255, unique=True)
+    code = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'jeeva_roles'
+        unique_together = ('name', 'code')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.uid
+
+class JeevaPermission(BaseModel):
+    name = models.CharField(max_length=255, unique=True)
+    code = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+
+    class Meta:
+        db_table = 'jeeva_permissions'
+        unique_together = ('name', 'code')
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.uid}"
+
+
 
 

@@ -5,6 +5,7 @@ from api.modules.approval_level import ApprovalLevelView
 from api.modules.approval_module import ApprovalModuleView
 from api.modules.approval_module_level import ApprovalModuleLevelView
 from api.modules.department import DepartmentView
+from api.modules.jeeva_roles import JeevaRoleView
 
 urlpatterns = [
     path('departments', DepartmentView.as_view(), name='view'),
@@ -21,4 +22,7 @@ urlpatterns = [
 
     path('approval-module-level', ApprovalModuleLevelView.as_view(), name='view-approval-module-level'),
     path('approval-module-level/<str:uid>', ApprovalModuleLevelView.as_view(), name='open-approval-module-level'),
+
+    path('jeeva-role', JeevaRoleView.as_view(), name='all-jeeva-role'),
+    path('jeeva-role/<str:uid>', JeevaRoleView.as_view(), name='one-jeeva-role'),
 ]

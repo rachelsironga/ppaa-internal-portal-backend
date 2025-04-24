@@ -4,8 +4,8 @@ from rest_framework.validators import UniqueTogetherValidator
 
 from mnh_model.models import (
     ApprovalModule, ApprovalLevel, ApprovalAction,
-    ApprovalModuleLevel, ApprovalRequest, RequestJeeverAccess, RequestInternetEmailAccess, ApprovalRequestStep,
-    Department
+    ApprovalModuleLevel, ApprovalRequest, RequestJeevaAccess, RequestInternetEmailAccess, ApprovalRequestStep,
+    Department, JeevaRole
 )
 
 
@@ -146,7 +146,6 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
 
         return super().update(instance, validated_data)
 
-
 class ApprovalModuleSerializer(serializers.ModelSerializer):
     approval_module_levels = serializers.SerializerMethodField()
 
@@ -178,6 +177,30 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
         return data
 
 
+class JeevaRoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JeevaRole
+        fields = ['uid', 'name', 'code', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'created_by': {'read_only': True},
+            'updated_by': {'read_only': True},
+            'deleted_by': {'read_only': True},
+        }
+
+    def validate(self, data):
+        name = data.get('name')
+        code = data.get('code')
+        uid = self.instance.uid if self.instance else None
+
+        existing = JeevaRole.objects.filter(name=name, code=code, deleted_at=None)
+        if existing.exists():
+            if existing.exclude(uid=uid).exists():
+                raise serializers.ValidationError("this name and code already exists.")
+        return data
+
+
+
 
 class ApprovalRequestSerializer(serializers.ModelSerializer):
     module_name = serializers.ReadOnlyField(source='module.name')
@@ -202,8 +225,9 @@ class RequestInternetEmailAccessSerializer(serializers.ModelSerializer):
         model = RequestInternetEmailAccess
         fields = '__all__'
 
-class RequestJeeverAccessSerializer(serializers.ModelSerializer):
+
+class RequestJeevaAccessSerializer(serializers.ModelSerializer):
     class Meta:
-        model = RequestJeeverAccess
+        model = RequestJeevaAccess
         fields = '__all__'
 
