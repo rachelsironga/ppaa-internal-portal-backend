@@ -57,7 +57,6 @@ class ApprovalModuleLevelView(APIView):
 
                     # get all levels under the selected module
                     levels = ApprovalModuleLevel.objects.filter(module=module, is_deleted=False).all()
-                    print(levels)
                     if not levels:
                         return CustomResponse.errors(message="Approval Module Level not found")
 
@@ -76,15 +75,17 @@ class ApprovalModuleLevelView(APIView):
                         return CustomResponse.success(message="Approval levels updated successfully")
                     except Exception as e:
                         return CustomResponse.errors(message=f"Failed to update: {str(e)}")
-
-
-                # Handle Create case (when no uid)
                 else:
+                    '''Handle create if no UID and sort_list or module_uid passed in request'''
                     serializer = self.serializer_class(data=request.data)
+
 
                 # Validate and save
                 if serializer.is_valid():
-                    serializer.save(created_by=request.user.id, updated_by=request.user.id)
+                    if uid and instance:
+                        serializer.update(instance=instance, validated_data=serializer.validated_data)
+                    else:
+                        serializer.save(created_by=request.user.id, updated_by=request.user.id)
                     return CustomResponse.success(data=serializer.data)
 
                 # Validation failed

@@ -5,7 +5,7 @@ from rest_framework.validators import UniqueTogetherValidator
 from mnh_model.models import (
     ApprovalModule, ApprovalLevel, ApprovalAction,
     ApprovalModuleLevel, ApprovalRequest, RequestJeevaAccess, RequestInternetEmailAccess, ApprovalRequestStep,
-    Department, JeevaRole
+    Department, JeevaRole, JeevaPermission
 )
 
 
@@ -164,7 +164,10 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
         related_objects = getattr(obj, related_name, None)
 
         if related_objects:
-            return ApprovalModuleLevelSerializer(related_objects.all(), many=True).data
+            # Filter is_deleted=False
+            filtered = related_objects.filter(is_deleted=False)
+            return ApprovalModuleLevelSerializer(filtered, many=True).data
+            # return ApprovalModuleLevelSerializer(related_objects.all(), many=True).data
         return []
 
     def validate(self, data):
@@ -180,6 +183,28 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
 class JeevaRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = JeevaRole
+        fields = ['uid', 'name', 'code', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'created_by': {'read_only': True},
+            'updated_by': {'read_only': True},
+            'deleted_by': {'read_only': True},
+        }
+
+    def validate(self, data):
+        name = data.get('name')
+        code = data.get('code')
+        uid = self.instance.uid if self.instance else None
+
+        existing = JeevaRole.objects.filter(name=name, code=code, deleted_at=None)
+        if existing.exists():
+            if existing.exclude(uid=uid).exists():
+                raise serializers.ValidationError("this name and code already exists.")
+        return data
+
+class JeevaPermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JeevaPermission
         fields = ['uid', 'name', 'code', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['uid', 'created_at', 'updated_at']
         extra_kwargs = {
