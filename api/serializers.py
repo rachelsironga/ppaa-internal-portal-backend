@@ -2,17 +2,18 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from rest_framework.validators import UniqueTogetherValidator
 
+
 from mnh_model.models import (
     ApprovalModule, ApprovalLevel, ApprovalAction,
     ApprovalModuleLevel, ApprovalRequest, RequestJeevaAccess, RequestInternetEmailAccess, ApprovalRequestStep,
-    Department, JeevaRole, JeevaPermission
+    Department, JeevaRole, JeevaPermission, Directory
 )
 
 
-class DepartmentSerializer(serializers.ModelSerializer):
+class DirectorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = Department
-        fields = ['uid', 'name', 'code', 'description', 'is_active', 'created_at', 'updated_at']
+        model = Directory
+        fields = ['uid', 'name', 'code','description', 'created_at', 'updated_at']
         read_only_fields = ['uid', 'created_at', 'updated_at']
         extra_kwargs = {
             'created_by': {'read_only': True},
@@ -23,17 +24,56 @@ class DepartmentSerializer(serializers.ModelSerializer):
     def validate(self, data):
         name = data.get('name')
         code = data.get('code')
-        uid = self.instance.uid if self.instance else None  # Get UID if updating
-
-        # Check for existing department with same name & code that is NOT deleted
-        existing = Department.objects.filter(name=name, code=code, deleted_at=None)
-
-        # If updating, ensure the existing record (if any) is not a different UID
-        if existing.exists():
+        uid = self.instance.uid if self.instance else None
+        existing = ApprovalLevel.objects.filter(name=name, code=code, deleted_at=None)
+        if existing.exclude(uid=uid).exists():
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this name and code already exists.")
 
         return data
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    directory_uid = serializers.UUIDField(write_only=True)
+    directory = DirectorySerializer(read_only=True)
+
+    class Meta:
+        model = Department
+        fields = ['uid', 'name', 'code', 'directory', 'description', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'created_by': {'read_only': True},
+            'updated_by': {'read_only': True},
+            'deleted_by': {'read_only': True},
+        }
+
+    def validate(self, data):
+        name = data.get('name')
+        code = data.get('code')
+        uid = self.instance.uid if self.instance else None
+
+        directory_uid = data.get('directory_uid')
+        try:
+            data['directory'] = Directory.objects.get(uid=directory_uid, is_deleted=False)
+        except Directory.DoesNotExist:
+            raise serializers.ValidationError({"directory_uid": "Invalid Directory, not found or deleted"})
+
+        # Check for existing department with the same name and code that is NOT deleted
+        existing = Department.objects.filter(name=name, code=code, deleted_at=None)
+
+        # If updating, ensure the existing record (if any) is not a different UID
+        if existing.exclude(uid=uid).exists():
+            if existing.exclude(uid=uid).exists():
+                raise serializers.ValidationError("this name and code already exists.")
+
+        return data
+
+    def create(self, validated_data):
+        validated_data.pop('directory_uid')
+        return Department.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop('directory_uid', None)
+        return super().update(instance, validated_data)
 
 class ApprovalLevelSerializer(serializers.ModelSerializer):
     class Meta:

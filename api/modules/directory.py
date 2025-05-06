@@ -12,39 +12,39 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from api.serializers import DepartmentSerializer
+from api.serializers import DirectorySerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_model.models import Department
+from mnh_model.models import Directory
 
 
-class DepartmentView(APIView):
+class DirectoryView(APIView):
     permission_classes = [AllowAny]
-    serializer_class = DepartmentSerializer
+    serializer_class = DirectorySerializer
 
     def get(self, request, uid=None):
         try:
-            """ Retrieve a single department by UID or list departments with optional search """
+            """ Retrieve a single Directory by UID or list directories with optional search """
             if uid:
-                department = Department.objects.filter(uid=uid, is_deleted=False).first()
-                if not department:
-                    raise NotFound("Department not found")
-                return CustomResponse.success(data=DepartmentSerializer(department).data)
+                directory = Directory.objects.filter(uid=uid, is_deleted=False).first()
+                if not directory:
+                    raise NotFound("Directory not found")
+                return CustomResponse.success(data=DirectorySerializer(directory).data)
 
             search_query = request.GET.get('search', '').strip()
-            departments = Department.objects.filter(is_deleted=False)
+            directories = Directory.objects.filter(is_deleted=False)
 
             if search_query:
-                departments = departments.filter(
+                directories = directories.filter(
                     Q(name__icontains=search_query) | Q(code__icontains=search_query)
                 )
 
-            if departments.exists():
-                return CustomPagination.paginate(self=self, results=departments, request=request)
+            if directories.exists():
+                return CustomPagination.paginate(self=self, results=directories, request=request)
 
-            return CustomResponse.errors(message="Department not found", data=[])
+            return CustomResponse.errors(message="Directory not found", data=[])
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Retrieve Departments: {str(e)}', )
+            return CustomResponse.server_error(message=f'Failed to Retrieve Directories: {str(e)}', )
 
     def post(self, request):
         try:
@@ -54,12 +54,12 @@ class DepartmentView(APIView):
                 # Handle an Update case
                 if uid:
                     try:
-                        instance = Department.objects.get(uid=uid)
+                        instance = Directory.objects.get(uid=uid)
                         serializer = self.serializer_class(instance, data=request.data, partial=True)
-                    except Department.DoesNotExist:
-                        return CustomResponse.errors(message="Department not found")
+                    except Directory.DoesNotExist:
+                        return CustomResponse.errors(message="Directory not found")
 
-                # Handle Create case (when no uid)
+                # Handle Create a case (when no uid)
                 else:
                     serializer = self.serializer_class(data=request.data)
 
@@ -76,21 +76,21 @@ class DepartmentView(APIView):
 
         except Exception as e:
             # Catch unexpected errors that occur in the entire process
-            return CustomResponse.server_error(message=f'Failed to Change Department: {str(e)}', )
+            return CustomResponse.server_error(message=f'Failed to Change Directory: {str(e)}', )
 
     def delete(self, request, uid):
         try:
             with transaction.atomic():
-                """ Soft delete a department by UID """
-                department = Department.objects.filter(uid=uid, is_deleted=False).first()
-                if not department:
-                    return CustomResponse.errors(message="Department Not Found or Deleted", )
+                """ Soft delete a Directory by UID """
+                directory = Directory.objects.filter(uid=uid, is_deleted=False).first()
+                if not directory:
+                    return CustomResponse.errors(message="Directory Not Found or Deleted", )
 
-                department.is_deleted = True
-                department.deleted_at = datetime.now()
-                department.deleted_by = request.user.id
-                department.save()
-                return CustomResponse.success(message='Department deleted successfully')
+                directory.is_deleted = True
+                directory.deleted_at = datetime.now()
+                directory.deleted_by = request.user.id
+                directory.save()
+                return CustomResponse.success(message='Directory deleted successfully')
 
         except Exception as e:
-            return CustomResponse.server_error(message="Something went wrong While Deleting Department")
+            return CustomResponse.server_error(message="Something went wrong While Deleting Directory")

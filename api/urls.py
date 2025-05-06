@@ -5,9 +5,13 @@ from api.modules.approval_level import ApprovalLevelView
 from api.modules.approval_module import ApprovalModuleView
 from api.modules.approval_module_level import ApprovalModuleLevelView
 from api.modules.department import DepartmentView
+from api.modules.directory import DirectoryView
 from api.modules.jeeva_roles import JeevaRoleView
 
 urlpatterns = [
+    path('directory', DirectoryView.as_view(), name='directory-view'),
+    path('directory/<str:uid>', DirectoryView.as_view(), name='directory-open'),
+
     path('departments', DepartmentView.as_view(), name='view'),
     path('departments/<str:uid>', DepartmentView.as_view(), name='open'),
 

@@ -42,9 +42,28 @@ class PolymorphicBaseModel(PolymorphicModel):
         abstract = True
 
 
+class Directory(BaseModel):
+    name = models.CharField(max_length=100, null=True)
+    code = models.CharField(max_length=20, null=True)
+    description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'directories'
+        ordering = ['name', 'code']
+        verbose_name = "Directory"
+        verbose_name_plural = "Directories"
+        indexes = [
+            models.Index(fields=['name', 'code']),
+            models.Index(fields=['uid']),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
 class Department(BaseModel):
     name = models.CharField(max_length=100, null=True)
     code = models.CharField(max_length=20, null=True)
+    directory = models.ForeignKey(Directory, related_name='departments', on_delete=models.SET_NULL, null=True, default=None)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
 
