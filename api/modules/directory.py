@@ -29,7 +29,8 @@ class DirectoryView(APIView):
                 directory = Directory.objects.filter(uid=uid, is_deleted=False).first()
                 if not directory:
                     raise NotFound("Directory not found")
-                return CustomResponse.success(data=DirectorySerializer(directory).data)
+                serializer = DirectorySerializer(directory, context={'include_departments': True})
+                return CustomResponse.success(data=serializer.data)
 
             search_query = request.GET.get('search', '').strip()
             directories = Directory.objects.filter(is_deleted=False)

@@ -11,15 +11,24 @@ from mnh_model.models import (
 
 
 class DirectorySerializer(serializers.ModelSerializer):
+    departments = serializers.SerializerMethodField(read_only=True)
+
+
     class Meta:
         model = Directory
-        fields = ['uid', 'name', 'code','description', 'created_at', 'updated_at']
+        fields = ['uid', 'name', 'code','description', 'created_at', 'updated_at', 'departments']
         read_only_fields = ['uid', 'created_at', 'updated_at']
         extra_kwargs = {
             'created_by': {'read_only': True},
             'updated_by': {'read_only': True},
             'deleted_by': {'read_only': True},
         }
+
+    def get_departments(self, obj):
+        if hasattr(self, 'context') and self.context.get('include_departments'):
+            departments = obj.departments.filter(is_deleted=False)
+            return DepartmentSerializer(departments, many=True).data
+        return None
 
     def validate(self, data):
         name = data.get('name')
@@ -38,8 +47,8 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Department
-        fields = ['uid', 'name', 'code', 'directory', 'description', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['uid', 'created_at', 'updated_at']
+        fields = ['uid', 'name', 'code', 'directory','directory_uid', 'description', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['uid', 'created_at', 'updated_at', 'directory_uid']
         extra_kwargs = {
             'created_by': {'read_only': True},
             'updated_by': {'read_only': True},
