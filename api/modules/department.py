@@ -32,7 +32,12 @@ class DepartmentView(APIView):
                 return CustomResponse.success(data=DepartmentSerializer(department).data)
 
             search_query = request.GET.get('search', '').strip()
+            directory_uid = request.GET.get('directory', '').strip()
+
             departments = Department.objects.filter(is_deleted=False)
+
+            if directory_uid:
+                departments = departments.filter(directory__uid=directory_uid)
 
             if search_query:
                 departments = departments.filter(
