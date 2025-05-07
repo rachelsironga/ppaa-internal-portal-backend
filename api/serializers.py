@@ -133,15 +133,17 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
     module_uid = serializers.UUIDField(write_only=True)
     level_uid = serializers.UUIDField(write_only=True)
     action_uid = serializers.UUIDField(write_only=True)
+    department_uid = serializers.UUIDField(write_only=True)
 
     level = ApprovalLevelSerializer(read_only=True)
     action = ApprovalActionSerializer(read_only=True)
+    department=DepartmentSerializer(read_only=True)
 
     class Meta:
         model = ApprovalModuleLevel
         fields = [
             'uid', 'module_uid', 'level_uid', 'level',
-            'action_uid', 'action', 'order',
+            'action_uid', 'action', 'order','department','department_uid',
             'is_active', 'is_signatory', 'created_at', 'updated_at'
         ]
         read_only_fields = ['uid', 'created_at', 'updated_at']
@@ -158,6 +160,7 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         module_uid = data.get('module_uid')
         level_uid = data.get('level_uid')
         action_uid = data.get('action_uid')
+        department_uid = data.get('department_uid')
 
         try:
             data['module'] = ApprovalModule.objects.get(uid=module_uid, is_deleted=False)
@@ -172,7 +175,12 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         try:
             data['action'] = ApprovalAction.objects.get(uid=action_uid, is_deleted=False)
         except ApprovalAction.DoesNotExist:
-            raise serializers.ValidationError({"action_uid": "IInvalid Action, not found or deleted"})
+            raise serializers.ValidationError({"action_uid": "Invalid Action, not found or deleted"})
+
+        try:
+            data['department'] = Department.objects.get(uid=department_uid, is_deleted=False)
+        except ApprovalAction.DoesNotExist:
+            raise serializers.ValidationError({"department_uid": "Invalid Department, not found or deleted"})
 
         return data
 
@@ -183,6 +191,7 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         validated_data.pop('module_uid')
         validated_data.pop('level_uid')
         validated_data.pop('action_uid')
+        validated_data.pop('department_uid')
         return ApprovalModuleLevel.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
@@ -192,6 +201,8 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         validated_data.pop('module_uid', None)
         validated_data.pop('level_uid', None)
         validated_data.pop('action_uid', None)
+        validated_data.pop('department_uid')
+
 
         return super().update(instance, validated_data)
 

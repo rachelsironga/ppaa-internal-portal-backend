@@ -123,6 +123,7 @@ class ApprovalModuleLevel(BaseModel):
     module = models.ForeignKey(ApprovalModule, on_delete=models.CASCADE)
     level = models.ForeignKey(ApprovalLevel, on_delete=models.CASCADE)
     action = models.ForeignKey(ApprovalAction, on_delete=models.CASCADE, related_name='approval_actions')
+    department = models.ForeignKey(Department, models.DO_NOTHING, blank=True, null=True, default=None)
     order = models.PositiveIntegerField()
     is_signatory = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
