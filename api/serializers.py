@@ -239,7 +239,6 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("this module already exists.")
         return data
 
-
 class JeevaRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = JeevaRole
@@ -286,16 +285,71 @@ class JeevaPermissionSerializer(serializers.ModelSerializer):
 
 
 
+class RequestInternetEmailAccessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RequestInternetEmailAccess
+        fields = ['uid', 'email', 'purpose', 'justification']
+        read_only_fields = ['uid']
 
 class ApprovalRequestSerializer(serializers.ModelSerializer):
-    module_name = serializers.ReadOnlyField(source='module.name')
-    department_name = serializers.ReadOnlyField(source='department.name')
-    requested_by_username = serializers.ReadOnlyField(source='requested_by.username')
+    data_json = serializers.JSONField(write_only=True)
+    module_uid = serializers.UUIDField(write_only=True)
+    department_uid = serializers.UUIDField(write_only=True)
+
+    module = serializers.SerializerMethodField(read_only=True)
+    department = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ApprovalRequest
-        fields = '__all__'
-        read_only_fields = ['status']
+        fields = [
+            'uid', 'request_type', 'title', 'description', 'status', 'start_date', 'end_date',
+            'requested_by', 'module_uid', 'department_uid', 'module', 'department', 'data_json',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+
+    def get_module(self, obj):
+        return str(obj.module.name) if obj.module else None
+
+    def get_department(self, obj):
+        return str(obj.department.name) if obj.department else None
+
+    def validate(self, data):
+        module_uid = data.get('module_uid')
+        department_uid = data.get('department_uid')
+
+        try:
+            data['module'] = ApprovalModule.objects.get(uid=module_uid, is_deleted=False)
+        except ApprovalModule.DoesNotExist:
+            raise serializers.ValidationError({"module_uid": "Invalid Module UID"})
+
+        try:
+            data['department'] = Department.objects.get(uid=department_uid, is_deleted=False)
+        except Department.DoesNotExist:
+            raise serializers.ValidationError({"department_uid": "Invalid Department UID"})
+
+        return data
+
+    def create(self, validated_data):
+        request_type = validated_data.get('request_type')
+        data_json = validated_data.pop('data_json', {})
+
+        module = validated_data.pop('module')
+        department = validated_data.pop('department')
+
+        approval_request = ApprovalRequest.objects.create(
+            **validated_data, module=module, department=department
+        )
+
+        if request_type == 'internet_email':
+            RequestInternetEmailAccess.objects.create(
+                approval_request=approval_request,
+                **data_json
+            )
+        # add other request types here
+
+        return approval_request
+
 
 class ApprovalRequestStepSerializer(serializers.ModelSerializer):
     approval_request_title = serializers.ReadOnlyField(source='approval_request.title')
@@ -303,11 +357,6 @@ class ApprovalRequestStepSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ApprovalRequestStep
-        fields = '__all__'
-
-class RequestInternetEmailAccessSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RequestInternetEmailAccess
         fields = '__all__'
 
 
