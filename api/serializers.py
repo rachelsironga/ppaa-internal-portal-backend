@@ -133,15 +133,17 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
     module_uid = serializers.UUIDField(write_only=True)
     level_uid = serializers.UUIDField(write_only=True)
     action_uid = serializers.UUIDField(write_only=True)
+    department_uid = serializers.UUIDField(write_only=True)
 
     level = ApprovalLevelSerializer(read_only=True)
     action = ApprovalActionSerializer(read_only=True)
+    department=DepartmentSerializer(read_only=True)
 
     class Meta:
         model = ApprovalModuleLevel
         fields = [
             'uid', 'module_uid', 'level_uid', 'level',
-            'action_uid', 'action', 'order',
+            'action_uid', 'action', 'order','department','department_uid',
             'is_active', 'is_signatory', 'created_at', 'updated_at'
         ]
         read_only_fields = ['uid', 'created_at', 'updated_at']
@@ -158,6 +160,7 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         module_uid = data.get('module_uid')
         level_uid = data.get('level_uid')
         action_uid = data.get('action_uid')
+        department_uid = data.get('department_uid')
 
         try:
             data['module'] = ApprovalModule.objects.get(uid=module_uid, is_deleted=False)
@@ -172,7 +175,12 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         try:
             data['action'] = ApprovalAction.objects.get(uid=action_uid, is_deleted=False)
         except ApprovalAction.DoesNotExist:
-            raise serializers.ValidationError({"action_uid": "IInvalid Action, not found or deleted"})
+            raise serializers.ValidationError({"action_uid": "Invalid Action, not found or deleted"})
+
+        try:
+            data['department'] = Department.objects.get(uid=department_uid, is_deleted=False)
+        except ApprovalAction.DoesNotExist:
+            raise serializers.ValidationError({"department_uid": "Invalid Department, not found or deleted"})
 
         return data
 
@@ -183,6 +191,7 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         validated_data.pop('module_uid')
         validated_data.pop('level_uid')
         validated_data.pop('action_uid')
+        validated_data.pop('department_uid')
         return ApprovalModuleLevel.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
@@ -192,6 +201,8 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         validated_data.pop('module_uid', None)
         validated_data.pop('level_uid', None)
         validated_data.pop('action_uid', None)
+        validated_data.pop('department_uid')
+
 
         return super().update(instance, validated_data)
 
@@ -227,7 +238,6 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this module already exists.")
         return data
-
 
 class JeevaRoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -275,16 +285,71 @@ class JeevaPermissionSerializer(serializers.ModelSerializer):
 
 
 
+class RequestInternetEmailAccessSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RequestInternetEmailAccess
+        fields = ['uid', 'email', 'purpose', 'justification']
+        read_only_fields = ['uid']
 
 class ApprovalRequestSerializer(serializers.ModelSerializer):
-    module_name = serializers.ReadOnlyField(source='module.name')
-    department_name = serializers.ReadOnlyField(source='department.name')
-    requested_by_username = serializers.ReadOnlyField(source='requested_by.username')
+    data_json = serializers.JSONField(write_only=True)
+    module_uid = serializers.UUIDField(write_only=True)
+    department_uid = serializers.UUIDField(write_only=True)
+
+    module = serializers.SerializerMethodField(read_only=True)
+    department = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ApprovalRequest
-        fields = '__all__'
-        read_only_fields = ['status']
+        fields = [
+            'uid', 'request_type', 'title', 'description', 'status', 'start_date', 'end_date',
+            'requested_by', 'module_uid', 'department_uid', 'module', 'department', 'data_json',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+
+    def get_module(self, obj):
+        return str(obj.module.name) if obj.module else None
+
+    def get_department(self, obj):
+        return str(obj.department.name) if obj.department else None
+
+    def validate(self, data):
+        module_uid = data.get('module_uid')
+        department_uid = data.get('department_uid')
+
+        try:
+            data['module'] = ApprovalModule.objects.get(uid=module_uid, is_deleted=False)
+        except ApprovalModule.DoesNotExist:
+            raise serializers.ValidationError({"module_uid": "Invalid Module UID"})
+
+        try:
+            data['department'] = Department.objects.get(uid=department_uid, is_deleted=False)
+        except Department.DoesNotExist:
+            raise serializers.ValidationError({"department_uid": "Invalid Department UID"})
+
+        return data
+
+    def create(self, validated_data):
+        request_type = validated_data.get('request_type')
+        data_json = validated_data.pop('data_json', {})
+
+        module = validated_data.pop('module')
+        department = validated_data.pop('department')
+
+        approval_request = ApprovalRequest.objects.create(
+            **validated_data, module=module, department=department
+        )
+
+        if request_type == 'internet_email':
+            RequestInternetEmailAccess.objects.create(
+                approval_request=approval_request,
+                **data_json
+            )
+        # add other request types here
+
+        return approval_request
+
 
 class ApprovalRequestStepSerializer(serializers.ModelSerializer):
     approval_request_title = serializers.ReadOnlyField(source='approval_request.title')
@@ -292,11 +357,6 @@ class ApprovalRequestStepSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ApprovalRequestStep
-        fields = '__all__'
-
-class RequestInternetEmailAccessSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RequestInternetEmailAccess
         fields = '__all__'
 
 

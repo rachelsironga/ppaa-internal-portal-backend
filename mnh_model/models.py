@@ -1,8 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
 import uuid
-from polymorphic.models import PolymorphicModel
-
 
 User = get_user_model()
 
@@ -22,25 +20,6 @@ class BaseModel(models.Model):
 
     class Meta:
         abstract = True
-
-
-class PolymorphicBaseModel(PolymorphicModel):
-    id = models.BigAutoField(primary_key=True)
-    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    created_at = models.DateField(blank=True, null=True)
-    updated_at = models.DateField(blank=True, null=True)
-    deleted_at = models.DateField(blank=True, null=True)
-    is_deleted = models.BooleanField(default=False)
-    created_by = models.ForeignKey(User, related_name='created_%(class)s', on_delete=models.SET_NULL, null=True,
-                                   blank=True)
-    updated_by = models.ForeignKey(User, related_name='updated_%(class)s', on_delete=models.SET_NULL, null=True,
-                                   blank=True)
-    deleted_by = models.ForeignKey(User, related_name='deleted_%(class)s', on_delete=models.SET_NULL, null=True,
-                                   blank=True)
-
-    class Meta:
-        abstract = True
-
 
 class Directory(BaseModel):
     name = models.CharField(max_length=100, null=True)
@@ -123,6 +102,7 @@ class ApprovalModuleLevel(BaseModel):
     module = models.ForeignKey(ApprovalModule, on_delete=models.CASCADE)
     level = models.ForeignKey(ApprovalLevel, on_delete=models.CASCADE)
     action = models.ForeignKey(ApprovalAction, on_delete=models.CASCADE, related_name='approval_actions')
+    department = models.ForeignKey(Department, models.DO_NOTHING, blank=True, null=True, default=None)
     order = models.PositiveIntegerField()
     is_signatory = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
@@ -136,7 +116,7 @@ class ApprovalModuleLevel(BaseModel):
     def __str__(self):
         return f"{self.uid}"
 
-class ApprovalRequest(PolymorphicBaseModel):
+class ApprovalRequest(BaseModel):
     title = models.CharField(max_length=255, default='')
     description = models.TextField(max_length=255, blank=True, null=True)
     module = models.ForeignKey(ApprovalModule, on_delete=models.RESTRICT, related_name='approval_module')
@@ -151,7 +131,7 @@ class ApprovalRequest(PolymorphicBaseModel):
         db_table = 'approval_requests'
 
     def __str__(self):
-        return f"{self.module.name} - {self.status} - {self.created_at}"
+        return f"{self.title} - {self.module.name} - {self.created_at}"
 
 class ApprovalRequestStep(BaseModel):
     approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE, related_name="steps")
@@ -162,28 +142,32 @@ class ApprovalRequestStep(BaseModel):
     class Meta:
         db_table = 'approval_request_steps'
 
-# 🔹 Different Request Types (Each Inherits from ApprovalRequest)
-class RequestInternetEmailAccess(ApprovalRequest):
-    start_date: str = models.DateField(blank=True, null=True)
-    end_date: str = models.DateField(blank=True, null=True)
-
+class RequestInternetEmailAccess(BaseModel):
+    approval_request = models.OneToOneField(
+        ApprovalRequest,unique=True, on_delete=models.CASCADE, related_name="internet_email"
+    )
+    start_date: str = models.DateTimeField(blank=True, null=True)
+    end_date: str = models.DateTimeField(blank=True, null=True)
+    is_read_term = models.BooleanField(default=False)
+    purpose = models.JSONField(blank=True, null=True)
     class Meta:
         db_table = 'request_internet_email_access'
 
     def __str__(self):
-        return f"request_internet_email_access: {self.title} | {self.start_date} - {self.end_date}"
+        return f"{self.created_at}"
 
-class RequestJeevaAccess(ApprovalRequest):
-    start_date: str = models.DateField(blank=True, null=True)
-    end_date: str = models.DateField(blank=True, null=True)
-    access_data = models.JSONField()  # { "user":[], "revoke":[] }
-
+class RequestJeevaAccess(BaseModel):
+    approval_request = models.OneToOneField(
+        ApprovalRequest,unique=True, on_delete=models.CASCADE, related_name="jeeva_access"
+    )
+    access_data = models.JSONField()
+    start_date: str = models.DateTimeField(blank=True, null=True)
+    end_date: str = models.DateTimeField(blank=True, null=True)
     class Meta:
         db_table = 'request_jeeva_access'
 
     def __str__(self):
-        return f"request_jeeva_access: {self.title} | {self.start_date} - {self.end_date}"
-
+        return f"{self.created_at}"
 
 
 class JeevaRole(BaseModel):

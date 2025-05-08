@@ -18,28 +18,27 @@ class ApprovalModuleView(APIView):
 
 
     def get(self, request, uid=None):
-        # try:
-        if uid:
-            # approval_module = ApprovalModule.objects.filter(uid=uid, is_deleted=False).first()
-            approval_module = ApprovalModule.objects.filter(uid=uid, is_deleted=False).first()
-            if not approval_module:
-                raise NotFound("Approval Module not found")
-            return CustomResponse.success(data=ApprovalModuleSerializer(approval_module).data)
+        try:
+            if uid:
+                approval_module = ApprovalModule.objects.filter(uid=uid, is_deleted=False).first()
+                if not approval_module:
+                    raise NotFound("Approval Module not found")
+                return CustomResponse.success(data=ApprovalModuleSerializer(approval_module).data)
 
-        search_query = request.GET.get('search', '').strip()
-        approval_modules = ApprovalModule.objects.filter(is_deleted=False)
+            search_query = request.GET.get('search', '').strip()
+            approval_modules = ApprovalModule.objects.filter(is_deleted=False)
 
-        if search_query:
-            approval_modules = approval_modules.filter(
-                Q(name__icontains=search_query) | Q(description__icontains=search_query)
-            )
+            if search_query:
+                approval_modules = approval_modules.filter(
+                    Q(name__icontains=search_query) | Q(description__icontains=search_query)
+                )
 
-        if approval_modules.exists():
-            return CustomPagination.paginate(self=self, results=approval_modules, request=request)
+            if approval_modules.exists():
+                return CustomPagination.paginate(self=self, results=approval_modules, request=request)
 
-        return CustomResponse.errors(message="Approval Module not found", data=[])
-        # except Exception as e:
-        #     return CustomResponse.server_error(message=f'Failed to Retrieve Approval Modules: {str(e)}', )
+            return CustomResponse.errors(message="Approval Module not found", data=[])
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Retrieve Approval Modules: {str(e)}', )
 
     def post(self, request):
         try:
