@@ -117,16 +117,25 @@ class ApprovalModuleLevel(BaseModel):
         return f"{self.uid}"
 
 class ApprovalRequest(BaseModel):
-    title = models.CharField(max_length=255, default='')
+    REQUEST_TYPES = [
+        ('JEEVA_ACCESS', 'JEEVA Access Request'),
+        ('INTERNET_EMAIL_ACCESS', 'Internet Email Access Request'),
+        ('EDMS_ACCESS', 'EDMS Access Request'),
+    ]
+    REQUEST_CHOICES = [
+        ('NEW', 'NEW'),
+        ('PENDING', 'PENDING'),
+        ('APPROVED', 'APPROVED'),
+        ('REJECTED', 'REJECTED')
+    ]
+
+    title = models.CharField(max_length=255)
     description = models.TextField(max_length=255, blank=True, null=True)
     module = models.ForeignKey(ApprovalModule, on_delete=models.RESTRICT, related_name='approval_module')
     department = models.ForeignKey(Department, models.DO_NOTHING, blank=True, null=True)
-    requested_by = models.ForeignKey(User, on_delete=models.RESTRICT, blank=True, null=True, related_name="requested_by")
-    status = models.CharField(max_length=50, default='pending', choices=[
-        ('pending', 'PENDING'),
-        ('approved', 'APPROVED'),
-        ('rejected', 'REJECTED')
-    ])
+    type = models.CharField(max_length=50, choices=REQUEST_TYPES, default='N/A')
+    status = models.CharField(max_length=15, default='NEW', choices=REQUEST_CHOICES)
+
     class Meta:
         db_table = 'approval_requests'
 
@@ -144,7 +153,7 @@ class ApprovalRequestStep(BaseModel):
 
 class RequestInternetEmailAccess(BaseModel):
     approval_request = models.OneToOneField(
-        ApprovalRequest,unique=True, on_delete=models.CASCADE, related_name="internet_email"
+        ApprovalRequest,unique=True, on_delete=models.CASCADE, related_name="internet_email_access"
     )
     start_date: str = models.DateTimeField(blank=True, null=True)
     end_date: str = models.DateTimeField(blank=True, null=True)

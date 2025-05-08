@@ -4,9 +4,11 @@ from api.modules.approval_action import ApprovalActionView
 from api.modules.approval_level import ApprovalLevelView
 from api.modules.approval_module import ApprovalModuleView
 from api.modules.approval_module_level import ApprovalModuleLevelView
+from api.modules.approval_request import ApprovalRequestView
 from api.modules.department import DepartmentView
 from api.modules.directory import DirectoryView
 from api.modules.jeeva_roles import JeevaRoleView
+from mnh_model.models import ApprovalRequest
 
 urlpatterns = [
     path('directory', DirectoryView.as_view(), name='directory-view'),
@@ -29,4 +31,7 @@ urlpatterns = [
 
     path('jeeva-role', JeevaRoleView.as_view(), name='all-jeeva-role'),
     path('jeeva-role/<str:uid>', JeevaRoleView.as_view(), name='one-jeeva-role'),
+
+    path('approval-request', ApprovalRequestView.as_view(), name='view-approval-request'),
+    path('approval-request/<str:uid>', ApprovalRequestView.as_view(), name='open-approval-request'),
 ]
