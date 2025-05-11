@@ -6,6 +6,7 @@ STATUS_CODES = {
     "DATA_NOT_FOUND": 8001,
     "VALIDATION_ERROR": 8002,
     "PROCESS_FAILED": 8003,
+    "UNAUTHORIZED": 8004,
     "SERVER_ERROR": 8005,
     "FORBIDDEN": 8006,
 }
@@ -46,3 +47,11 @@ class CustomResponse:
             "message": message,
             "data": None
         }, status=status.HTTP_403_FORBIDDEN)
+
+    @staticmethod
+    def unauthorized(data=None, message="Unauthorized Access"):
+        return Response({
+            "status": STATUS_CODES["UNAUTHORIZED"],
+            "message": message,
+            "data": data
+        }, status=status.HTTP_401_UNAUTHORIZED)

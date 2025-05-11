@@ -72,7 +72,7 @@ class ApprovalModuleLevelView(APIView):
                     try:
                         with transaction.atomic():
                             ApprovalModuleLevel.objects.bulk_update(levels_to_update, ['order'])
-                        return CustomResponse.success(message="Approval levels updated successfully")
+                        return CustomResponse.success(message="Positional Levels updated successfully")
                     except Exception as e:
                         return CustomResponse.errors(message=f"Failed to update: {str(e)}")
                 else:

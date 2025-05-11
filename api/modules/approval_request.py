@@ -13,7 +13,7 @@ from mnh_model.models import ApprovalRequest, ApprovalModule
 
 
 class ApprovalRequestView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = ApprovalRequestSerializer
 
 

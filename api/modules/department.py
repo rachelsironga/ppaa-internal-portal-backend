@@ -15,7 +15,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from api.serializers import DepartmentSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_model.models import Department
+from mnh_auth.models import Department
 
 
 class DepartmentView(APIView):

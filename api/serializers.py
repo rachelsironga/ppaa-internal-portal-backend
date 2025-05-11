@@ -7,12 +7,11 @@ from rest_framework.validators import UniqueTogetherValidator
 
 from mnh_auth.serializers import UserSerializer
 from mnh_model.models import (
-    ApprovalModule, ApprovalLevel, ApprovalAction,
+    ApprovalModule, ApprovalAction,
     ApprovalModuleLevel, ApprovalRequest, RequestJeevaAccess, RequestInternetEmailAccess, ApprovalRequestStep,
-    Department, JeevaRole, JeevaPermission, Directory
+    JeevaRole, JeevaPermission
 )
-
-
+from mnh_auth.models import PositionalLevel, Directory, Department
 
 REQUEST_TYPE_SERIALIZER_IMPORTS = {
     'INTERNET_EMAIL_ACCESS': 'api.serializers.RequestInternetEmailAccessSerializer',
@@ -55,7 +54,7 @@ class DirectorySerializer(serializers.ModelSerializer):
         name = data.get('name')
         code = data.get('code')
         uid = self.instance.uid if self.instance else None
-        existing = ApprovalLevel.objects.filter(name=name, code=code, deleted_at=None)
+        existing = PositionalLevel.objects.filter(name=name, code=code, deleted_at=None)
         if existing.exclude(uid=uid).exists():
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this name and code already exists.")
@@ -110,7 +109,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 class ApprovalLevelSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ApprovalLevel
+        model = PositionalLevel
         fields = ['uid', 'name', 'code', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['uid', 'created_at', 'updated_at']
         extra_kwargs = {
@@ -123,7 +122,7 @@ class ApprovalLevelSerializer(serializers.ModelSerializer):
         name = data.get('name')
         code = data.get('code')
         uid = self.instance.uid if self.instance else None
-        existing = ApprovalLevel.objects.filter(name=name, code=code, deleted_at=None)
+        existing = PositionalLevel.objects.filter(name=name, code=code, deleted_at=None)
         if existing.exists():
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this name and code already exists.")
@@ -146,7 +145,7 @@ class ApprovalActionSerializer(serializers.ModelSerializer):
         name = data.get('name')
         code = data.get('code')
         uid = self.instance.uid if self.instance else None
-        existing = ApprovalLevel.objects.filter(name=name, code=code, deleted_at=None)
+        existing = PositionalLevel.objects.filter(name=name, code=code, deleted_at=None)
         if existing.exists():
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this name and code already exists.")
@@ -193,8 +192,8 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"module_uid": "Invalid Module, not found or deleted"})
 
         try:
-            data['level'] = ApprovalLevel.objects.get(uid=level_uid, is_deleted=False)
-        except ApprovalLevel.DoesNotExist:
+            data['level'] = PositionalLevel.objects.get(uid=level_uid, is_deleted=False)
+        except PositionalLevel.DoesNotExist:
             raise serializers.ValidationError({"level_uid": "Invalid Level, not found or deleted"})
 
         try:
@@ -258,7 +257,7 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
     def validate(self, data):
         name = data.get('name')
         uid = self.instance.uid if self.instance else None
-        existing = ApprovalLevel.objects.filter(name=name, deleted_at=None)
+        existing = PositionalLevel.objects.filter(name=name, deleted_at=None)
         if existing.exists():
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this module already exists.")
