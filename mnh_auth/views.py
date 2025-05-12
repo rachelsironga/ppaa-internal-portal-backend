@@ -61,7 +61,6 @@ class RegistrationView(APIView):
             return Response({'status': status.HTTP_400_BAD_REQUEST, 'message': "mnh_auth failed", 'error': str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
 
-
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = LoginSerializer
@@ -97,12 +96,10 @@ class LoginView(APIView):
             data=request.data,
         )
 
-
 class LogoutView(APIView):
     def post(self, request):
         logout(request)
         return Response({'msg': 'Successfully Logged out'}, status=status.HTTP_200_OK)
-
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated, ]
@@ -114,7 +111,6 @@ class ChangePasswordView(APIView):
         request.user.save()
         return Response({'status': status.HTTP_200_OK, 'data': str(request.user), 'message': 'Password Changes'},
                         status=status.HTTP_200_OK)
-
 
 class UserView(APIView):
     permission_classes = [IsAuthenticated, ]
@@ -142,8 +138,21 @@ class UpdateMyProfileView(APIView):
     serializer_class = UpdateProfileSerializer
 
     def put(self, request):
-        serializer = self.serializer_class(request.user, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({'status': status.HTTP_200_OK, 'message': 'User information updated'},
-                        status=status.HTTP_200_OK)
+        try:
+            with (transaction.atomic()):
+                serializer_instance = self.serializer_class(request.user, data=request.data)
+                if serializer_instance.is_valid():
+                    serializer_instance.save(updated_by=request.user)
+                    # Return Updated User
+                    user_serializer = UserSerializer(request.user, context={'request': request})
+                    return CustomResponse.success(data=user_serializer.data)
+
+                return CustomResponse.errors(
+                    message="Validation Failed, Please Try Again",
+                    data=serializer_instance.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"],
+                )
+
+        except Exception as e:
+            print(f"Fail to Update Profile {e}")
+            return CustomResponse.server_error(message=f'Unable to Update Profile ' )

@@ -85,7 +85,7 @@ class ApprovalModuleLevelView(APIView):
                     if uid and instance:
                         serializer.update(instance=instance, validated_data=serializer.validated_data)
                     else:
-                        serializer.save(created_by=request.user.id, updated_by=request.user.id)
+                        serializer.save(created_by=request.user, updated_by=request.user)
                     return CustomResponse.success(data=serializer.data)
 
                 # Validation failed

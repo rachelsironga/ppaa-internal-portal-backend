@@ -6,7 +6,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
-from api.serializers import ApprovalLevelSerializer
+from api.serializers import PositionalLevelSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import PositionalLevel
@@ -14,7 +14,7 @@ from mnh_auth.models import PositionalLevel
 
 class PositionalLevelView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = ApprovalLevelSerializer
+    serializer_class = PositionalLevelSerializer
 
     def get(self, request, uid=None):
         try:
@@ -23,7 +23,7 @@ class PositionalLevelView(APIView):
                 positional_level = PositionalLevel.objects.filter(uid=uid, is_deleted=False).first()
                 if not positional_level:
                     raise NotFound("Positional Level not found")
-                return CustomResponse.success(data=ApprovalLevelSerializer(positional_level).data)
+                return CustomResponse.success(data=PositionalLevelSerializer(positional_level).data)
 
             search_query = request.GET.get('search', '').strip()
             positional_levels = PositionalLevel.objects.filter(is_deleted=False)

@@ -57,7 +57,7 @@ class ApprovalModuleView(APIView):
 
                 # Validate and save
                 if serializer.is_valid():
-                    serializer.save(created_by=request.user.id, updated_by=request.user.id)
+                    serializer.save(created_by=request.user, updated_by=request.user)
                     return CustomResponse.success(data=serializer.data)
 
                 # Validation failed

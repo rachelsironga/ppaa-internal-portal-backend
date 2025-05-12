@@ -179,7 +179,7 @@ class PositionalLevel(BaseModel):
         return self.name
 
 
-class UserProfile(models.Model):
+class UserProfile(BaseModel):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, related_name='user_profiles', on_delete=models.SET_NULL, null=True, blank=True)
     level = models.ForeignKey(PositionalLevel, on_delete=models.CASCADE)

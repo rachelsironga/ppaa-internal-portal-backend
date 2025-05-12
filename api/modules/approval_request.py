@@ -75,7 +75,7 @@ class ApprovalRequestView(APIView):
                     if instance:
                         instance = base_serializer.update(instance, base_serializer.validated_data)
                     else:
-                        instance = base_serializer.save(created_by=request.user.id, updated_by=request.user.id)
+                        instance = base_serializer.save(created_by=request.user, updated_by=request.user)
 
                     # 4. Save child serializer (specific request model)
                     request_data['approval_request'] = instance.id

@@ -9,6 +9,6 @@ urlpatterns = [
     path('register', RegistrationView.as_view(), name='auth-register'),
 
     path('profile', UserView.as_view(), name='view-user'),
-    path('user/update', UpdateMyProfileView.as_view(), name='update-user')
+    path('user/profile-update', UpdateMyProfileView.as_view(), name='profile-update')
 
 ]

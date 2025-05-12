@@ -13,7 +13,11 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         username = None
         model = User
-        fields = '__all__'
+        fields = [
+            'guid','username','email','pf_number','check_number','first_name', 'middle_name','last_name','status',
+            'account_type','dob','sex','is_active','is_staff','photo','signature','phone_number','alternative_contact',
+            'account_number','created_at','updated_at','created_by','groups', 'user_permissions',
+        ]
 
     def get_groups(self, obj):
         """Return a list of group names"""
@@ -191,22 +195,14 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
-    first_name = serializers.CharField(style={"input_type": "first_name"}, required=True)
-    phone_number = serializers.CharField(style={"input_type": "phone_number"}, required=True)
-    surname = serializers.CharField(style={"input_type": "surname"}, required=True)
-    # middle_name = serializers.CharField(allow_blank=True, allow_null=True)
-    email = serializers.CharField(allow_blank=True, allow_null=True)
-    # sex = serializers.CharField(allow_blank=True, allow_null=True)
-    # marital_status = serializers.CharField(allow_blank=True, allow_null=True)
-    # education = serializers.CharField(allow_blank=True, allow_null=True)
-    user_type = serializers.CharField(allow_blank=True, allow_null=True)
-
     class Meta:
         model = User
-        fields = ['first_name', 'surname', 'phone_number', 'email',
-                  'user_type']
-        # extra_kwargs = {'middle_name': {'required': False}}
-        read_only_fields = []
+        fields = [
+            'email', 'photo', 'signature', 'phone_number',
+            'alternative_contact', 'account_number', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+        extra_kwargs = { }
 
 
 class UserIdentitySerializer(ModelSerializer):
