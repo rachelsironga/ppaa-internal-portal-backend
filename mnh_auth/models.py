@@ -5,16 +5,16 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager, Permission
 
 
 class UserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
-        if not email:
-            raise ValueError('Users must have an email address')
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+    def create_user(self, username, password=None, **extra_fields):
+        if not extra_fields.get('pf_number'):
+            raise ValueError('Every New User Must have Valid Registered PF-Number')
+        username = str(username).strip().lower()
+        user = self.model(username=username, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password, **extra_fields):
+    def create_superuser(self, username, password, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
@@ -24,34 +24,56 @@ class UserManager(BaseUserManager):
             raise ValueError('Superuser must have to be staff')
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have to be superuser')
-        return self.create_user(email, password, **extra_fields)
+        return self.create_user(username, password, **extra_fields)
+
 
 class User(AbstractUser, PermissionsMixin):
-    ACCOUNT_TYPE_CHOICES = [
-        ('ORGANIZATION', 'Organization'),
-        ('COMPANY', 'Company'),
-        ('INDIVIDUAL', 'Individual'),
-    ]
+    ACCOUNT_STATUS_CHOICES = {
+        ('ACTIVE', 'Active'),
+        ('SUSPENDED', 'Suspended'),
+        ('RETIRED', 'Retired'),
+    }
 
+    ACCOUNT_TYPE_CHOICES = {
+        ('TEMPORALLY', 'Temporally'),
+        ('LONG_TERM', 'Long Term'),
+        ('SUPER_USER', 'Super User'),
+    }
 
-    email = models.EmailField(max_length=255, unique=True)
+    # User Columns
     guid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    first_name = models.CharField(max_length=80)
-    last_name = models.CharField(max_length=80)
-    account_type = models.CharField( max_length=20, choices=ACCOUNT_TYPE_CHOICES, default='individual')
-    account_name = models.CharField(max_length=80, default='')
+    email = models.EmailField(max_length=70, unique=True)
+    pf_number = models.CharField(max_length=50, unique=True)
+    check_number = models.CharField(max_length=50, unique=True)
+    first_name = models.CharField(max_length=80, null=False, blank=False)
+    middle_name = models.CharField(max_length=80, null=True, blank=True)
+    last_name = models.CharField(max_length=80, null=False, blank=False)
+    status = models.CharField(max_length=20, choices=ACCOUNT_STATUS_CHOICES, default='ACTIVE')
+    account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPE_CHOICES, default='LONG_TERM')
+    dob = models.DateField(null=True, blank=True)
+    sex = models.CharField(max_length=10, null=True, blank=True)
+    # Other Personal Details
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
-    phone_number = models.CharField(max_length=11, unique=False, default='0')
+    signature = models.TextField(max_length=200, null=True, blank=True)  # a file path
+    photo = models.TextField(max_length=200, null=True, blank=True)  # a file path
+    phone_number = models.TextField(max_length=15, null=True, blank=True)
+    alternative_contact = models.TextField(max_length=15, null=True, blank=True)
+    account_number = models.TextField(max_length=20, null=True, blank=True)
+    # default Columns
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    created_by = models.IntegerField(null=True, blank=True, default=1)
+
     objects = UserManager()
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['pf_number', 'first_name', 'last_name']
 
     def __str__(self):
-        return self.email
+        return self.username
 
     def get_full_name(self):
-        return self.first_name + ' ' + self.last_name
+        return self.first_name + ' ' + self.middle_name + ' ' + self.last_name
 
     def get_short_name(self):
         return self.first_name
@@ -67,7 +89,6 @@ class User(AbstractUser, PermissionsMixin):
 
     def get_group_names(self):
         """Returns a list of group names the user belongs to."""
-        print(list(self.groups.values_list('name', flat=True)))
         return list(self.groups.values_list('name', flat=True))
 
     def get_permission_codes(self):
@@ -78,28 +99,100 @@ class User(AbstractUser, PermissionsMixin):
 
     def save(self, *args, **kwargs):
         if self.is_superuser:
-            self.account_type = 'individual'
+            self.account_type = 'SUPER_USER'
         super().save(*args, **kwargs)
-
 
     class Meta:
         db_table = 'auth_user'
 
 
-class AccountSetup(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='account_setup')
-    name = models.CharField(max_length=255)
-    contact_person_name = models.CharField(max_length=255)
-    phone_number = models.CharField(max_length=20)
-    user_address = models.TextField()
-    post_address = models.TextField()
-    account_type = models.CharField(
-        max_length=20,
-        choices=User.ACCOUNT_TYPE_CHOICES
-    )
+class BaseModel(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+    is_deleted = models.BooleanField(default=False)
+    created_by = models.ForeignKey(User, related_name='created_%(class)s', on_delete=models.SET_NULL, null=True,
+                                   blank=True)
+    updated_by = models.ForeignKey(User, related_name='updated_%(class)s', on_delete=models.SET_NULL, null=True,
+                                   blank=True)
+    deleted_by = models.ForeignKey(User, related_name='deleted_%(class)s', on_delete=models.SET_NULL, null=True,
+                                   blank=True)
 
     class Meta:
-        db_table = 'account_setup'
+        abstract = True
+
+
+class Directory(BaseModel):
+    name = models.CharField(max_length=100, null=True)
+    code = models.CharField(max_length=20, null=True)
+    description = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'directories'
+        ordering = ['name', 'code']
+        verbose_name = "Directory"
+        verbose_name_plural = "Directories"
+        indexes = [
+            models.Index(fields=['name', 'code']),
+            models.Index(fields=['uid']),
+        ]
 
     def __str__(self):
-        return f"{self.name} ({self.get_account_type_display()})"
+        return f"{self.name} ({self.code})"
+
+
+class Department(BaseModel):
+    name = models.CharField(max_length=100, null=True)
+    code = models.CharField(max_length=20, null=True)
+    directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='departments')
+
+
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'departments'
+        ordering = ['name']
+        verbose_name = "Department"
+        verbose_name_plural = "Departments"
+        indexes = [
+            models.Index(fields=['name', 'code']),  # Optimized query performance
+            models.Index(fields=['is_active']),  # Faster queries on active departments
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+class PositionalLevel(BaseModel):
+    """Defines different levels of approval (e.g., Supervisor, Manager, Director)"""
+    name = models.CharField(max_length=100, null=True)
+    code = models.CharField(max_length=20, null=True)
+    is_active = models.BooleanField(default=True)
+
+
+    class Meta:
+        db_table = 'positional_levels'
+
+    def __str__(self):
+        return self.name
+
+
+class UserProfile(BaseModel):
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    user = models.ForeignKey(User, related_name='user_profiles', on_delete=models.SET_NULL, null=True, blank=True)
+    level = models.ForeignKey(PositionalLevel, on_delete=models.CASCADE)
+    directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='user_profiles')
+
+    department = models.ForeignKey('Department', models.DO_NOTHING, blank=True, null=True, default=None)
+    is_active = models.BooleanField(default=True, null=False, blank=False)
+
+
+    class Meta:
+        db_table = 'user_profile'
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} ({self.level.code})"
+
+

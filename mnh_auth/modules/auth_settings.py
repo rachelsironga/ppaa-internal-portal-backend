@@ -18,7 +18,7 @@ from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import Department
 
 
-class DepartmentView(APIView):
+class UserProfileView(APIView):
     permission_classes = [AllowAny]
     serializer_class = DepartmentSerializer
 

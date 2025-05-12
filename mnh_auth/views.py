@@ -6,6 +6,7 @@ from django.db.transaction import atomic
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer
 from django.contrib.auth import authenticate, login, logout
 from rest_framework import status, permissions
@@ -13,44 +14,32 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from mnh_auth.models import User, AccountSetup
+from mnh_auth.models import User
 from mnh_auth.serializers import RegistrationSerializer, PasswordChangeSerializer
 from mnh_auth.utils import MyTokenObtainPairSerializer
 
 
 class RegistrationView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = RegistrationSerializer
 
     def post(self, request):
         try:
             with transaction.atomic():
-                reg_serializer = RegistrationSerializer(data=request.data)
+                reg_serializer = self.serializer_class(data=request.data)
 
                 if reg_serializer.is_valid():
-                    print(f"--------------{request.data}-------------")
-                    if User.objects.filter(email=request.data['email']).exists():
+                    if User.objects.filter(username=request.data['username']).exists():
                         return Response(
                             {'status': status.HTTP_208_ALREADY_REPORTED, 'message': {"email": "email already exist"},
                              'data': []},
                             status=status.HTTP_208_ALREADY_REPORTED)
 
-
                     reg_user = reg_serializer.save()
 
                     # Extract account details
-                    account_name = request.data.get('account_name',reg_user.email)
+                    account_name = request.data.get('account_name', reg_user.email)
                     account_type = request.data.get('account_type', 'individual')
-
-                    # Create AccountSetup
-                    AccountSetup.objects.create(
-                        user=reg_user,
-                        name=account_name,
-                        contact_person_name=reg_user.get_full_name(),
-                        phone_number=reg_user.phone_number,
-                        user_address=reg_user.email,
-                        post_address='',
-                        account_type=account_type
-                    )
 
                     email = request.data['email']
                     password = request.data['password']
@@ -64,48 +53,53 @@ class RegistrationView(APIView):
                                         status=status.HTTP_200_OK
                                         )
                     else:
-                       raise Exception("Can not login user. Registration Failed")
+                        raise Exception("Can not login user. Registration Failed")
                 else:
                     return Response({'status': status.HTTP_401_UNAUTHORIZED, 'message': reg_serializer.errors},
                                     status=status.HTTP_401_UNAUTHORIZED)
         except Exception as e:
             return Response({'status': status.HTTP_400_BAD_REQUEST, 'message': "mnh_auth failed", 'error': str(e)},
-                                    status=status.HTTP_400_BAD_REQUEST)
+                            status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    serializer_class = LoginSerializer
 
     def post(self, request):
-        login_serializer = LoginSerializer(data=request.data)
+        login_serializer = self.serializer_class(data=request.data)
         if not login_serializer.is_valid():
-            return Response({'status': status.HTTP_401_UNAUTHORIZED, 'message': login_serializer.errors},
-                            status=status.HTTP_401_UNAUTHORIZED)
+            return CustomResponse.errors(
+                message="Please Provide Valid Credentials",
+                data=login_serializer.errors,
+                code=STATUS_CODES['VALIDATION_ERROR']
+            )
 
-        print(f"--------------{request.data['email']}-------------")
-        print(f"--login_serializer------------{login_serializer}-------------")
-
-        email = request.data['email']
+        username = request.data['username']
         password = request.data['password']
-        print("---------email---------",email)
-        print("---------password---------",password)
 
-        # return Response({'data': email}, status=status.HTTP_200_OK)
-        user = authenticate(request, email=email, password=password)
-        print("---------user---------",user)
+        user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
             auth_data = MyTokenObtainPairSerializer.get_tokens_for_user(request)
-            auth_serializer = RegistrationSerializer(user)
-            return Response({**auth_data, 'user': auth_serializer.data}, status=status.HTTP_200_OK)
-        return Response({'status': status.HTTP_401_UNAUTHORIZED, 'message': 'Incorrect email or password', },
-                        status=status.HTTP_401_UNAUTHORIZED)
-
+            if auth_data['status'] != status.HTTP_200_OK:
+                logout(request)
+                return CustomResponse.errors(
+                    message="Unable Authenticate Please provide Valid Credentials",
+                )
+            auth_serializer = UserSerializer(user)
+            return CustomResponse.success(
+                data={**auth_data['data'], 'user': auth_serializer.data},
+                message="Successfully Logged In",
+            )
+        return CustomResponse.unauthorized(
+            message='Incorrect email or password',
+            data=request.data,
+        )
 
 class LogoutView(APIView):
     def post(self, request):
         logout(request)
         return Response({'msg': 'Successfully Logged out'}, status=status.HTTP_200_OK)
-
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated, ]
@@ -144,8 +138,21 @@ class UpdateMyProfileView(APIView):
     serializer_class = UpdateProfileSerializer
 
     def put(self, request):
-        serializer = self.serializer_class(request.user, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({'status': status.HTTP_200_OK, 'message': 'User information updated'},
-                        status=status.HTTP_200_OK)
+        try:
+            with (transaction.atomic()):
+                serializer_instance = self.serializer_class(request.user, data=request.data)
+                if serializer_instance.is_valid():
+                    serializer_instance.save(updated_by=request.user)
+                    # Return Updated User
+                    user_serializer = UserSerializer(request.user, context={'request': request})
+                    return CustomResponse.success(data=user_serializer.data)
+
+                return CustomResponse.errors(
+                    message="Validation Failed, Please Try Again",
+                    data=serializer_instance.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"],
+                )
+
+        except Exception as e:
+            print(f"Fail to Update Profile {e}")
+            return CustomResponse.server_error(message=f'Unable to Update Profile ' )

@@ -9,13 +9,14 @@ from rest_framework.exceptions import NotFound
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.utils import timezone
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from api.serializers import DirectorySerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_model.models import Directory
+from mnh_auth.models import Directory
 
 
 class DirectoryView(APIView):
@@ -66,7 +67,7 @@ class DirectoryView(APIView):
 
                 # Validate and save
                 if serializer.is_valid():
-                    serializer.save(created_by=request.user.id, updated_by=request.user.id)
+                    serializer.save(created_by=request.user, updated_by=request.user)
                     return CustomResponse.success(data=serializer.data)
 
                 return CustomResponse.errors(
@@ -88,8 +89,8 @@ class DirectoryView(APIView):
                     return CustomResponse.errors(message="Directory Not Found or Deleted", )
 
                 directory.is_deleted = True
-                directory.deleted_at = datetime.now()
-                directory.deleted_by = request.user.id
+                directory.deleted_at = timezone.datetime.now()
+                directory.deleted_by = request.user
                 directory.save()
                 return CustomResponse.success(message='Directory deleted successfully')
 

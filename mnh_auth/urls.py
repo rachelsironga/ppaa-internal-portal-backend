@@ -8,7 +8,7 @@ urlpatterns = [
     path('login', LoginView.as_view(), name='auth-login'),
     path('register', RegistrationView.as_view(), name='auth-register'),
 
-    path('user/', UserView.as_view(), name='view-user'),
-    path('user/update', UpdateMyProfileView.as_view(), name='update-user')
+    path('profile', UserView.as_view(), name='view-user'),
+    path('user/profile-update', UpdateMyProfileView.as_view(), name='profile-update')
 
 ]

@@ -22,6 +22,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'refresh_token': str(refresh),
                 'access_token' : str(access_token),
                 'guid' : request.user.guid,
+                'pf_number' : request.user.pf_number,
+                'username' : request.user.username,
             }
             
         }

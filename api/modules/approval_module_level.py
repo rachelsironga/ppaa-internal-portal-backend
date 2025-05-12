@@ -72,7 +72,7 @@ class ApprovalModuleLevelView(APIView):
                     try:
                         with transaction.atomic():
                             ApprovalModuleLevel.objects.bulk_update(levels_to_update, ['order'])
-                        return CustomResponse.success(message="Approval levels updated successfully")
+                        return CustomResponse.success(message="Positional Levels updated successfully")
                     except Exception as e:
                         return CustomResponse.errors(message=f"Failed to update: {str(e)}")
                 else:
@@ -85,7 +85,7 @@ class ApprovalModuleLevelView(APIView):
                     if uid and instance:
                         serializer.update(instance=instance, validated_data=serializer.validated_data)
                     else:
-                        serializer.save(created_by=request.user.id, updated_by=request.user.id)
+                        serializer.save(created_by=request.user, updated_by=request.user)
                     return CustomResponse.success(data=serializer.data)
 
                 # Validation failed

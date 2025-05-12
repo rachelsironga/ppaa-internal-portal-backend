@@ -1,24 +1,46 @@
 from django.contrib.auth.models import Permission, Group
 from rest_framework import serializers
 
-from .models import User, AccountSetup
+from .models import User
 from rest_framework import status
 from rest_framework.serializers import ModelSerializer
 
 
+class UserSerializer(serializers.ModelSerializer):
+    groups = serializers.SerializerMethodField()
+    user_permissions = serializers.SerializerMethodField()
+
+    class Meta:
+        username = None
+        model = User
+        fields = [
+            'guid','username','email','pf_number','check_number','first_name', 'middle_name','last_name','status',
+            'account_type','dob','sex','is_active','is_staff','photo','signature','phone_number','alternative_contact',
+            'account_number','created_at','updated_at','created_by','groups', 'user_permissions',
+        ]
+
+    def get_groups(self, obj):
+        """Return a list of group names"""
+        return obj.get_group_names()
+
+    def get_user_permissions(self, obj):
+        """Return a list of permission codenames"""
+        return obj.get_permission_codes()
+
+
 class LoginSerializer(serializers.Serializer):
-    email = serializers.CharField(
+    username = serializers.CharField(
         required=True,
-        allow_blank=False,  # Prevents empty strings
+        allow_blank=False,
         error_messages={
-            'required': 'email is required',
-            'blank': 'email is required'
+            'required': 'username is required',
+            'blank': 'username is required'
         }
     )
     password = serializers.CharField(
         write_only=True,
         required=True,
-        allow_blank=False,  # Prevents empty strings
+        allow_blank=False,
         error_messages={
             'required': 'password is required',
             'blank': 'password is required'
@@ -28,7 +50,6 @@ class LoginSerializer(serializers.Serializer):
 
 class CheckUserNameSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=True, max_length=100)
-
     class Meta:
         model = User
         fields = '__all__'
@@ -38,6 +59,8 @@ class CheckUserNameSerializer(serializers.ModelSerializer):
             'password': {'required': False},
             'email': {'required': False}
         }
+
+
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -94,13 +117,6 @@ class RegistrationSerializer(serializers.ModelSerializer):
                 'error_messages': {
                     'required': 'Account Type is required.',
                     'blank': 'Account Type cannot be blank.',
-                }
-            },
-            'account_name': {
-                'required': True,
-                'error_messages': {
-                    'required': 'Account Name is required.',
-                    'blank': 'Account Name cannot be blank.',
                 }
             },
         }
@@ -165,13 +181,6 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
         user.save()
 
-    def get_groups(self, obj):
-        """Return a list of group names"""
-        return obj.get_group_names()
-
-    def get_user_permissions(self, obj):
-        """Return a list of permission codenames"""
-        return obj.get_permission_codes()
 
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -186,29 +195,14 @@ class PasswordChangeSerializer(serializers.Serializer):
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
-    first_name = serializers.CharField(style={"input_type": "first_name"}, required=True)
-    phone_number = serializers.CharField(style={"input_type": "phone_number"}, required=True)
-    surname = serializers.CharField(style={"input_type": "surname"}, required=True)
-    # middle_name = serializers.CharField(allow_blank=True, allow_null=True)
-    email = serializers.CharField(allow_blank=True, allow_null=True)
-    # sex = serializers.CharField(allow_blank=True, allow_null=True)
-    # marital_status = serializers.CharField(allow_blank=True, allow_null=True)
-    # education = serializers.CharField(allow_blank=True, allow_null=True)
-    user_type = serializers.CharField(allow_blank=True, allow_null=True)
-
     class Meta:
         model = User
-        fields = ['first_name', 'surname', 'phone_number', 'email',
-                  'user_type']
-        # extra_kwargs = {'middle_name': {'required': False}}
-        read_only_fields = []
-
-
-class UserSerializer(ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['guid', 'user_auth', 'first_name', 'surname', 'phone_number', 'email',
-                  'is_admin', 'user_type']
+        fields = [
+            'email', 'photo', 'signature', 'phone_number',
+            'alternative_contact', 'account_number', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+        extra_kwargs = { }
 
 
 class UserIdentitySerializer(ModelSerializer):

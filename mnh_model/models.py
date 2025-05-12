@@ -1,79 +1,13 @@
 from django.contrib.auth import get_user_model
 from django.db import models
-import uuid
+
+from mnh_auth.models import PositionalLevel, Directory, Department, BaseModel
 
 User = get_user_model()
 
-class BaseModel(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
-    deleted_at = models.DateTimeField(blank=True, null=True)
-    is_deleted = models.BooleanField(default=False)
-    created_by = models.ForeignKey(User, related_name='created_%(class)s', on_delete=models.SET_NULL, null=True,
-                                   blank=True)
-    updated_by = models.ForeignKey(User, related_name='updated_%(class)s', on_delete=models.SET_NULL, null=True,
-                                   blank=True)
-    deleted_by = models.ForeignKey(User, related_name='deleted_%(class)s', on_delete=models.SET_NULL, null=True,
-                                   blank=True)
-
-    class Meta:
-        abstract = True
-
-class Directory(BaseModel):
-    name = models.CharField(max_length=100, null=True)
-    code = models.CharField(max_length=20, null=True)
-    description = models.TextField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'directories'
-        ordering = ['name', 'code']
-        verbose_name = "Directory"
-        verbose_name_plural = "Directories"
-        indexes = [
-            models.Index(fields=['name', 'code']),
-            models.Index(fields=['uid']),
-        ]
-
-    def __str__(self):
-        return f"{self.name} ({self.code})"
-
-class Department(BaseModel):
-    name = models.CharField(max_length=100, null=True)
-    code = models.CharField(max_length=20, null=True)
-    directory = models.ForeignKey(Directory, related_name='departments', on_delete=models.SET_NULL, null=True, default=None)
-    description = models.TextField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        db_table = 'departments'
-        ordering = ['name']
-        verbose_name = "Department"
-        verbose_name_plural = "Departments"
-        indexes = [
-            models.Index(fields=['name', 'code']),  # Optimized query performance
-            models.Index(fields=['is_active']),  # Faster queries on active departments
-        ]
-
-    def __str__(self):
-        return f"{self.name} ({self.code})"
-
-class ApprovalLevel(BaseModel):
-    """Defines different levels of approval (e.g., Supervisor, Manager, Director)"""
-    name = models.CharField(max_length=100, null=True)
-    code = models.CharField(max_length=20, null=True)
-    is_active = models.BooleanField(default=True)
-
-
-    class Meta:
-        db_table = 'approval_levels'
-
-    def __str__(self):
-        return self.name
 
 class ApprovalAction(BaseModel):
-    """Defines predefined actions that can be taken at approval levels"""
+    """Defines predefined actions that can be taken at Positional Levels"""
     name = models.CharField(max_length=100)  # e.g., "Approve"
     code = models.CharField(max_length=20)  # e.g., "APPROVE"
     description = models.TextField(blank=True, null=True)  # Optional explanation
@@ -100,9 +34,9 @@ class ApprovalModule(BaseModel):
 class ApprovalModuleLevel(BaseModel):
     """Links ApprovalModules to ApprovalLevels and defines required actions"""
     module = models.ForeignKey(ApprovalModule, on_delete=models.CASCADE)
-    level = models.ForeignKey(ApprovalLevel, on_delete=models.CASCADE)
+    level = models.ForeignKey(PositionalLevel, on_delete=models.CASCADE)
     action = models.ForeignKey(ApprovalAction, on_delete=models.CASCADE, related_name='approval_actions')
-    department = models.ForeignKey(Department, models.DO_NOTHING, blank=True, null=True, default=None)
+    department = models.ForeignKey('mnh_auth.Department', models.DO_NOTHING, related_name='departments')
     order = models.PositiveIntegerField()
     is_signatory = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
@@ -132,7 +66,7 @@ class ApprovalRequest(BaseModel):
     title = models.CharField(max_length=255)
     description = models.TextField(max_length=255, blank=True, null=True)
     module = models.ForeignKey(ApprovalModule, on_delete=models.RESTRICT, related_name='approval_module')
-    department = models.ForeignKey(Department, models.DO_NOTHING, blank=True, null=True)
+    department = models.ForeignKey('mnh_auth.Department', models.DO_NOTHING, blank=True, null=True)
     type = models.CharField(max_length=50, choices=REQUEST_TYPES, default='N/A')
     status = models.CharField(max_length=15, default='NEW', choices=REQUEST_CHOICES)
 

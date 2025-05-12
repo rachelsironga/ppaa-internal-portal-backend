@@ -1,7 +1,7 @@
 from django.urls import path
 
 from api.modules.approval_action import ApprovalActionView
-from api.modules.approval_level import ApprovalLevelView
+from api.modules.positional_level import PositionalLevelView
 from api.modules.approval_module import ApprovalModuleView
 from api.modules.approval_module_level import ApprovalModuleLevelView
 from api.modules.approval_request import ApprovalRequestView
@@ -17,8 +17,8 @@ urlpatterns = [
     path('departments', DepartmentView.as_view(), name='view'),
     path('departments/<str:uid>', DepartmentView.as_view(), name='open'),
 
-    path('approval-level', ApprovalLevelView.as_view(), name='view-approval-level'),
-    path('approval-level/<str:uid>', ApprovalLevelView.as_view(), name='open-approval-level'),
+    path('positional-level', PositionalLevelView.as_view(), name='view-positional-level'),
+    path('positional-level/<str:uid>', PositionalLevelView.as_view(), name='open-positional-level'),
 
     path('approval-action', ApprovalActionView.as_view(), name='view-approval-action'),
     path('approval-action/<str:uid>', ApprovalActionView.as_view(), name='open-approval-action'),
