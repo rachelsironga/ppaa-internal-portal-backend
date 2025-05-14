@@ -34,7 +34,7 @@ class ApprovalModuleView(APIView):
                 )
 
             if approval_modules.exists():
-                return CustomPagination.paginate(self=self, results=approval_modules, request=request)
+                return CustomPagination.paginate(view_class=self, results=approval_modules, request=request)
 
             return CustomResponse.errors(message="Approval Module not found", data=[])
         except Exception as e:

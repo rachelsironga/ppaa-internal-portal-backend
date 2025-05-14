@@ -34,7 +34,7 @@ class JeevaRoleView(APIView):
                 )
     
             if jeeva_roles.exists():
-                return CustomPagination.paginate(self=self, results=jeeva_roles, request=request)
+                return CustomPagination.paginate(view_class=self, results=jeeva_roles, request=request)
     
             return CustomResponse.errors(message="Jeeva Role not found", data=[])
         except Exception as e:

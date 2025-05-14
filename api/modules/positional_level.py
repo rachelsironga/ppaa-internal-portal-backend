@@ -34,7 +34,7 @@ class PositionalLevelView(APIView):
                 )
 
             if positional_levels.exists():
-                return CustomPagination.paginate(self=self, results=positional_levels, request=request)
+                return CustomPagination.paginate(view_class=self, results=positional_levels, request=request)
 
             return CustomResponse.errors(message="Positional Level not found", data=[])
         except Exception as e:

@@ -7,25 +7,32 @@ from rest_framework.serializers import ModelSerializer
 
 
 class UserSerializer(serializers.ModelSerializer):
-    groups = serializers.SerializerMethodField()
-    user_permissions = serializers.SerializerMethodField()
+    groups = serializers.SerializerMethodField(read_only=True)
+    user_permissions = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        username = None
         model = User
         fields = [
             'guid','username','email','pf_number','check_number','first_name', 'middle_name','last_name','status',
             'account_type','dob','sex','is_active','is_staff','photo','signature','phone_number','alternative_contact',
             'account_number','created_at','updated_at','created_by','groups', 'user_permissions',
         ]
+        read_only_fields = [
+            'guid', 'username', 'status', 'updated_at','account_type', 'created_at', 'updated_at',
+        ]
 
     def get_groups(self, obj):
-        """Return a list of group names"""
-        return obj.get_group_names()
+        is_auth_view = self.context.get("is_auth_view", True)
+        return obj.get_group_names() if is_auth_view else []
 
     def get_user_permissions(self, obj):
-        """Return a list of permission codenames"""
-        return obj.get_permission_codes()
+        is_auth_view = self.context.get("is_auth_view", True)
+        return obj.get_permission_codes() if is_auth_view else []
+
+    def create(self, validated_data):
+        validated_data['username'] = validated_data.get('pf_number')
+        return super().create(validated_data)
+
 
 
 class LoginSerializer(serializers.Serializer):

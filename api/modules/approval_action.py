@@ -33,7 +33,7 @@ class ApprovalActionView(APIView):
                 )
 
             if approval_actions.exists():
-                return CustomPagination.paginate(self=self, results=approval_actions, request=request)
+                return CustomPagination.paginate(view_class=self, results=approval_actions, request=request)
 
             return CustomResponse.errors(message="Approval Action not found", data=[])
         except Exception as e:

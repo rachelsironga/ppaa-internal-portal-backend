@@ -45,7 +45,7 @@ class DepartmentView(APIView):
                 )
 
             if departments.exists():
-                return CustomPagination.paginate(self=self, results=departments, request=request)
+                return CustomPagination.paginate(view_class=self, results=departments, request=request)
 
             return CustomResponse.errors(message="Department not found", data=[])
         except Exception as e:

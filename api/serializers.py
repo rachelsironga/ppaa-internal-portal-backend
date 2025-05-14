@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
 from importlib import import_module
 from django.core.exceptions import ImproperlyConfigured
 from rest_framework.validators import UniqueTogetherValidator
@@ -11,7 +10,7 @@ from mnh_model.models import (
     ApprovalModuleLevel, ApprovalRequest, RequestJeevaAccess, RequestInternetEmailAccess, ApprovalRequestStep,
     JeevaRole, JeevaPermission
 )
-from mnh_auth.models import PositionalLevel, Directory, Department, UserProfile
+from mnh_auth.models import PositionalLevel, Directory, Department, UserProfile, User
 
 REQUEST_TYPE_SERIALIZER_IMPORTS = {
     'INTERNET_EMAIL_ACCESS': 'api.serializers.RequestInternetEmailAccessSerializer',
@@ -131,6 +130,8 @@ class PositionalLevelSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     user_uid = serializers.UUIDField(write_only=True)
+    user = UserSerializer(read_only=True)
+
     directory_uid = serializers.UUIDField(write_only=True)
     directory = DirectorySerializer(read_only=True)
 
@@ -143,7 +144,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['uid','user_uid', 'user', 'level','level_uid', 'directory', 'directory_uid', 'is_active',
-                  'created_at', 'updated_at'
+                  'department_uid','department','created_at', 'updated_at'
                   ]
         read_only_fields = ['uid', 'created_at', 'updated_at']
         extra_kwargs = {
@@ -157,12 +158,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         level_uid = data.pop('level_uid')
         directory_uid = data.pop('directory_uid')
         department_uid = data.pop('department_uid',None)
-        uid = self.instance.uid if self.instance else None
 
         try:
-            data['user'] = User.objects.get(guid=user_uid, is_deleted=False)
+            data['user'] = User.objects.get(guid=user_uid, is_active=True, is_deleted=False)
         except User.DoesNotExist:
-            raise serializers.ValidationError({"user_uid": "Unable to Read User Details, not found or deleted"})
+            raise serializers.ValidationError({"user_uid": "Unable Find User,May be Deleted or Disabled"})
 
         try:
             data['department'] = User.objects.get(uid=department_uid, is_deleted=False)
@@ -180,8 +180,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"level_uid": "Invalid Level, not found or deleted"})
 
         return data
-
-
 
 class ApprovalActionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -204,7 +202,6 @@ class ApprovalActionSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("this name and code already exists.")
 
         return data
-
 
 class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
     module_uid = serializers.UUIDField(write_only=True)
@@ -281,7 +278,6 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         validated_data.pop('department_uid')
 
         return super().update(instance, validated_data)
-
 
 class ApprovalModuleSerializer(serializers.ModelSerializer):
     approval_module_levels = serializers.SerializerMethodField()
