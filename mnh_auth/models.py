@@ -29,6 +29,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser, PermissionsMixin):
     ACCOUNT_STATUS_CHOICES = {
+        ('NEW', 'New'),
         ('ACTIVE', 'Active'),
         ('SUSPENDED', 'Suspended'),
         ('RETIRED', 'Retired'),
