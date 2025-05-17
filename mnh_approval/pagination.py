@@ -8,7 +8,7 @@ from mnh_approval.response_codes import CustomResponse
 
 class CustomPagination(TestCase):
     @staticmethod
-    def paginate(view_class, results, request, serializer_context):
+    def paginate(view_class, results, request, serializer_context=None):
         paginated = request.GET.get('paginated',False)
         if paginated == True or str(paginated).lower() == 'true':
             page = int(request.GET.get("page", 1))

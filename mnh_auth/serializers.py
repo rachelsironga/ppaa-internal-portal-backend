@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import Permission, Group
 from rest_framework import serializers
 
@@ -9,6 +10,7 @@ from rest_framework.serializers import ModelSerializer
 class UserSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField(read_only=True)
     user_permissions = serializers.SerializerMethodField(read_only=True)
+    photo = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -29,11 +31,26 @@ class UserSerializer(serializers.ModelSerializer):
         is_auth_view = self.context.get("is_auth_view", True)
         return obj.get_permission_codes() if is_auth_view else []
 
+    def get_photo(self, obj):
+        if obj.photo:
+            # Ensure MEDIA_URL ends with /
+            base_url = settings.MEDIA_URL if settings.MEDIA_URL.endswith('/') else settings.MEDIA_URL + '/'
+            return f"{base_url}{obj.photo}"
+        return None
+
     def create(self, validated_data):
         validated_data['username'] = validated_data.get('pf_number')
         return super().create(validated_data)
 
-
+class FileUploadSerializer(serializers.Serializer):
+    uid = serializers.UUIDField(write_only=True, required=True)
+    based64_file = serializers.CharField(
+        required=True,
+        error_messages={
+             'blank': 'You must provide a  File',
+             'required': 'Uploaded File is required.',
+        }
+    )
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(

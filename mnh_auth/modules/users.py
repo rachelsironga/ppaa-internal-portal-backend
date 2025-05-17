@@ -8,7 +8,8 @@ from rest_framework.views import APIView
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import User, UserProfile
-from mnh_auth.serializers import UserSerializer
+from mnh_auth.serializers import UserSerializer, FileUploadSerializer
+from utils.minio_storage import MinioStorage
 
 
 class UserView(APIView):
@@ -107,15 +108,65 @@ class UserView(APIView):
     def delete(self, request, uid):
         try:
             with transaction.atomic():
-                user = User.objects.filter(uid=uid,is_deleted=False).first()
+                user = User.objects.filter(uid=uid, is_deleted=False).first()
                 if not User:
                     return CustomResponse.errors(message="User Not Found or Already Deleted", )
 
                 user.is_deleted = True
-                user.deleted_at=timezone.datetime.now()
+                user.deleted_at = timezone.datetime.now()
                 user.deleted_by = request.user
                 user.save()
                 return CustomResponse.success(message='User deleted successfully')
 
-        except Exception as e:
+        except SystemError as e:
+            print(f'Failed to Perform Action: {str(e)}')
             return CustomResponse.server_error(message="Something went wrong While Deleting User")
+
+
+class UserPhotoUpload(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = FileUploadSerializer
+
+    def post(self, request):
+        try:
+            with (transaction.atomic()):
+                serializer = self.serializer_class(
+                    instance=None,
+                    data=request.data,
+                    partial=False
+                )
+
+                if not serializer.is_valid():
+                    return CustomResponse.errors(
+                        message="Validation failed, please try again"
+                            if request.data.get('uid', None)
+                            else "You can't update. You must Specify User to Update Photo",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"],
+                    )
+
+                try:
+                    instance = User.objects.get(guid=serializer.validated_data.get('uid'))
+                    if instance.is_deleted:
+                        return CustomResponse.errors(message="You can't update. Deleted User")
+                except User.DoesNotExist:
+                    return CustomResponse.errors(message="You can't update. You must Specify User to Update Photo")
+
+                photo_base64 = serializer.validated_data.get('based64_file', '')
+                minio = MinioStorage()
+                file_name = instance.guid
+                photo_url = minio.upload_base64_file(
+                    photo_base64,
+                    folder="user_photos",
+                    file_name=file_name,
+                    old_file_path=instance.photo
+                )
+                instance.photo = photo_url
+                instance.updated_by = request.user.id
+                instance.updated_at = timezone.now()
+                instance.save(update_fields=["photo",'updated_by','updated_at'])
+                user_serializer = UserSerializer(instance)
+                return CustomResponse.success(data=user_serializer.data)
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Change User Photo: {str(e)}', )

@@ -32,7 +32,7 @@ class UserProfileView(APIView):
             user_profiles = UserProfile.objects.filter(is_deleted=False)
 
             if user_uid:
-                user_profiles = user_profiles.filter(user__uid=user_uid)
+                user_profiles = user_profiles.filter(user__uid=user_uid).order_by('-updated_at', '-is_active')
 
             if search_query:
                 user_profiles = user_profiles.filter(
