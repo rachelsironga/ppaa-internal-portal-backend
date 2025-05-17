@@ -1,10 +1,4 @@
-import datetime
-
 from django.db import transaction
-from django.db.migrations import serializer
-from django.db.transaction import atomic
-from drf_yasg.utils import swagger_auto_schema
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer
@@ -111,13 +105,6 @@ class ChangePasswordView(APIView):
         request.user.save()
         return Response({'status': status.HTTP_200_OK, 'data': str(request.user), 'message': 'Password Changes'},
                         status=status.HTTP_200_OK)
-
-class UserView(APIView):
-    permission_classes = [IsAuthenticated, ]
-
-    def get(self, request):
-        serializer = UserSerializer(request.user, context={'request': request})
-        return Response({'status': status.HTTP_200_OK, 'data': serializer.data}, status=status.HTTP_200_OK)
 
 
 class CheckUserExistence(APIView):

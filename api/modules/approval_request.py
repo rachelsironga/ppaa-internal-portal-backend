@@ -44,7 +44,7 @@ class ApprovalRequestView(APIView):
                 approval_request = approval_request.filter(name__icontains=search_query)
 
             if approval_request.exists():
-                return CustomPagination.paginate(self=self, results=approval_request, request=request)
+                return CustomPagination.paginate(view_class=self, results=approval_request, request=request)
 
             return CustomResponse.errors(message="Approval Request not found", data=[])
         except Exception as e:

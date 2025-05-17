@@ -7,7 +7,8 @@ from mnh_approval.response_codes import CustomResponse
 
 
 class CustomPagination(TestCase):
-    def paginate(self,results,request):
+    @staticmethod
+    def paginate(view_class, results, request, serializer_context=None):
         paginated = request.GET.get('paginated',False)
         if paginated == True or str(paginated).lower() == 'true':
             page = int(request.GET.get("page", 1))
@@ -16,7 +17,12 @@ class CustomPagination(TestCase):
             start_num = (page - 1) * page_size
             end_num = page_size * page
             total = results.count()
-            serializer = self.serializer_class(results[start_num:end_num], many=True)
+            serializer = view_class.serializer_class(
+                results[start_num:end_num],
+                many=True,
+                context={"is_auth_view": False},
+            )
+
             return CustomResponse.success(
                 data=serializer.data,
                 message="Success",
@@ -28,7 +34,7 @@ class CustomPagination(TestCase):
             )
 
         else:
-            serializer = self.serializer_class(results, many=True)
+            serializer = view_class.serializer_class(results, many=True, context=serializer_context)
             return CustomResponse.success(
                 data=serializer.data,
                 message="Success",

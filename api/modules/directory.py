@@ -42,7 +42,7 @@ class DirectoryView(APIView):
                 )
 
             if directories.exists():
-                return CustomPagination.paginate(self=self, results=directories, request=request)
+                return CustomPagination.paginate(view_class=self, results=directories, request=request)
 
             return CustomResponse.errors(message="Directory not found", data=[])
         except Exception as e:

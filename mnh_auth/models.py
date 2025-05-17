@@ -29,6 +29,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractUser, PermissionsMixin):
     ACCOUNT_STATUS_CHOICES = {
+        ('NEW', 'New'),
         ('ACTIVE', 'Active'),
         ('SUSPENDED', 'Suspended'),
         ('RETIRED', 'Retired'),
@@ -63,7 +64,12 @@ class User(AbstractUser, PermissionsMixin):
     # default Columns
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
+    updated_by = models.IntegerField(null=True, blank=True, default=1)
     created_by = models.IntegerField(null=True, blank=True, default=1)
+    is_deleted = models.BooleanField(default=False)
+    deleted_by = models.IntegerField(null=True, blank=True, default=1)
+
 
     objects = UserManager()
     USERNAME_FIELD = 'username'

@@ -28,6 +28,29 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True  # Disable automatic HTTPS redirection
+    SESSION_COOKIE_SECURE = True  # Ensure session cookies are not HTTPS-only
+    CSRF_COOKIE_SECURE = True # Ensure CSRF cookies are not HTTPS-only
+    SECURE_HSTS_SECONDS = 31536000 # Disable HSTS (HTTP Strict Transport Security)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# MinIO configuration
+AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")  # MinIO API port
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
+
+
+# Optional (avoid automatic URL signing)
+AWS_QUERYSTRING_AUTH = False
+
 
 ALLOWED_HOSTS = ['*']
 REST_FRAMEWORK = {
@@ -40,17 +63,11 @@ REST_FRAMEWORK = {
 }
 
 
-# SIMPLE_JWT = {
-#     'AUTH_HEADER_TYPES': ('JWT',),
-#     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-#     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-# "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-#     "REFRESH_TOKEN_LIFETIME": timedelta(hours=5),
-# }
-
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    # "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    # "REFRESH_TOKEN_LIFETIME": timedelta(hours=3),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=10),
+    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
@@ -85,7 +102,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
-    'rest_framework_simplejwt.token_blacklist'
+    'rest_framework_simplejwt.token_blacklist',
+    'storages'
 ]
 
 MIDDLEWARE = [
@@ -101,12 +119,19 @@ MIDDLEWARE = [
 ]
 
 
-REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
-    'user': '5000/day',      # Allow authenticated users 500 requests per day
-    'anon': '10/minute',    # Allow anonymous users 20 requests per minute
-    'burst': '5/second',    # Allow short bursts of 5 requests per second
-    # 'sustained': '50/hour', # Limit long-term users to 50 requests per hour
-}
+
+REST_FRAMEWORK.update({
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '5000/day',      # Allow authenticated users 500 requests per day
+        'anon': '10/minute',    # Allow anonymous users 20 requests per minute
+        'burst': '5/second',   # Allow short bursts of 5 requests per second
+        'sustained': '50/hour', # Limit long-term users to 50 requests per hour
+    },
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+})
 
 
 ROOT_URLCONF = 'mnh_approval.urls'
@@ -133,13 +158,6 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# Make sure these settings are not enforcing HTTPS
-SECURE_SSL_REDIRECT = False  # Disable automatic HTTPS redirection
-SECURE_HSTS_SECONDS = 0  # Disable HSTS (HTTP Strict Transport Security)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-SECURE_HSTS_PRELOAD = False
-SESSION_COOKIE_SECURE = False  # Ensure session cookies are not HTTPS-only
-CSRF_COOKIE_SECURE = False  # Ensure CSRF cookies are not HTTPS-only
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
