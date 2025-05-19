@@ -28,13 +28,19 @@ class UserProfileView(APIView):
 
             search_query = request.GET.get('search', '').strip()
             user_uid = request.GET.get('user', '').strip()
+            old_only = request.GET.get('old_only', False)
 
-            user_profiles = UserProfile.objects.filter(is_deleted=False)
+
+
+            if old_only:
+                user_profiles =  UserProfile.objects.filter(is_active=False)
+            else:
+                user_profiles = UserProfile.objects.filter(is_deleted=False)
 
             if user_uid:
-                user_profiles = user_profiles.filter(user__uid=user_uid).order_by('-updated_at', '-is_active')
+                user_profiles = user_profiles.filter(user__guid=user_uid).order_by('-updated_at', '-is_active')
 
-            if search_query:
+            if search_query is not None:
                 user_profiles = user_profiles.filter(
                     Q(level__name__icontains=search_query) |
                     Q(level__code__icontains=search_query) |
@@ -56,6 +62,7 @@ class UserProfileView(APIView):
         try:
             with (transaction.atomic()):
                 uid = request.data.get('uid', None)
+                instance = None
                 if uid:
                     try:
                         instance = UserProfile.objects.get(uid=uid)
@@ -69,13 +76,19 @@ class UserProfileView(APIView):
                 else:
                     serializer = self.serializer_class(data=request.data)
 
-
                 # Validate and save
                 if serializer.is_valid():
                     if instance:
                         serializer.save(updated_by=request.user)
                     else:
-                        UserProfile.objects.filter(user=serializer.validated_data['user']).all().update(is_active=True)
+                        profiles = UserProfile.objects.filter(user=serializer.validated_data['user'])
+
+                        for profile in profiles:
+                            if profile.is_active:
+                                profile.end_date = timezone.datetime.now()
+                            profile.is_active = False
+
+                        UserProfile.objects.bulk_update(profiles, ['is_active', 'end_date'])
                         serializer.save(created_by=request.user, updated_by=request.user)
                     return CustomResponse.success(data=serializer.data)
 

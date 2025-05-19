@@ -128,6 +128,11 @@ class PositionalLevelSerializer(serializers.ModelSerializer):
 
         return data
 
+class UserProfileViewSerializer(serializers.ModelSerializer):
+    directory = DirectorySerializer(read_only=True)
+    department = DepartmentSerializer(read_only=True)
+    level = PositionalLevelSerializer(read_only=True)
+
 class UserProfileSerializer(serializers.ModelSerializer):
     user_uid = serializers.UUIDField(write_only=True)
     user = UserSerializer(read_only=True)
@@ -141,12 +146,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
     level_uid = serializers.UUIDField(write_only=True)
     level = PositionalLevelSerializer(read_only=True)
 
+    end_date = serializers.DateTimeField(
+        format="%d-%m-%Y %H:%M",
+        input_formats=["%d-%m-%Y %H:%M", "%Y-%m-%d %H:%M"],
+        required=False,
+    )
+
+    created_at = serializers.DateTimeField(
+        format="%d-%m-%Y %H:%M",
+        input_formats=["%d-%m-%Y %H:%M", "%Y-%m-%d %H:%M"],
+        required=False,
+    )
+
     class Meta:
         model = UserProfile
         fields = ['uid','user_uid', 'user', 'level','level_uid', 'directory', 'directory_uid', 'is_active',
-                  'department_uid','department','created_at', 'updated_at'
+                  'department_uid','department','created_at', 'updated_at','end_date'
                   ]
-        read_only_fields = ['uid', 'created_at', 'updated_at']
+        read_only_fields = ['uid', 'created_at', 'updated_at', 'end_date']
         extra_kwargs = {
             'created_by': {'read_only': True},
             'updated_by': {'read_only': True},
@@ -165,7 +182,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"user_uid": "Unable Find User,May be Deleted or Disabled"})
 
         try:
-            data['department'] = User.objects.get(uid=department_uid, is_deleted=False)
+            data['department'] = Department.objects.get(uid=department_uid, is_deleted=False)
         except User.DoesNotExist:
             data['department'] = None
 

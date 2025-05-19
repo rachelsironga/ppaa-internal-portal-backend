@@ -2,6 +2,7 @@ from django.db import models
 import uuid
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager, PermissionsMixin, Permission
+from django.db.models import Q, F
 
 
 class UserManager(BaseUserManager):
@@ -103,6 +104,24 @@ class User(AbstractUser, PermissionsMixin):
         group_permissions = set(Permission.objects.filter(group__user=self).values_list('codename', flat=True))
         return list(permissions.union(group_permissions))
 
+    def get_position(self):
+        active_position = UserProfile.objects.filter(
+            is_active=True, is_deleted=False, user=self
+        ).values(
+            department_uid=F("department__uid"),
+            department_name=F("department__name"),
+            department_code=F("department__code"),
+            directory_uid=F("directory__uid"),
+            directory_code=F("directory__code"),
+            directory_name=F("directory__name"),
+            level_uid=F("level__uid"),
+            level_name=F("level__name"),
+            level_code=F("level__code"),
+            start_date=F("created_at"),
+            last_date=F("end_date"),
+        ).first()
+        return active_position or None
+
     def save(self, *args, **kwargs):
         if self.is_superuser:
             self.account_type = 'SUPER_USER'
@@ -154,7 +173,6 @@ class Department(BaseModel):
     code = models.CharField(max_length=20, null=True)
     directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='departments')
 
-
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
 
@@ -193,6 +211,8 @@ class UserProfile(BaseModel):
 
     department = models.ForeignKey('Department', models.DO_NOTHING, blank=True, null=True, default=None)
     is_active = models.BooleanField(default=True, null=False, blank=False)
+    end_date = models.DateTimeField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)  # Optional explanation
 
 
     class Meta:

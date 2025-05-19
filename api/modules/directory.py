@@ -20,7 +20,7 @@ from mnh_auth.models import Directory
 
 
 class DirectoryView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = DirectorySerializer
 
     def get(self, request, uid=None):

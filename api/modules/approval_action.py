@@ -12,7 +12,7 @@ from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import ApprovalAction
 
 class ApprovalActionView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = ApprovalActionSerializer
 
 
