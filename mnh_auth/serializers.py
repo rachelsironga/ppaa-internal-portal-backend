@@ -11,13 +11,14 @@ class UserSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField(read_only=True)
     user_permissions = serializers.SerializerMethodField(read_only=True)
     photo = serializers.SerializerMethodField()
+    position = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
         fields = [
             'guid','username','email','pf_number','check_number','first_name', 'middle_name','last_name','status',
             'account_type','dob','sex','is_active','is_staff','photo','signature','phone_number','alternative_contact',
-            'account_number','created_at','updated_at','created_by','groups', 'user_permissions',
+            'account_number','created_at','updated_at','created_by','groups', 'user_permissions','position'
         ]
         read_only_fields = [
             'guid', 'username', 'status', 'updated_at','account_type', 'created_at', 'updated_at',
@@ -30,6 +31,10 @@ class UserSerializer(serializers.ModelSerializer):
     def get_user_permissions(self, obj):
         is_auth_view = self.context.get("is_auth_view", True)
         return obj.get_permission_codes() if is_auth_view else []
+
+    def get_position(self, obj):
+        is_auth_view = self.context.get("is_auth_view", True)
+        return obj.get_position() if is_auth_view else None
 
     def get_photo(self, obj):
         if obj.photo:

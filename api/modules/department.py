@@ -19,7 +19,7 @@ from mnh_auth.models import Department
 
 
 class DepartmentView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     serializer_class = DepartmentSerializer
 
     def get(self, request, uid=None):
