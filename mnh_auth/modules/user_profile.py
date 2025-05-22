@@ -27,7 +27,7 @@ class UserProfileView(APIView):
                 return CustomResponse.success(data=self.serializer_class(user_profile).data)
 
             search_query = request.GET.get('search', '').strip()
-            user_uid = request.GET.get('user', '').strip()
+            user_uid = request.GET.get('user_uid', '').strip()
             old_only = request.GET.get('old_only', False)
 
 
