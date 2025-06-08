@@ -1,6 +1,7 @@
 from django.urls import path
 
 from api.modules.approval_action import ApprovalActionView
+from api.modules.date_range import DateRangeView
 from api.modules.positional_level import PositionalLevelView
 from api.modules.approval_module import ApprovalModuleView
 from api.modules.approval_module_level import ApprovalModuleLevelView
@@ -11,6 +12,9 @@ from api.modules.jeeva_roles import JeevaRoleView
 from mnh_model.models import ApprovalRequest
 
 urlpatterns = [
+    path('date-range', DateRangeView.as_view(), name='date-range-view'),
+    path('date-range/<str:uid>', DateRangeView.as_view(), name='date-range-open'),
+
     path('directory', DirectoryView.as_view(), name='directory-view'),
     path('directory/<str:uid>', DirectoryView.as_view(), name='directory-open'),
 
