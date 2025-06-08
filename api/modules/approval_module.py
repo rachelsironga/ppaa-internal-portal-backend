@@ -81,9 +81,10 @@ class ApprovalModuleView(APIView):
 
                 approval_module.is_deleted = True
                 approval_module.deleted_at = datetime.now()
-                approval_module.deleted_by = request.user.id
+                approval_module.deleted_by = request.user
                 approval_module.save()
                 return CustomResponse.success(message='Approval Module deleted successfully')
 
         except Exception as e:
+            print(f'Failed to Delete Approval Module: {str(e)}')
             return CustomResponse.server_error(message="Something went wrong While Deleting Approval Module")

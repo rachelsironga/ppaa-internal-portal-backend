@@ -8,7 +8,7 @@ from mnh_auth.serializers import UserSerializer
 from mnh_model.models import (
     ApprovalModule, ApprovalAction,
     ApprovalModuleLevel, ApprovalRequest, RequestJeevaAccess, RequestInternetEmailAccess, ApprovalRequestStep,
-    JeevaRole, JeevaPermission
+    JeevaRole, JeevaPermission, DateRange
 )
 from mnh_auth.models import PositionalLevel, Directory, Department, UserProfile, User
 
@@ -27,6 +27,17 @@ def get_serializer_class(request_type):
 
 
 
+
+class DateRangeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DateRange
+        fields = ['uid', 'name', 'value', 'type','order', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'created_by': {'read_only': True},
+            'updated_by': {'read_only': True},
+            'deleted_by': {'read_only': True},
+        }
 
 
 
@@ -125,7 +136,6 @@ class PositionalLevelSerializer(serializers.ModelSerializer):
         if existing.exists():
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this name and code already exists.")
-
         return data
 
 class UserProfileViewSerializer(serializers.ModelSerializer):
@@ -213,7 +223,7 @@ class ApprovalActionSerializer(serializers.ModelSerializer):
         name = data.get('name')
         code = data.get('code')
         uid = self.instance.uid if self.instance else None
-        existing = PositionalLevel.objects.filter(name=name, code=code, deleted_at=None)
+        existing = ApprovalAction.objects.filter(name=name, code=code, deleted_at=None)
         if existing.exists():
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this name and code already exists.")
@@ -301,7 +311,7 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ApprovalModule
-        fields = ['uid', 'name', 'description', 'approval_module_levels', 'created_at', 'updated_at']
+        fields = ['uid','code', 'name', 'description', 'approval_module_levels', 'created_at', 'updated_at']
         read_only_fields = ['uid', 'approval_module_levels', 'created_at', 'updated_at']
         extra_kwargs = {
             'created_by': {'read_only': True},
@@ -376,54 +386,53 @@ class JeevaPermissionSerializer(serializers.ModelSerializer):
         return data
 
 
-class RequestInternetEmailAccessSerializer(serializers.ModelSerializer):
-    approval_request = serializers.PrimaryKeyRelatedField(queryset=ApprovalRequest.objects.all())
-    class Meta:
-        model = RequestInternetEmailAccess
-        fields = ['uid','approval_request', 'start_date', 'end_date', 'purpose']
-        read_only_fields = ['uid', 'created_at','is_read_term', 'updated_at']
-
-
 class ApprovalRequestSerializer(serializers.ModelSerializer):
     module_uid = serializers.UUIDField(write_only=True)
+    date_range_uid = serializers.UUIDField(write_only=True)
     department_uid = serializers.UUIDField(write_only=True, required=True, allow_null=False)
 
-    type = serializers.ChoiceField(choices=ApprovalRequest.REQUEST_TYPES)
     request_data = serializers.DictField(write_only=True)
 
     module = ApprovalModuleSerializer(read_only=True)
+    date_range = DateRangeSerializer(read_only=True)
     department = DepartmentSerializer(read_only=True)
-
     request_details = serializers.SerializerMethodField(read_only=True)
+    requester_name = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ApprovalRequest
         fields = [
-            'uid', 'title', 'description', 'type', 'request_data',
-            'module_uid', 'department_uid','module', 'department', 'created_by',
-            'status', 'created_at', 'updated_at','request_details'
+            'uid', 'title', 'description', 'type', 'request_data','module_uid','date_range_uid', 'department_uid','requester_name',
+            'module', 'department','date_range', 'created_by', 'status', 'created_at', 'updated_at','request_details'
         ]
         read_only_fields = ['uid', 'created_by','created_at', 'updated_at', 'status']
 
     def get_request_details(self, obj):
-        try:
-            inner_serializer = get_serializer_class(obj.type)
-            if not inner_serializer:
-                return None
-            child_instance = getattr(obj, 'request_details')  # e.g., obj.internet_email_access
-            return inner_serializer(child_instance).data
-        except AttributeError:
+        return obj.request_data
 
-            return None
+    def get_requester_name(self, obj):
+        user = obj.created_by  # created_by is already a related user instance if FK
+        if user:
+            return f"{user.first_name} {user.last_name}".strip() or user.username
+        return "N/A"
 
     def validate(self, data):
-        module_uid = data.get('module_uid')
-        department_uid = data.get('department_uid')
+        module_uid = data.pop('module_uid')
+        date_range_uid = data.pop('date_range_uid')
+        department_uid = data.pop('department_uid')
+
+
+        try:
+            data['date_range'] = DateRange.objects.get(uid=date_range_uid, is_deleted=False)
+        except DateRange.DoesNotExist:
+            raise serializers.ValidationError({"date_range_uid": "Invalid Date Range, not found or deleted"})
 
         try:
             data['module'] = ApprovalModule.objects.get(uid=module_uid, is_deleted=False)
+            data['type'] = data['module'].code if data['module'] else None
         except ApprovalModule.DoesNotExist:
             raise serializers.ValidationError({"module_uid": "Invalid Module, not found or deleted"})
+
         try:
             data['department'] = Department.objects.get(uid=department_uid, is_deleted=False)
         except Department.DoesNotExist:
@@ -432,19 +441,17 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        validated_data.pop('request_data')
-        validated_data.pop('module_uid')
-        validated_data.pop('department_uid')
         return ApprovalRequest.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
-        validated_data.pop('request_data')
-        validated_data.pop('module_uid')
-        validated_data.pop('department_uid')
-
         return super().update(instance, validated_data)
 
-
+class RequestInternetEmailAccessSerializer(serializers.ModelSerializer):
+    approval_request = ApprovalRequestSerializer(read_only=True)
+    class Meta:
+        model = RequestInternetEmailAccess
+        fields = ['uid','approval_request', 'start_date', 'end_date', 'is_read_term', 'purpose']
+        read_only_fields = ['uid', 'created_at', 'updated_at']
 
 class ApprovalRequestStepSerializer(serializers.ModelSerializer):
     approval_request_title = serializers.ReadOnlyField(source='approval_request.title')

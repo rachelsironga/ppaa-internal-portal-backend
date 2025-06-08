@@ -6,6 +6,22 @@ from mnh_auth.models import PositionalLevel, Directory, Department, BaseModel
 User = get_user_model()
 
 
+class DateRange(BaseModel):
+    """Defines date range to be used in requests"""
+    name = models.CharField(max_length=50)
+    value = models.IntegerField()
+    type = models.CharField(max_length=2)
+    order = models.IntegerField(auto_created=True, default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'date_range'
+        unique_together = ('name', 'type')
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.name}  ({self.value} - {self.type})"
+
 class ApprovalAction(BaseModel):
     """Defines predefined actions that can be taken at Positional Levels"""
     name = models.CharField(max_length=100)  # e.g., "Approve"
@@ -23,10 +39,12 @@ class ApprovalAction(BaseModel):
 class ApprovalModule(BaseModel):
     """Defines a module that requires approval processes"""
     name = models.CharField(max_length=255, unique=True)
+    code = models.CharField(max_length=50, default="")  # e.g., "APPROVE"
     description = models.TextField(blank=True, null=True)
 
     class Meta:
         db_table = 'approval_modules'
+        unique_together = (('name', 'code'),)
 
     def __str__(self):
         return self.name
@@ -51,11 +69,6 @@ class ApprovalModuleLevel(BaseModel):
         return f"{self.uid}"
 
 class ApprovalRequest(BaseModel):
-    REQUEST_TYPES = [
-        ('JEEVA_ACCESS', 'JEEVA Access Request'),
-        ('INTERNET_EMAIL_ACCESS', 'Internet Email Access Request'),
-        ('EDMS_ACCESS', 'EDMS Access Request'),
-    ]
     REQUEST_CHOICES = [
         ('NEW', 'NEW'),
         ('PENDING', 'PENDING'),
@@ -66,15 +79,18 @@ class ApprovalRequest(BaseModel):
     title = models.CharField(max_length=255)
     description = models.TextField(max_length=255, blank=True, null=True)
     module = models.ForeignKey(ApprovalModule, on_delete=models.RESTRICT, related_name='approval_module')
+    type = models.CharField(max_length=40, null=True) #the field will have type from module code for easy access
     department = models.ForeignKey('mnh_auth.Department', models.DO_NOTHING, blank=True, null=True)
-    type = models.CharField(max_length=50, choices=REQUEST_TYPES, default='N/A')
+    date_range = models.ForeignKey(DateRange, on_delete=models.RESTRICT, related_name='date_range', null=True)
+    request_data = models.JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, default='NEW', choices=REQUEST_CHOICES)
 
     class Meta:
         db_table = 'approval_requests'
 
     def __str__(self):
-        return f"{self.title} - {self.module.name} - {self.created_at}"
+        return f"{self.title} ({self.type})"
+
 
 class ApprovalRequestStep(BaseModel):
     approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE, related_name="steps")
@@ -111,7 +127,6 @@ class RequestJeevaAccess(BaseModel):
 
     def __str__(self):
         return f"{self.created_at}"
-
 
 class JeevaRole(BaseModel):
     """Defines a jeeva roles"""

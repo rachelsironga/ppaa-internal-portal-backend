@@ -77,7 +77,7 @@ class User(AbstractUser, PermissionsMixin):
     REQUIRED_FIELDS = ['pf_number', 'first_name', 'last_name']
 
     def __str__(self):
-        return self.username
+        return f'{self.first_name} {self.last_name}'
 
     def get_full_name(self):
         return self.first_name + ' ' + self.middle_name + ' ' + self.last_name
@@ -129,6 +129,8 @@ class User(AbstractUser, PermissionsMixin):
 
     class Meta:
         db_table = 'auth_user'
+
+
 
 
 class BaseModel(models.Model):
