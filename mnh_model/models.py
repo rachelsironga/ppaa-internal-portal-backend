@@ -84,9 +84,11 @@ class ApprovalRequest(BaseModel):
     date_range = models.ForeignKey(DateRange, on_delete=models.RESTRICT, related_name='date_range', null=True)
     request_data = models.JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, default='NEW', choices=REQUEST_CHOICES)
+    current_state = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = 'approval_requests'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.title} ({self.type})"
@@ -97,6 +99,7 @@ class ApprovalRequestStep(BaseModel):
     approval_module_level = models.ForeignKey(ApprovalModuleLevel, on_delete=models.CASCADE)  # ForeignKey, NOT OneToOneField
     approved_by = models.ForeignKey(User, on_delete=models.RESTRICT, null=True)
     is_acting = models.BooleanField(default=True, db_comment="if user is not the real signatory but acting one")
+    is_approved = models.BooleanField(default=False)
     comment = models.TextField(blank=True, null=True)
     class Meta:
         db_table = 'approval_request_steps'
@@ -133,6 +136,7 @@ class JeevaRole(BaseModel):
     name = models.CharField(max_length=255, unique=True)
     code = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    is_updated = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'jeeva_roles'
@@ -146,8 +150,7 @@ class JeevaPermission(BaseModel):
     name = models.CharField(max_length=255, unique=True)
     code = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
-
-
+    role = models.ForeignKey(JeevaRole, on_delete=models.CASCADE, related_name='permissions', null=True)
     class Meta:
         db_table = 'jeeva_permissions'
         unique_together = ('name', 'code')
@@ -155,7 +158,3 @@ class JeevaPermission(BaseModel):
 
     def __str__(self):
         return f"{self.uid}"
-
-
-
-

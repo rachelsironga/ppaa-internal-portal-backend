@@ -210,6 +210,7 @@ class UserProfile(BaseModel):
     user = models.ForeignKey(User, related_name='user_profiles', on_delete=models.SET_NULL, null=True, blank=True)
     level = models.ForeignKey(PositionalLevel, on_delete=models.CASCADE)
     directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='user_profiles')
+    acting_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
     department = models.ForeignKey('Department', models.DO_NOTHING, blank=True, null=True, default=None)
     is_active = models.BooleanField(default=True, null=False, blank=False)

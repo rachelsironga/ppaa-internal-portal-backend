@@ -170,3 +170,52 @@ class UserPhotoUpload(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Change User Photo: {str(e)}', )
+
+
+class UserSignatureUpload(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = FileUploadSerializer
+
+    def post(self, request):
+        try:
+            with (transaction.atomic()):
+                serializer = self.serializer_class(
+                    instance=None,
+                    data=request.data,
+                    partial=False
+                )
+
+                if not serializer.is_valid():
+                    return CustomResponse.errors(
+                        message="Validation failed, please try again"
+                            if request.data.get('uid', None)
+                            else "You can't update. You must Specify User to Update Photo",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"],
+                    )
+
+                try:
+                    instance = User.objects.get(guid=serializer.validated_data.get('uid'))
+                    if instance.is_deleted:
+                        return CustomResponse.errors(message="You can't update. Deleted User")
+                except User.DoesNotExist:
+                    return CustomResponse.errors(message="You can't update. You must Specify User to Update Signature")
+
+                file_base64 = serializer.validated_data.get('based64_file', '')
+                minio = MinioStorage()
+                file_name = instance.guid
+                file_url = minio.upload_base64_file(
+                    file_base64,
+                    folder="user_signatures",
+                    file_name=file_name,
+                    old_file_path=instance.signature
+                )
+                instance.signature = file_url
+                instance.updated_by = request.user.id
+                instance.updated_at = timezone.now()
+                instance.save(update_fields=["signature",'updated_by','updated_at'])
+                user_serializer = UserSerializer(instance)
+                return CustomResponse.success(data=user_serializer.data)
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Change User signature: {str(e)}', )
