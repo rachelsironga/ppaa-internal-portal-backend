@@ -100,6 +100,10 @@ class ApprovalRequestStep(BaseModel):
     approved_by = models.ForeignKey(User, on_delete=models.RESTRICT, null=True)
     is_acting = models.BooleanField(default=True, db_comment="if user is not the real signatory but acting one")
     is_approved = models.BooleanField(default=False)
+    action_count = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
+    class Meta:
+        db_table = 'approval_request_steps'
     comment = models.TextField(blank=True, null=True)
     class Meta:
         db_table = 'approval_request_steps'

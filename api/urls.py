@@ -9,7 +9,7 @@ from api.modules.approval_module_level import ApprovalModuleLevelView
 from api.modules.approval_request import ApprovalRequestView
 from api.modules.department import DepartmentView
 from api.modules.directory import DirectoryView
-from api.modules.external_auth.jeeva_roles import JeevaRoleView
+from api.modules.external_auth.jeeva_roles import JeevaRoleView, JeevaRolePermissionListView
 
 urlpatterns = [
     path('date-range', DateRangeView.as_view(), name='date-range-view'),
@@ -35,10 +35,14 @@ urlpatterns = [
 
     path('jeeva-role', JeevaRoleView.as_view(), name='all-jeeva-role'),
     path('jeeva-role/<str:uid>', JeevaRoleView.as_view(), name='one-jeeva-role'),
+    path('jeeva-role-perm-list', JeevaRolePermissionListView.as_view(), name='jeeva-role-perm-list'),
+    path('jeeva-role-perm-by-code/<str:role_codename>', JeevaRolePermissionListView.as_view(), name='jeeva-role-perm-by-code'),
 
     path('approval-request', ApprovalRequestView.as_view(), name='view-approval-request'),
     path('approval-request/<str:uid>', ApprovalRequestView.as_view(), name='open-approval-request'),
 
     path('approve-reject-request', ApproveModuleLevelStepView.as_view(), name='approve-reject-request'),
+
+    path('approval-request-step/<str:request_uid>', ApproveModuleLevelStepView.as_view(), name='one-approval-request-step'),
 
 ]

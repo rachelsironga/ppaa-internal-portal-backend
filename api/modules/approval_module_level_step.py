@@ -1,9 +1,8 @@
 from datetime import datetime
 from django.utils import timezone
 
-
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Max
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
@@ -12,12 +11,25 @@ from api.serializers import ApprovalModuleSerializer, ApprovalRequestStepSeriali
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import UserProfile
-from mnh_model.models import ApprovalModule, ApprovalModuleLevel, ApprovalRequestStep
+from mnh_model.models import ApprovalModule, ApprovalModuleLevel, ApprovalRequestStep, ApprovalRequest
 
 
 class ApproveModuleLevelStepView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ApprovalRequestStepSerializer
+
+    def get(self, request, request_uid):
+        try:
+            if request_uid:
+                request_steps = ApprovalRequestStep.objects.filter(is_deleted=False,
+                                                                   approval_request__uid=request_uid).order_by(
+                    'action_count')
+                if request_steps.exists():
+                    return CustomPagination.paginate(view_class=self, results=request_steps, request=request)
+
+            return CustomResponse.errors(message="Please Specify Request to view Approval History", data=[])
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Retrieve Departments: {str(e)}', )
 
     def post(self, request):
         try:
@@ -94,7 +106,7 @@ class ApproveModuleLevelStepView(APIView):
 
                 elif action == "RETURN":
                     # Mark REJECTED
-                    approval_request.status = "PENDING"
+                    approval_request.status = "PENDING" if approval_request.current_state > 0 else 'REJECTED'
                     approval_request.current_state = approval_request.current_state - 1 if approval_request.current_state > 0 else 0
                     is_approved = False
 
@@ -104,6 +116,21 @@ class ApproveModuleLevelStepView(APIView):
                         code=STATUS_CODES["VALIDATION_ERROR"],
                     )
 
+                # Deactivate any previous active steps for this module level
+                ApprovalRequestStep.objects.filter(
+                    approval_request=approval_request,
+                    approval_module_level=approval_module_level,
+                    is_active=True
+                ).update(is_active=False)
+
+                # Get the max action count to increment
+                previous_steps = ApprovalRequestStep.objects.filter(
+                    approval_request=approval_request,
+                    approval_module_level=approval_module_level
+                )
+                max_count = previous_steps.aggregate(Max("action_count"))["action_count__max"] or 0
+                new_action_count = max_count + 1
+
                 # Save step
                 step = ApprovalRequestStep.objects.create(
                     approval_request=approval_request,
@@ -111,6 +138,8 @@ class ApproveModuleLevelStepView(APIView):
                     approved_by=user,
                     is_acting=is_acting,
                     is_approved=is_approved,
+                    action_count=new_action_count,
+                    is_active=True,
                     comment=validated.get("comment"),
                     created_by=user,
                     updated_by=user,
@@ -128,21 +157,3 @@ class ApproveModuleLevelStepView(APIView):
             return CustomResponse.server_error(
                 message=f"Failed to process approval action: {str(e)}"
             )
-
-    def delete(self, request, uid):
-        try:
-            with transaction.atomic():
-                """ Soft delete a Approval Module by UID """
-                approval_module = ApprovalModule.objects.filter(uid=uid, is_deleted=False).first()
-                if not approval_module:
-                    return CustomResponse.errors(message="Approval Module Not Found or Deleted",)
-
-                approval_module.is_deleted = True
-                approval_module.deleted_at = timezone.now()
-                approval_module.deleted_by = request.user
-                approval_module.save()
-                return CustomResponse.success(message='Approval Module deleted successfully')
-
-        except Exception as e:
-            print(f'Failed to Delete Approval Module: {str(e)}')
-            return CustomResponse.server_error(message="Something went wrong While Deleting Approval Module")

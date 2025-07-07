@@ -239,11 +239,12 @@ class ApprovalRequestStepSerializer(serializers.ModelSerializer):
 
 
     approved_by = serializers.SerializerMethodField(read_only=True)
+    approval_level = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ApprovalRequestStep
-        fields = ['uid', 'approved_by', 'is_acting', 'is_approved', 'comment','action',
-                  'request_uid', 'module_level_uid', 'created_at', 'updated_at']
+        fields = ['uid', 'approved_by', 'is_acting', 'is_approved','action_count', 'comment','action',
+                  'approval_module_level','request_uid', 'module_level_uid', 'approval_level', 'approval_module_level','created_at', 'updated_at']
         read_only_fields = ['uid', 'created_by', 'created_at', 'updated_at']
 
     def get_approved_by(self, obj):
@@ -256,6 +257,34 @@ class ApprovalRequestStepSerializer(serializers.ModelSerializer):
                 'signature': f'{settings.MEDIA_URL if settings.MEDIA_URL.endswith('/') else settings.MEDIA_URL + '/'}{obj.approved_by.signature}' if obj.approved_by.signature else "",
             }
             return user
+        return None
+
+    def get_approved_by(self, obj):
+        if obj.approved_by:
+            user = {
+                'uid': obj.approved_by.guid,
+                'name': f'{obj.approved_by.first_name} {obj.approved_by.middle_name} {obj.approved_by.last_name}',
+                'email': obj.approved_by.email,
+                'position': obj.approved_by.get_position(),
+                'signature': f'{settings.MEDIA_URL if settings.MEDIA_URL.endswith('/') else settings.MEDIA_URL + '/'}{obj.approved_by.signature}' if obj.approved_by.signature else "",
+            }
+            return user
+        return None
+
+    def get_approval_level(self, obj):
+        if obj.approval_module_level:
+            return {
+               'level': {
+                   'uid': obj.approval_module_level.level.uid,
+                   'name': obj.approval_module_level.level.name,
+                   'code': obj.approval_module_level.level.code
+               },
+                'action' : {
+                    'uid': obj.approval_module_level.action.uid,
+                    'name': obj.approval_module_level.action.name,
+                    'code': obj.approval_module_level.action.code
+                }
+            }
         return None
 
     def validate(self, data):
@@ -323,7 +352,8 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
             try:
                 step = ApprovalRequestStep.objects.get(
                     approval_request__uid=request_uid,
-                    approval_module_level=obj
+                    approval_module_level=obj,
+                    is_active=True
                 )
                 return ApprovalRequestStepSerializer(step).data
             except ApprovalRequestStep.DoesNotExist:
@@ -512,7 +542,6 @@ class JeevaRoleSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("this name and code already exists.")
         return data
 
-
 class JeevaPermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = JeevaPermission
@@ -534,6 +563,26 @@ class JeevaPermissionSerializer(serializers.ModelSerializer):
             if existing.exclude(uid=uid).exists():
                 raise serializers.ValidationError("this name and code already exists.")
         return data
+
+
+class JeevaPermissionNestedSerializer(serializers.ModelSerializer):
+    codename = serializers.CharField(source="code")
+
+    class Meta:
+        model = JeevaPermission
+        fields = ["codename", "name"]
+
+class JeevaRoleNestedSerializer(serializers.ModelSerializer):
+    codename = serializers.CharField(source="code")
+    Permissions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = JeevaRole
+        fields = ["codename", "name", "Permissions"]
+
+    def get_Permissions(self, obj):
+        permissions = obj.permissions.filter(is_active=True)
+        return JeevaPermissionNestedSerializer(permissions, many=True).data
 
 
 class RequestInternetEmailAccessSerializer(serializers.ModelSerializer):

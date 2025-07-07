@@ -6,7 +6,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
-from api.serializers import JeevaRoleSerializer
+from api.serializers import JeevaRoleSerializer, JeevaRoleNestedSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import JeevaRole
@@ -84,3 +84,30 @@ class JeevaRoleView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message="Something went wrong While Deleting Jeeva Role")
+
+
+class JeevaRolePermissionListView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = JeevaRoleNestedSerializer
+
+    def get(self, request, role_codename=None):
+        try:
+            if role_codename:
+                jeeva_role = JeevaRole.objects.filter(is_deleted=False, code=role_codename, is_active=True).order_by("code")
+                serializer = JeevaRoleNestedSerializer(jeeva_role, many=True)
+                return CustomResponse.success(serializer.data)
+
+            search_query = request.GET.get('search', '').strip()
+            jeeva_roles = JeevaRole.objects.filter(is_deleted=False, is_active=True).order_by("code")
+
+            if search_query:
+                jeeva_roles = jeeva_roles.filter(
+                    Q(name__icontains=search_query) | Q(code__icontains=search_query)
+                )
+
+            if jeeva_roles.exists():
+                return CustomPagination.paginate(view_class=self, results=jeeva_roles, request=request)
+
+            return CustomResponse.errors(message="Jeeva Role not found", data=[])
+        except Exception as e:
+            return CustomResponse.errors(message=f'Failed to Retrieve Jeeva Roles: {str(e)}', data=[])
