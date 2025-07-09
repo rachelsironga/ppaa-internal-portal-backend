@@ -77,7 +77,7 @@ class ApprovalRequest(BaseModel):
     ]
 
     title = models.CharField(max_length=255)
-    description = models.TextField(max_length=255, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
     module = models.ForeignKey(ApprovalModule, on_delete=models.RESTRICT, related_name='approval_module')
     type = models.CharField(max_length=40, null=True) #the field will have type from module code for easy access
     department = models.ForeignKey('mnh_auth.Department', models.DO_NOTHING, blank=True, null=True)
@@ -93,7 +93,6 @@ class ApprovalRequest(BaseModel):
     def __str__(self):
         return f"{self.title} ({self.type})"
 
-
 class ApprovalRequestStep(BaseModel):
     approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE, related_name="steps")
     approval_module_level = models.ForeignKey(ApprovalModuleLevel, on_delete=models.CASCADE)  # ForeignKey, NOT OneToOneField
@@ -102,11 +101,27 @@ class ApprovalRequestStep(BaseModel):
     is_approved = models.BooleanField(default=False)
     action_count = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
-    class Meta:
-        db_table = 'approval_request_steps'
     comment = models.TextField(blank=True, null=True)
     class Meta:
         db_table = 'approval_request_steps'
+
+class ApprovalRequestHandler(BaseModel):
+    CHOICES = [
+        ('PENDING', 'PENDING'),
+        ('DONE', 'DONE'),
+        ('POSTPONED', 'POSTPONED')
+    ]
+
+    approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE, related_name="handles")
+    handler = models.ForeignKey(User, on_delete=models.RESTRICT, null=True)
+    comment = models.TextField(blank=True, null=True)
+    is_notified = models.BooleanField(default=False)
+    status = models.CharField(max_length=15, default='PENDING', choices=CHOICES)
+
+    class Meta:
+        db_table = 'approval_request_handler'
+        unique_together = ('approval_request', 'handler')
+
 
 class RequestInternetEmailAccess(BaseModel):
     approval_request = models.OneToOneField(

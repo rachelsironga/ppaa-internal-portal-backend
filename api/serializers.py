@@ -244,7 +244,7 @@ class ApprovalRequestStepSerializer(serializers.ModelSerializer):
     class Meta:
         model = ApprovalRequestStep
         fields = ['uid', 'approved_by', 'is_acting', 'is_approved','action_count', 'comment','action',
-                  'approval_module_level','request_uid', 'module_level_uid', 'approval_level', 'approval_module_level','created_at', 'updated_at']
+                  'request_uid', 'module_level_uid', 'approval_level','created_at', 'updated_at']
         read_only_fields = ['uid', 'created_by', 'created_at', 'updated_at']
 
     def get_approved_by(self, obj):
