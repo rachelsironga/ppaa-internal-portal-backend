@@ -10,10 +10,12 @@ from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import User, UserProfile
 from mnh_auth.serializers import UserSerializer, FileUploadSerializer
 from utils.minio_storage import MinioStorage
+from utils.permissions import HasMethodPermission
+
 
 
 class UserView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = UserSerializer
 
     def get(self, request, uid=None):
@@ -124,7 +126,7 @@ class UserView(APIView):
 
 
 class UserPhotoUpload(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = FileUploadSerializer
 
     def post(self, request):
@@ -173,7 +175,7 @@ class UserPhotoUpload(APIView):
 
 
 class UserSignatureUpload(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = FileUploadSerializer
 
     def post(self, request):

@@ -12,10 +12,12 @@ from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import UserProfile
 from mnh_model.models import ApprovalModule, ApprovalModuleLevel, ApprovalRequestStep, ApprovalRequest
+from utils.permissions import HasMethodPermission
+
 
 
 class ApproveModuleLevelStepView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalRequestStepSerializer
 
     def get(self, request, request_uid):

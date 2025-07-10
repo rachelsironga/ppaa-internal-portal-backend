@@ -117,10 +117,12 @@ class ApprovalRequestHandler(BaseModel):
     comment = models.TextField(blank=True, null=True)
     is_notified = models.BooleanField(default=False)
     status = models.CharField(max_length=15, default='PENDING', choices=CHOICES)
-
+    responded_at = models.ForeignKey(User, related_name='handler_responded_at', on_delete=models.SET_NULL, null=True,
+                                   blank=True)
     class Meta:
         db_table = 'approval_request_handler'
         unique_together = ('approval_request', 'handler')
+        ordering = ['-created_at']
 
 
 class RequestInternetEmailAccess(BaseModel):

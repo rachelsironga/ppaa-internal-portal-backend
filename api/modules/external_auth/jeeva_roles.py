@@ -10,10 +10,12 @@ from api.serializers import JeevaRoleSerializer, JeevaRoleNestedSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import JeevaRole
+from utils.permissions import HasMethodPermission
+
 
 
 class JeevaRoleView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = JeevaRoleSerializer
 
 
@@ -87,7 +89,7 @@ class JeevaRoleView(APIView):
 
 
 class JeevaRolePermissionListView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = JeevaRoleNestedSerializer
 
     def get(self, request, role_codename=None):

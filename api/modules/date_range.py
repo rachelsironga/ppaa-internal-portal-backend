@@ -10,9 +10,11 @@ from api.serializers import DateRangeSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import DateRange
+from utils.permissions import HasMethodPermission
+
 
 class DateRangeView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = DateRangeSerializer
 
 

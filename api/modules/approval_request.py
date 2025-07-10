@@ -11,11 +11,15 @@ from api.serializers import ApprovalRequestSerializer, REQUEST_TYPE_SERIALIZER_I
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import ApprovalRequest, ApprovalModule
+from utils.permissions import HasMethodPermission
 
 
 class ApprovalRequestView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalRequestSerializer
+    required_permissions = {
+        "get": ["view_approvalrequest"],
+    }
 
 
     def get(self, request, uid=None):

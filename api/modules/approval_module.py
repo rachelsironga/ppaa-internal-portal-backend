@@ -10,10 +10,12 @@ from api.serializers import ApprovalModuleSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import ApprovalModule, ApprovalModuleLevel
+from utils.permissions import HasMethodPermission
+
 
 
 class ApprovalModuleView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalModuleSerializer
 
 

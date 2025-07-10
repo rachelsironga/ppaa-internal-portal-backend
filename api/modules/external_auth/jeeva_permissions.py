@@ -13,7 +13,7 @@ from mnh_model.models import JeevaRole
 
 
 class JeevaRoleView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = JeevaRoleSerializer
 
 

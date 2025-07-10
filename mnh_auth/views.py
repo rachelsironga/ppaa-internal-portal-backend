@@ -11,6 +11,8 @@ from rest_framework.views import APIView
 from mnh_auth.models import User
 from mnh_auth.serializers import RegistrationSerializer, PasswordChangeSerializer
 from mnh_auth.utils import MyTokenObtainPairSerializer
+from utils.permissions import HasMethodPermission
+
 
 
 class RegistrationView(APIView):
@@ -96,7 +98,7 @@ class LogoutView(APIView):
         return Response({'msg': 'Successfully Logged out'}, status=status.HTTP_200_OK)
 
 class ChangePasswordView(APIView):
-    permission_classes = [IsAuthenticated, ]
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
 
     def post(self, request):
         serializer = PasswordChangeSerializer(context={'request': request}, data=request.data)
@@ -121,7 +123,7 @@ class CheckUserExistence(APIView):
 
 
 class UpdateMyProfileView(APIView):
-    permission_classes = [IsAuthenticated, ]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = UpdateProfileSerializer
 
     def put(self, request):
