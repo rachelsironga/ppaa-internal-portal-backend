@@ -16,6 +16,18 @@ from utils.permissions import HasMethodPermission
 class ApprovalModuleLevelView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalModuleLevelSerializer
+    required_permissions = {
+        "get": [
+            "view_approvalmodulelevel"
+        ],
+        "post": [
+            "add_approvalmodulelevel",
+            "change_approvalmodulelevel",
+        ],
+        "delete": [
+            "delete_approvalmodulelevel",
+        ]
+    }
 
 
     def get(self, request, uid=None):

@@ -19,6 +19,14 @@ from utils.permissions import HasMethodPermission
 class ApproveModuleLevelStepView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalRequestStepSerializer
+    required_permissions = {
+        "get": [
+            "view_request"
+        ],
+        "post": [
+            "can_approve_request",
+        ],
+    }
 
     def get(self, request, request_uid):
         try:

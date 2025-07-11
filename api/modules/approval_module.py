@@ -17,6 +17,15 @@ from utils.permissions import HasMethodPermission
 class ApprovalModuleView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalModuleSerializer
+    required_permissions = {
+        "get": [
+            "view_directory",
+        ],
+        "post": [
+            "add_directory",
+            "change_directory",
+        ]
+    }
 
 
     def get(self, request, uid=None):

@@ -23,6 +23,18 @@ from utils.permissions import HasMethodPermission
 class DepartmentView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = DepartmentSerializer
+    required_permissions = {
+        "get": [
+            "view_department"
+        ],
+        "post": [
+            "add_department",
+            "change_department",
+        ],
+        "delete": [
+            "delete_department",
+        ]
+    }
 
     def get(self, request, uid=None):
         try:

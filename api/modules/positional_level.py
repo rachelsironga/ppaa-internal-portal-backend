@@ -17,6 +17,18 @@ from utils.permissions import HasMethodPermission
 class PositionalLevelView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = PositionalLevelSerializer
+    required_permissions = {
+        "get": [
+            "view_positionallevel"
+        ],
+        "post": [
+            "add_positionallevel",
+            "change_positionallevel",
+        ],
+        "delete": [
+            "delete_positionallevel",
+        ]
+    }
 
     def get(self, request, uid=None):
         try:

@@ -16,6 +16,18 @@ from utils.permissions import HasMethodPermission
 class DateRangeView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = DateRangeSerializer
+    required_permissions = {
+        "get": [
+            "view_daterange"
+        ],
+        "post": [
+            "add_daterange",
+            "delete_daterange",
+        ],
+        "delete": [
+            "change_daterange",
+        ]
+    }
 
 
     def get(self, request, uid=None):

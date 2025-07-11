@@ -24,6 +24,18 @@ from utils.permissions import HasMethodPermission
 class DirectoryView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = DirectorySerializer
+    required_permissions = {
+        "get": [
+              "view_directory"
+            ],
+        "post": [
+            "add_directory",
+            "change_directory",
+        ],
+        "delete": [
+            "delete_directory",
+        ]
+    }
 
     def get(self, request, uid=None):
         try:
