@@ -60,6 +60,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "EXCEPTION_HANDLER": "utils.api_exception_handle.custom_api_exception_handler",
 }
 
 

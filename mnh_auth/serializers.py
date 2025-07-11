@@ -11,6 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField(read_only=True)
     user_permissions = serializers.SerializerMethodField(read_only=True)
     photo = serializers.SerializerMethodField()
+    signature = serializers.SerializerMethodField()
     position = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -41,6 +42,13 @@ class UserSerializer(serializers.ModelSerializer):
             # Ensure MEDIA_URL ends with /
             base_url = settings.MEDIA_URL if settings.MEDIA_URL.endswith('/') else settings.MEDIA_URL + '/'
             return f"{base_url}{obj.photo}"
+        return None
+
+    def get_signature(self, obj):
+        if obj.photo:
+            # Ensure MEDIA_URL ends with /
+            base_url = settings.MEDIA_URL if settings.MEDIA_URL.endswith('/') else settings.MEDIA_URL + '/'
+            return f"{base_url}{obj.signature}"
         return None
 
     def create(self, validated_data):

@@ -12,10 +12,12 @@ from api.serializers import UserProfileSerializer, UserProfileSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import UserProfile
+from utils.permissions import HasMethodPermission
+
 
 
 class UserProfileView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = UserProfileSerializer
 
     def get(self, request, uid=None):

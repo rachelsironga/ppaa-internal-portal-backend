@@ -17,11 +17,25 @@ from api.serializers import DirectorySerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import Directory
+from utils.permissions import HasMethodPermission
+
 
 
 class DirectoryView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = DirectorySerializer
+    required_permissions = {
+        "get": [
+              "view_directory"
+            ],
+        "post": [
+            "add_directory",
+            "change_directory",
+        ],
+        "delete": [
+            "delete_directory",
+        ]
+    }
 
     def get(self, request, uid=None):
         try:

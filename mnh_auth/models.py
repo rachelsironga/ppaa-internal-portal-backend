@@ -86,13 +86,50 @@ class User(AbstractUser, PermissionsMixin):
         return self.first_name
 
     def has_perm(self, perm, obj=None):
-        return True
+        """
+        Checks if the user has the specified permission string.
+        """
+        if self.is_superuser:
+            return True
+
+        # Direct permissions
+        if self.user_permissions.filter(codename=perm.split('.')[-1]).exists():
+            return True
+
+        # Permissions via groups
+        if Permission.objects.filter(
+                group__user=self,
+                codename=perm.split('.')[-1]
+        ).exists():
+            return True
+
+        return False
 
     def has_module_perms(self, app_label):
-        return True
+        """
+        Returns True if the user has any permissions in the given app_label.
+        """
+        if self.is_superuser:
+            return True
+
+        # Check direct permissions
+        if self.user_permissions.filter(content_type__app_label=app_label).exists():
+            return True
+
+        # Check group permissions
+        if Permission.objects.filter(
+                group__user=self,
+                content_type__app_label=app_label
+        ).exists():
+            return True
+
+        return False
 
     def get_groups(self):
-        return []
+        """
+        Returns QuerySet of groups the user belongs to.
+        """
+        return self.groups.all()
 
     def get_group_names(self):
         """Returns a list of group names the user belongs to."""
@@ -210,6 +247,7 @@ class UserProfile(BaseModel):
     user = models.ForeignKey(User, related_name='user_profiles', on_delete=models.SET_NULL, null=True, blank=True)
     level = models.ForeignKey(PositionalLevel, on_delete=models.CASCADE)
     directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='user_profiles')
+    acting_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
     department = models.ForeignKey('Department', models.DO_NOTHING, blank=True, null=True, default=None)
     is_active = models.BooleanField(default=True, null=False, blank=False)

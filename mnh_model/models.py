@@ -77,29 +77,53 @@ class ApprovalRequest(BaseModel):
     ]
 
     title = models.CharField(max_length=255)
-    description = models.TextField(max_length=255, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
     module = models.ForeignKey(ApprovalModule, on_delete=models.RESTRICT, related_name='approval_module')
     type = models.CharField(max_length=40, null=True) #the field will have type from module code for easy access
     department = models.ForeignKey('mnh_auth.Department', models.DO_NOTHING, blank=True, null=True)
     date_range = models.ForeignKey(DateRange, on_delete=models.RESTRICT, related_name='date_range', null=True)
     request_data = models.JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, default='NEW', choices=REQUEST_CHOICES)
+    current_state = models.PositiveIntegerField(default=0)
 
     class Meta:
         db_table = 'approval_requests'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.title} ({self.type})"
-
 
 class ApprovalRequestStep(BaseModel):
     approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE, related_name="steps")
     approval_module_level = models.ForeignKey(ApprovalModuleLevel, on_delete=models.CASCADE)  # ForeignKey, NOT OneToOneField
     approved_by = models.ForeignKey(User, on_delete=models.RESTRICT, null=True)
     is_acting = models.BooleanField(default=True, db_comment="if user is not the real signatory but acting one")
+    is_approved = models.BooleanField(default=False)
+    action_count = models.PositiveIntegerField(default=1)
+    is_active = models.BooleanField(default=True)
     comment = models.TextField(blank=True, null=True)
     class Meta:
         db_table = 'approval_request_steps'
+
+class ApprovalRequestHandler(BaseModel):
+    CHOICES = [
+        ('PENDING', 'PENDING'),
+        ('DONE', 'DONE'),
+        ('POSTPONED', 'POSTPONED')
+    ]
+
+    approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE, related_name="handles")
+    handler = models.ForeignKey(User, on_delete=models.RESTRICT, null=True)
+    comment = models.TextField(blank=True, null=True)
+    is_notified = models.BooleanField(default=False)
+    status = models.CharField(max_length=15, default='PENDING', choices=CHOICES)
+    responded_at = models.ForeignKey(User, related_name='handler_responded_at', on_delete=models.SET_NULL, null=True,
+                                   blank=True)
+    class Meta:
+        db_table = 'approval_request_handler'
+        unique_together = ('approval_request', 'handler')
+        ordering = ['-created_at']
+
 
 class RequestInternetEmailAccess(BaseModel):
     approval_request = models.OneToOneField(
@@ -133,6 +157,7 @@ class JeevaRole(BaseModel):
     name = models.CharField(max_length=255, unique=True)
     code = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    is_updated = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'jeeva_roles'
@@ -146,8 +171,7 @@ class JeevaPermission(BaseModel):
     name = models.CharField(max_length=255, unique=True)
     code = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
-
-
+    role = models.ForeignKey(JeevaRole, on_delete=models.CASCADE, related_name='permissions', null=True)
     class Meta:
         db_table = 'jeeva_permissions'
         unique_together = ('name', 'code')
@@ -155,7 +179,3 @@ class JeevaPermission(BaseModel):
 
     def __str__(self):
         return f"{self.uid}"
-
-
-
-

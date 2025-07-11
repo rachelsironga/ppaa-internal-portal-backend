@@ -9,11 +9,25 @@ from api.serializers import ApprovalModuleLevelSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import ApprovalModuleLevel, ApprovalModule
+from utils.permissions import HasMethodPermission
+
 
 
 class ApprovalModuleLevelView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalModuleLevelSerializer
+    required_permissions = {
+        "get": [
+            "view_approvalmodulelevel"
+        ],
+        "post": [
+            "add_approvalmodulelevel",
+            "change_approvalmodulelevel",
+        ],
+        "delete": [
+            "delete_approvalmodulelevel",
+        ]
+    }
 
 
     def get(self, request, uid=None):

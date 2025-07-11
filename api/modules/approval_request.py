@@ -6,15 +6,20 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
-from api.serializers import ApprovalRequestSerializer, REQUEST_TYPE_SERIALIZER_IMPORTS, get_serializer_class
+from api.serializers import ApprovalRequestSerializer, REQUEST_TYPE_SERIALIZER_IMPORTS, get_serializer_class, \
+    ApprovalRequestStepSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import ApprovalRequest, ApprovalModule
+from utils.permissions import HasMethodPermission
 
 
 class ApprovalRequestView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalRequestSerializer
+    required_permissions = {
+        "get": ["view_approvalrequest"],
+    }
 
 
     def get(self, request, uid=None):
@@ -24,18 +29,11 @@ class ApprovalRequestView(APIView):
                 if not approval_request:
                     raise NotFound("Approval Request not found")
 
-                # Get related instance dynamically based on type
-                try:
-                    related_attr = approval_request.type.lower()
-                    related_instance = getattr(approval_request, related_attr, None)
-                except AttributeError:
-                    related_instance = None
-
-                # Attach it dynamically for serializer
-                setattr(approval_request, 'request_details', related_instance)
-
-                return CustomResponse.success(data=ApprovalRequestSerializer(approval_request).data)
-
+                serializer = ApprovalRequestSerializer(
+                    approval_request,
+                    context={'request': request, 'show_full_user': True,'approval_request_uid': approval_request.uid}
+                )
+                return CustomResponse.success(data=serializer.data)
 
             search_query = request.GET.get('search', '').strip()
             approval_request = ApprovalRequest.objects.filter(is_deleted=False)

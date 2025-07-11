@@ -10,11 +10,25 @@ from api.serializers import PositionalLevelSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import PositionalLevel
+from utils.permissions import HasMethodPermission
+
 
 
 class PositionalLevelView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = PositionalLevelSerializer
+    required_permissions = {
+        "get": [
+            "view_positionallevel"
+        ],
+        "post": [
+            "add_positionallevel",
+            "change_positionallevel",
+        ],
+        "delete": [
+            "delete_positionallevel",
+        ]
+    }
 
     def get(self, request, uid=None):
         try:

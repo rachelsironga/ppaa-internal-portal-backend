@@ -10,10 +10,24 @@ from api.serializers import ApprovalActionSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import ApprovalAction
+from utils.permissions import HasMethodPermission
+
 
 class ApprovalActionView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalActionSerializer
+    required_permissions = {
+        "get": [
+              "view_approvalaction"
+            ],
+        "post": [
+            "add_approvalaction",
+            "change_approvalaction",
+        ],
+        "delete": [
+            "delete_approvalaction",
+        ]
+    }
 
 
     def get(self, request, uid=None):
