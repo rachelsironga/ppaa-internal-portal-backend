@@ -7,7 +7,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
-from api.serializers import ApprovalModuleSerializer, ApprovalRequestStepSerializer
+from api.serializers import ApprovalModuleSerializer, ApprovalRequestStepSerializer, UserProfileSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import UserProfile
@@ -21,7 +21,7 @@ class ApproveModuleLevelStepView(APIView):
     serializer_class = ApprovalRequestStepSerializer
     required_permissions = {
         "get": [
-            "view_request"
+            "view_approvalrequeststep"
         ],
         "post": [
             "can_approve_request",
@@ -84,14 +84,16 @@ class ApproveModuleLevelStepView(APIView):
                     # Does user match expected positional level?
                     user_position = user.get_position() if hasattr(user, "get_position") else None
 
-                    if expected_level.level == user_position:
+                    if expected_level.level.uid == user_position['level_uid'] and expected_level.department.uid == user_position['department_uid'] :
                         is_acting = False
                     else:
                         # Check if a user is acting for someone in this level
                         acting = UserProfile.objects.filter(
                             is_active=True,
-                        ).exclude(id=user.id).filter(
-                            acting_user__id=user.id
+                            acting_user__id=user.id,
+                            level=expected_level.level,
+                            department=expected_level.department,
+                            is_deleted=False
                         ).exists()
                         if not acting:
                             return CustomResponse.errors(
@@ -167,3 +169,40 @@ class ApproveModuleLevelStepView(APIView):
             return CustomResponse.server_error(
                 message=f"Failed to process approval action: {str(e)}"
             )
+
+
+class ApproveModuleLevelActingUser(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    serializer_class = UserProfileSerializer
+    required_permissions = {
+        "get": [
+            "view_approvalrequeststep"
+        ],
+    }
+
+    def get(self, request):
+        try:
+            level_uid = request.GET.get('level', "").strip()
+            department_uid = request.GET.get('department', "").strip()
+
+            if level_uid != "" and department_uid != "":
+                user = request.user
+                user_position = user.get_position() if hasattr(user, "get_position") else None
+                # Check if a user is acting for someone in this level
+                acting = UserProfile.objects.filter(
+                    is_active=True,
+                    acting_user__id=user.id,
+                    level__uid=level_uid,
+                    department__uid=department_uid,
+                    is_deleted=False
+                ).first()
+                if acting:
+                    return CustomResponse.success(data=UserProfileSerializer(acting).data)
+
+            return CustomResponse.errors(
+                message="Your not Acting a Position in This Department",
+                code=STATUS_CODES["VALIDATION_ERROR"],
+            )
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Retrieve Departments: {str(e)}', )

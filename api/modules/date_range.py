@@ -39,7 +39,12 @@ class DateRangeView(APIView):
                 return CustomResponse.success(data=DateRangeSerializer(date_range).data)
 
             search_query = request.GET.get('search', '').strip()
+            is_active = request.GET.get('is_active', None)
+
             date_ranges = DateRange.objects.filter(is_deleted=False)
+
+            if is_active is not None:
+                date_ranges = date_ranges.filter(is_active=str(is_active).capitalize())
 
             if search_query:
                 date_ranges = date_ranges.filter(
