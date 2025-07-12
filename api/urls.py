@@ -1,7 +1,7 @@
 from django.urls import path
 
 from api.modules.approval_action import ApprovalActionView
-from api.modules.approval_module_level_step import ApproveModuleLevelStepView
+from api.modules.approval_module_level_step import ApproveModuleLevelStepView, ApproveModuleLevelActingUser
 from api.modules.date_range import DateRangeView
 from api.modules.positional_level import PositionalLevelView
 from api.modules.approval_module import ApprovalModuleView
@@ -44,5 +44,6 @@ urlpatterns = [
     path('approve-reject-request', ApproveModuleLevelStepView.as_view(), name='approve-reject-request'),
 
     path('approval-request-step/<str:request_uid>', ApproveModuleLevelStepView.as_view(), name='one-approval-request-step'),
+    path('get-acting-user', ApproveModuleLevelActingUser.as_view(), name='get-acting-user'),
 
 ]
