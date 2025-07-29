@@ -13,11 +13,14 @@ from rest_framework.utils import timezone
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from api.serializers import DirectorySerializer
+from api.serializers import DirectorySerializer, DirectoryImportSerializer
+from api.utils import base64_to_excel_file, generate_acronym
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_auth.models import Directory
+from mnh_auth.models import Directory, Department
 from utils.permissions import HasMethodPermission
+
+import pandas as pd
 
 
 
@@ -110,3 +113,88 @@ class DirectoryView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message="Something went wrong While Deleting Directory")
+
+class UploadDirectoryExcelView(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
+    serializer_class = DirectoryImportSerializer
+    required_permissions = {
+        "post": [
+            "import_directory",
+        ],
+    }
+
+
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return CustomResponse.errors(message="Invalid request", data=serializer.errors)
+
+        try:
+            with transaction.atomic():
+                # Step 1: Decode Excel file
+                file_obj = base64_to_excel_file(serializer.validated_data['file'])
+
+                # Step 2: Read Excel into DataFrame
+                df = pd.read_excel(file_obj)
+
+                required_cols = ["DEPARTMENT", "OFFICE_LOCATION", "DIRECTORATE"]
+                if not all(col in df.columns for col in required_cols):
+                    return CustomResponse.errors(message="Missing required columns", data=required_cols)
+
+                failed_rows, success_count = [], 0
+
+                # Step 3: Iterate rows and import
+                for _, row in df.iterrows():
+                    try:
+                        dept_name = str(row["DEPARTMENT"]).strip()
+                        office_location = str(row["OFFICE_LOCATION"]).strip()
+                        dir_name = str(row["DIRECTORATE"]).strip().upper()
+
+                        if not dept_name or not dir_name:
+                            raise ValueError("Department or Directorate is missing")
+
+                        dir_code = generate_acronym(dir_name)
+                        dept_code = dept_name.replace(" ", "_")
+
+                        # Create/get Directory
+                        directory = Directory.objects.filter(
+                            Q(name__iexact=dir_name) | Q(code__iexact=dir_code)
+                        ).first()
+
+                        if not directory:
+                            directory = Directory.objects.create(name=dir_name, code=dir_code)
+
+                        # Check for existing department
+                        if Department.objects.filter(name__iexact=dept_name, directory=directory).exists():
+                            failed_rows.append({
+                                "department": dept_name,
+                                "directory": dir_name,
+                                "reason": f"Already exists as a department in this directory: {directory.name}"
+                            })
+                            continue
+
+                        # Create department
+                        Department.objects.create(
+                            name=dept_name,
+                            code=dept_code,
+                            directory=directory,
+                            created_by=request.user,
+                            updated_by=request.user
+                        )
+                        success_count += 1
+
+                    except Exception as e:
+                        failed_rows.append({
+                            "department": row.get("DEPARTMENT", "Unknown"),
+                            "directory": row.get("DIRECTORATE", "Unknown"),
+                            "reason": str(e)
+                        })
+
+                return CustomResponse.success(
+                    data={
+                        "successfully_created": success_count,
+                        "failed": failed_rows
+                    })
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f"Import failed: {str(e)}")

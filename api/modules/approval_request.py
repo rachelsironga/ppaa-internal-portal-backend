@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from api.serializers import ApprovalRequestSerializer, REQUEST_TYPE_SERIALIZER_IMPORTS, get_serializer_class, \
     ApprovalRequestStepSerializer
+from api.utils import send_custom_email
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import ApprovalRequest, ApprovalModule
@@ -49,36 +50,35 @@ class ApprovalRequestView(APIView):
             return CustomResponse.server_error(message=f'Failed to Retrieve Approval Requests: {str(e)}', )
 
     def post(self, request):
-        # try:
-        with transaction.atomic():
-            uid = request.data.get('uid')
-            instance = None
+        try:
+            with transaction.atomic():
+                uid = request.data.get('uid')
+                instance = None
 
-            # 1. Check if it's an update operation
-            if uid:
-                try:
-                    instance = ApprovalRequest.objects.get(uid=uid)
-                except ApprovalRequest.DoesNotExist:
-                    return CustomResponse.errors(message="Approval Request not found")
+                # 1. Check if it's an update operation
+                if uid:
+                    try:
+                        instance = ApprovalRequest.objects.get(uid=uid)
+                    except ApprovalRequest.DoesNotExist:
+                        return CustomResponse.errors(message="Approval Request not found")
 
-            serializer = self.serializer_class(instance, data=request.data, partial=True)
+                serializer = self.serializer_class(instance, data=request.data, partial=True)
 
-            # Validate and save
-            if serializer.is_valid():
-                serializer.save(created_by=request.user, updated_by=request.user)
-                return CustomResponse.success(data=serializer.data)
+                # Validate and save
+                if serializer.is_valid():
+                    serializer.save(created_by=request.user, updated_by=request.user)
+                    return CustomResponse.success(data=serializer.data)
 
-            # Validation failed
-            return CustomResponse.errors(
-                message="Validation Failed",
-                data=serializer.errors,
-                code=STATUS_CODES["VALIDATION_ERROR"]
+                # Validation failed
+                return CustomResponse.errors(
+                    message="Validation Failed",
+                    data=serializer.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"]
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to Change Approval Request: {str(e)}"
             )
-
-        # except Exception as e:
-        #     return CustomResponse.server_error(
-        #         message=f"Failed to Change Approval Request: {str(e)}"
-        #     )
 
     def delete(self, request, uid):
         try:

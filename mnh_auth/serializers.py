@@ -55,6 +55,14 @@ class UserSerializer(serializers.ModelSerializer):
         validated_data['username'] = validated_data.get('pf_number')
         return super().create(validated_data)
 
+class ActingUserSerializer(serializers.Serializer):
+    delegated_user = serializers.UUIDField(
+        write_only=True,
+        required=True,
+    )
+
+
+
 class FileUploadSerializer(serializers.Serializer):
     uid = serializers.UUIDField(write_only=True, required=True)
     based64_file = serializers.CharField(
@@ -246,3 +254,17 @@ class UserIdentitySerializer(ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'guid']
+
+class GroupSerializer(serializers.ModelSerializer):
+    users_count = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = ['id', 'name', 'users_count', 'permissions']
+
+    def get_users_count(self, obj):
+        return User.objects.filter(groups=obj).count()
+
+    def get_permissions(self, obj):
+        return list(obj.permissions.values_list('codename', flat=True))
