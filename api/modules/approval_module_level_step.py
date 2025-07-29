@@ -10,8 +10,9 @@ from rest_framework.views import APIView
 from api.serializers import ApprovalModuleSerializer, ApprovalRequestStepSerializer, UserProfileSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_auth.models import UserProfile
-from mnh_model.models import ApprovalModule, ApprovalModuleLevel, ApprovalRequestStep, ApprovalRequest
+from mnh_auth.models import UserProfile, User
+from mnh_model.models import ApprovalModule, ApprovalModuleLevel, ApprovalRequestStep, ApprovalRequest, \
+    ApprovalRequestHandler
 from utils.permissions import HasMethodPermission
 
 
@@ -160,6 +161,26 @@ class ApproveModuleLevelStepView(APIView):
                 )
 
                 approval_request.save()
+
+                if approval_request.status == "APPROVED" or approval_request.status == "REJECTED":
+                    handler_user_uid = validated.get("handler_user")
+                    if handler_user_uid:
+                        handler_user = User.objects.filter(guid=str(handler_user_uid)).first()
+                        if not handler_user:
+                            return CustomResponse.errors(
+                                message="Sorry. We are unable to find the user you are Assign as handler",
+                                code=STATUS_CODES["VALIDATION_ERROR"],
+                            )
+
+                        approval_request_handler = ApprovalRequestHandler()
+                        approval_request_handler.approval_request = approval_request
+                        approval_request_handler.handler = handler_user
+                        approval_request_handler.created_by = user
+                        approval_request_handler.updated_by = user
+                        approval_request_handler.created_at = timezone.now()
+                        approval_request_handler.updated_at = timezone.now()
+                        approval_request_handler.comment = validated.get("comment"),
+                        approval_request_handler.save()
 
                 # Return success
                 response_serializer = self.serializer_class(step)

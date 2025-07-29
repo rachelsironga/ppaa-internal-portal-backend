@@ -8,7 +8,7 @@ from mnh_auth.serializers import UserSerializer
 from mnh_model.models import (
     ApprovalModule, ApprovalAction,
     ApprovalModuleLevel, ApprovalRequest, RequestJeevaAccess, RequestInternetEmailAccess, ApprovalRequestStep,
-    JeevaRole, JeevaPermission, DateRange
+    JeevaRole, JeevaPermission, DateRange, ApprovalRequestHandler
 )
 from mnh_auth.models import PositionalLevel, Directory, Department, UserProfile, User
 
@@ -37,6 +37,12 @@ class DateRangeSerializer(serializers.ModelSerializer):
             'updated_by': {'read_only': True},
             'deleted_by': {'read_only': True},
         }
+
+
+class DirectoryImportSerializer(serializers.Serializer):
+    file = serializers.CharField(required=True)  # base64 Excel string
+    include_departments = serializers.BooleanField(required=False, default=True)
+
 
 
 class DirectorySerializer(serializers.ModelSerializer):
@@ -144,7 +150,7 @@ class UserProfileViewSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    user_uid = serializers.UUIDField(write_only=True)
+    user_uid = serializers.UUIDField(write_only=True, required=False)
     user = UserSerializer(read_only=True)
 
     directory_uid = serializers.UUIDField(write_only=True)
@@ -188,7 +194,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         try:
             data['user'] = User.objects.get(guid=user_uid, is_active=True, is_deleted=False)
-        except User.DoesNotExist:
+        except Exception as e:
             raise serializers.ValidationError({"user_uid": "Unable Find User,May be Deleted or Disabled"})
 
         try:
@@ -234,6 +240,7 @@ class ApprovalActionSerializer(serializers.ModelSerializer):
 
 class ApprovalRequestStepSerializer(serializers.ModelSerializer):
     request_uid = serializers.UUIDField(write_only=True, required=False)
+    handler_user = serializers.UUIDField(write_only=True, required=False)
     module_level_uid = serializers.UUIDField(write_only=True, required=False)
     action = serializers.ChoiceField(choices=["FORWARD", "RETURN"], write_only=True)
 
@@ -243,7 +250,7 @@ class ApprovalRequestStepSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ApprovalRequestStep
-        fields = ['uid', 'approved_by', 'is_acting', 'is_approved','action_count', 'comment','action',
+        fields = ['uid', 'approved_by', 'is_acting', 'is_approved','action_count','handler_user', 'comment','action',
                   'request_uid', 'module_level_uid', 'approval_level','created_at', 'updated_at']
         read_only_fields = ['uid', 'created_by', 'created_at', 'updated_at']
 
@@ -464,13 +471,14 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
     request_details = serializers.SerializerMethodField(read_only=True)
     requester_name = serializers.SerializerMethodField(read_only=True)
     created_by = UserSerializer(read_only=True)
+    request_handler = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ApprovalRequest
         fields = [
             'uid', 'title', 'description', 'type', 'request_data', 'module_uid', 'date_range_uid', 'department_uid',
             'requester_name', 'current_state', 'module', 'department', 'date_range', 'created_by', 'status',
-            'created_at', 'updated_at', 'request_details'
+            'created_at', 'updated_at', 'request_details', 'request_handler'
         ]
         read_only_fields = ['uid', 'created_by', 'created_at', 'updated_at', 'status']
 
@@ -483,6 +491,23 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
         return {
             "guid": obj.created_by.guid,
         }
+
+    def get_request_handler(self, obj):
+        if self.context.get('show_full_user', False):
+            if obj.status in ['APPROVED', 'REJECTED']:
+                handler_user = ApprovalRequestHandler.objects.filter(
+                    approval_request=obj,
+                    is_deleted=False
+                ).first()
+
+                if handler_user and handler_user.handler:
+                    return {
+                        'name': handler_user.handler.first_name + " " + handler_user.handler.last_name,
+                        'email': handler_user.handler.email,
+                        'guid': handler_user.handler.guid,
+                        'pf_number': handler_user.handler.pf_number,
+                    }
+        return None
 
     def get_requester_name(self, obj):
         user = obj.created_by  # created_by is already a related user instance if FK

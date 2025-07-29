@@ -55,7 +55,7 @@ class User(AbstractUser, PermissionsMixin):
     dob = models.DateField(null=True, blank=True)
     sex = models.CharField(max_length=10, null=True, blank=True)
     # Other Personal Details
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     signature = models.TextField(max_length=200, null=True, blank=True)  # a file path
     photo = models.TextField(max_length=200, null=True, blank=True)  # a file path
@@ -70,7 +70,6 @@ class User(AbstractUser, PermissionsMixin):
     created_by = models.IntegerField(null=True, blank=True, default=1)
     is_deleted = models.BooleanField(default=False)
     deleted_by = models.IntegerField(null=True, blank=True, default=1)
-
 
     objects = UserManager()
     USERNAME_FIELD = 'username'
@@ -144,7 +143,7 @@ class User(AbstractUser, PermissionsMixin):
     def get_position(self):
         active_position = UserProfile.objects.filter(
             is_active=True, is_deleted=False, user=self
-        ).values(
+        ).select_related('acting_user').values(
             department_uid=F("department__uid"),
             department_name=F("department__name"),
             department_code=F("department__code"),
@@ -156,7 +155,35 @@ class User(AbstractUser, PermissionsMixin):
             level_code=F("level__code"),
             start_date=F("created_at"),
             last_date=F("end_date"),
+            acting_user_uid=F("acting_user__guid"),
+            acting_user_first_name=F("acting_user__first_name"),
+            acting_user_middle_name=F("acting_user__middle_name"),
+            acting_user_last_name=F("acting_user__last_name"),
+            acting_user_email=F("acting_user__email"),
+            acting_user_pf_number=F("acting_user__pf_number"),
+            acting_user_updated_at=F("acting_user__updated_at"),
         ).first()
+        if active_position:
+            acting_first_name = active_position.pop("acting_user_first_name", "") or ""
+            acting_last_name = active_position.pop("acting_user_last_name", "") or ""
+            acting_middle_name = active_position.pop("acting_user_middle_name", "") or ""
+            acting_user_uid = active_position.pop("acting_user_uid", "") or ""
+            acting_email = active_position.pop("acting_user_email", "") or ""
+            acting_pf_number = active_position.pop("acting_user_pf_number", "") or ""
+            acting_created_at = active_position.pop("acting_user_updated_at", "") or ""
+
+            if any([acting_first_name, acting_middle_name, acting_last_name, acting_user_uid, acting_email,
+                    acting_pf_number,acting_created_at, ]):
+                active_position["acting_user"] = {
+                    "uid": acting_user_uid,
+                    "name": f"{acting_first_name} {acting_middle_name} {acting_last_name}".strip(),
+                    "email": acting_email,
+                    "pf_number": acting_pf_number,
+                    "created_at": acting_created_at
+                }
+            else:
+                active_position["acting_user"] = None
+
         return active_position or None
 
     def save(self, *args, **kwargs):
@@ -166,8 +193,6 @@ class User(AbstractUser, PermissionsMixin):
 
     class Meta:
         db_table = 'auth_user'
-
-
 
 
 class BaseModel(models.Model):
@@ -189,8 +214,8 @@ class BaseModel(models.Model):
 
 
 class Directory(BaseModel):
-    name = models.CharField(max_length=100, null=True)
-    code = models.CharField(max_length=20, null=True)
+    name = models.CharField(max_length=150, null=True)
+    code = models.CharField(max_length=100, null=True)
     description = models.TextField(blank=True, null=True)
 
     class Meta:
@@ -208,8 +233,8 @@ class Directory(BaseModel):
 
 
 class Department(BaseModel):
-    name = models.CharField(max_length=100, null=True)
-    code = models.CharField(max_length=20, null=True)
+    name = models.CharField(max_length=150, null=True)
+    code = models.CharField(max_length=100, null=True)
     directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='departments')
 
     description = models.TextField(blank=True, null=True)
@@ -228,12 +253,12 @@ class Department(BaseModel):
     def __str__(self):
         return f"{self.name} ({self.code})"
 
+
 class PositionalLevel(BaseModel):
     """Defines different levels of approval (e.g., Supervisor, Manager, Director)"""
     name = models.CharField(max_length=100, null=True)
     code = models.CharField(max_length=20, null=True)
     is_active = models.BooleanField(default=True)
-
 
     class Meta:
         db_table = 'positional_levels'
@@ -247,18 +272,15 @@ class UserProfile(BaseModel):
     user = models.ForeignKey(User, related_name='user_profiles', on_delete=models.SET_NULL, null=True, blank=True)
     level = models.ForeignKey(PositionalLevel, on_delete=models.CASCADE)
     directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='user_profiles')
-    acting_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    acting_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='acting_user')
 
     department = models.ForeignKey('Department', models.DO_NOTHING, blank=True, null=True, default=None)
     is_active = models.BooleanField(default=True, null=False, blank=False)
     end_date = models.DateTimeField(blank=True, null=True)
     description = models.TextField(blank=True, null=True)  # Optional explanation
 
-
     class Meta:
         db_table = 'user_profile'
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.level.code})"
-
-

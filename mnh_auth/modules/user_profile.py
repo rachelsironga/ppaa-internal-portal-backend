@@ -7,17 +7,18 @@ from django.utils import timezone
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from yaml import serialize
 
 from api.serializers import UserProfileSerializer, UserProfileSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_auth.models import UserProfile
+from mnh_auth.models import UserProfile, User
+from mnh_auth.serializers import ActingUserSerializer, UserSerializer
 from utils.permissions import HasMethodPermission
 
 
-
 class UserProfileView(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
     serializer_class = UserProfileSerializer
 
     def get(self, request, uid=None):
@@ -32,10 +33,8 @@ class UserProfileView(APIView):
             user_uid = request.GET.get('user_uid', '').strip()
             old_only = request.GET.get('old_only', False)
 
-
-
             if old_only:
-                user_profiles =  UserProfile.objects.filter(is_active=False)
+                user_profiles = UserProfile.objects.filter(is_active=False)
             else:
                 user_profiles = UserProfile.objects.filter(is_deleted=False)
 
@@ -106,15 +105,105 @@ class UserProfileView(APIView):
     def delete(self, request, uid):
         try:
             with transaction.atomic():
-                user_profile = UserProfile.objects.filter(uid=uid,is_deleted=False).first()
+                user_profile = UserProfile.objects.filter(uid=uid, is_deleted=False).first()
                 if not UserProfile:
                     return CustomResponse.errors(message="UserProfile Not Found or Already Deleted", )
 
                 user_profile.is_deleted = True
-                user_profile.deleted_at=timezone.datetime.now()
+                user_profile.deleted_at = timezone.datetime.now()
                 user_profile.deleted_by = request.user
                 user_profile.save()
                 return CustomResponse.success(message='User Profile deleted successfully')
 
         except Exception as e:
             return CustomResponse.server_error(message="Something went wrong While Deleting User Profile")
+
+
+class ActingUser(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
+    serializer_class = ActingUserSerializer
+    required_permissions = {
+        "post": [
+            "can_assign_delegate",
+        ],
+        "delete": [
+            "can_assign_delegate",
+        ]
+    }
+
+    def post(self, request):
+        try:
+            with (transaction.atomic()):
+                serializer = self.serializer_class(data=request.data)
+                if serializer.is_valid():
+                    delegate_user = User.objects.filter(guid=serializer.validated_data['delegated_user']).first()
+                    if not delegate_user:
+                        return CustomResponse.errors(message="Delegate User not found")
+
+                    user = request.user
+                    user_position = user.get_position() if hasattr(user, "get_position") else None
+                    if not user_position:
+                        return CustomResponse.errors(
+                            message="You are not assigned to any position. Please assign a position before delegating.",
+                            code=STATUS_CODES["VALIDATION_ERROR"],
+                        )
+                    # Locate the active UserProfile for this level and department
+                    active_profile = UserProfile.objects.filter(
+                        is_active=True,
+                        level__uid=user_position['level_uid'],
+                        department__uid=user_position['department_uid'],
+                        is_deleted=False
+                    ).first()
+
+                    if not active_profile:
+                        return CustomResponse.errors(
+                            message="No active profile found in your position. Cannot assign delegation.",
+                            code=STATUS_CODES["VALIDATION_ERROR"],
+                        )
+                    active_profile.acting_user = delegate_user
+                    active_profile.updated_by = request.user
+                    active_profile.updated_at = timezone.now()
+                    active_profile.save()
+                    # if success returns User for Front end Update
+                    return CustomResponse.success(data=UserSerializer(user).data)
+
+            return CustomResponse.errors(
+                message="Your Have sent Invalid User",
+                code=STATUS_CODES["VALIDATION_ERROR"],
+            )
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to create Deligation: {str(e)}', )
+
+    def delete(self, request):
+        try:
+            with (transaction.atomic()):
+                user = request.user
+                user_position = user.get_position() if hasattr(user, "get_position") else None
+                if not user_position:
+                    return CustomResponse.errors(
+                        message="You are not assigned to any position. Please assign a position before delegating.",
+                        code=STATUS_CODES["VALIDATION_ERROR"],
+                    )
+                # Locate the active UserProfile for this level and department
+                active_profile = UserProfile.objects.filter(
+                    is_active=True,
+                    level__uid=user_position['level_uid'],
+                    department__uid=user_position['department_uid'],
+                    is_deleted=False
+                ).first()
+
+                if not active_profile:
+                    return CustomResponse.errors(
+                        message="No active profile found in your position. Cannot assign delegation.",
+                        code=STATUS_CODES["VALIDATION_ERROR"],
+                    )
+                active_profile.acting_user = None
+                active_profile.updated_by = request.user
+                active_profile.updated_at = timezone.now()
+                active_profile.save()
+                # if success returns User for Front end Update
+                return CustomResponse.success(data=UserSerializer(user).data)
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Remove Deligation: {str(e)}', )

@@ -8,7 +8,7 @@ from api.modules.approval_module import ApprovalModuleView
 from api.modules.approval_module_level import ApprovalModuleLevelView
 from api.modules.approval_request import ApprovalRequestView
 from api.modules.department import DepartmentView
-from api.modules.directory import DirectoryView
+from api.modules.directory import DirectoryView, UploadDirectoryExcelView
 from api.modules.external_auth.jeeva_roles import JeevaRoleView, JeevaRolePermissionListView
 
 urlpatterns = [
@@ -20,6 +20,7 @@ urlpatterns = [
 
     path('departments', DepartmentView.as_view(), name='view'),
     path('departments/<str:uid>', DepartmentView.as_view(), name='open'),
+path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
 
     path('positional-level', PositionalLevelView.as_view(), name='view-positional-level'),
     path('positional-level/<str:uid>', PositionalLevelView.as_view(), name='open-positional-level'),

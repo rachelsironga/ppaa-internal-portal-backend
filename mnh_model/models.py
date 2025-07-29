@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.utils import timezone
 
 from mnh_auth.models import PositionalLevel, Directory, Department, BaseModel
 
@@ -79,7 +80,7 @@ class ApprovalRequest(BaseModel):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     module = models.ForeignKey(ApprovalModule, on_delete=models.RESTRICT, related_name='approval_module')
-    type = models.CharField(max_length=40, null=True) #the field will have type from module code for easy access
+    type = models.CharField(max_length=40, null=True)
     department = models.ForeignKey('mnh_auth.Department', models.DO_NOTHING, blank=True, null=True)
     date_range = models.ForeignKey(DateRange, on_delete=models.RESTRICT, related_name='date_range', null=True)
     request_data = models.JSONField(blank=True, null=True)
@@ -112,13 +113,12 @@ class ApprovalRequestHandler(BaseModel):
         ('POSTPONED', 'POSTPONED')
     ]
 
-    approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE, related_name="handles")
-    handler = models.ForeignKey(User, on_delete=models.RESTRICT, null=True)
+    approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE, related_name="approval_request")
+    handler = models.ForeignKey(User, on_delete=models.RESTRICT, null=True,related_name="handler")
     comment = models.TextField(blank=True, null=True)
     is_notified = models.BooleanField(default=False)
     status = models.CharField(max_length=15, default='PENDING', choices=CHOICES)
-    responded_at = models.ForeignKey(User, related_name='handler_responded_at', on_delete=models.SET_NULL, null=True,
-                                   blank=True)
+    responded_at = models.DateTimeField(blank=True, null=True)
     class Meta:
         db_table = 'approval_request_handler'
         unique_together = ('approval_request', 'handler')

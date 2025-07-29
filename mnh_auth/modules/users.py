@@ -23,6 +23,7 @@ class UserView(APIView):
             if uid:
                 user = User.objects.filter(guid=uid, is_deleted=False).first()
                 if not user:
+
                     raise NotFound("User not found")
                 return CustomResponse.success(data=self.serializer_class(user).data)
 
