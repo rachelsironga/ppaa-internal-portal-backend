@@ -125,7 +125,6 @@ class UserView(APIView):
             print(f'Failed to Perform Action: {str(e)}')
             return CustomResponse.server_error(message="Something went wrong While Deleting User")
 
-
 class UserPhotoUpload(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = FileUploadSerializer
@@ -173,7 +172,6 @@ class UserPhotoUpload(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Change User Photo: {str(e)}', )
-
 
 class UserSignatureUpload(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
