@@ -61,4 +61,5 @@ volumes:
 
 networks:
   mnh-network:
+    driver: bridge
     external: true

@@ -11,10 +11,15 @@ class Command(BaseCommand):
 
         # Define your permissions as (codename, name)
         permissions_to_create = [
+            ("can_view_system_permission", "Can View System Permission"),
             ("can_assign_delegate", "Can Assign Delegate User"),
             ("can_view_sensitive_data", "Can View Sensitive Data"),
             ("can_view_directory", "Can View Directory"),
             ("can_import_directory", "Import Directory From Excel File"),
+            ("can_add_group", "Can Add Group"),
+            ("can_delete_group", "Can Delete Group"),
+            ("can_view_group", "Can View Group"),
+
         ]
 
         # Define groups and the permissions to assign

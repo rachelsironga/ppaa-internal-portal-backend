@@ -7,6 +7,24 @@ from rest_framework import status
 from rest_framework.serializers import ModelSerializer
 
 
+class GroupSerializer(serializers.ModelSerializer):
+    permissions = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = ["id", "name", "permissions"]
+
+    def get_permissions(self, obj):
+        # List all permissions assigned to the group
+        return list(obj.permissions.values('id', 'name', 'codename'))
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'codename', 'content_type']
+        depth = 1
+
 class UserSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField(read_only=True)
     user_permissions = serializers.SerializerMethodField(read_only=True)
@@ -255,16 +273,4 @@ class UserIdentitySerializer(ModelSerializer):
         model = User
         fields = ['id', 'guid']
 
-class GroupSerializer(serializers.ModelSerializer):
-    users_count = serializers.SerializerMethodField()
-    permissions = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Group
-        fields = ['id', 'name', 'users_count', 'permissions']
-
-    def get_users_count(self, obj):
-        return User.objects.filter(groups=obj).count()
-
-    def get_permissions(self, obj):
-        return list(obj.permissions.values_list('codename', flat=True))
