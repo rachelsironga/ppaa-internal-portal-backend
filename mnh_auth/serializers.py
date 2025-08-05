@@ -1,29 +1,13 @@
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
 from rest_framework import serializers
+from rest_framework.permissions import IsAuthenticated
 
-from .models import User
+from .models import User, GroupProfile
 from rest_framework import status
 from rest_framework.serializers import ModelSerializer
 
 
-class GroupSerializer(serializers.ModelSerializer):
-    permissions = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Group
-        fields = ["id", "name", "permissions"]
-
-    def get_permissions(self, obj):
-        # List all permissions assigned to the group
-        return list(obj.permissions.values('id', 'name', 'codename'))
-
-
-class PermissionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Permission
-        fields = ['id', 'name', 'codename', 'content_type']
-        depth = 1
 
 class UserSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField(read_only=True)
@@ -78,6 +62,73 @@ class ActingUserSerializer(serializers.Serializer):
         write_only=True,
         required=True,
     )
+
+class GroupSerializer(serializers.ModelSerializer):
+    permissions = serializers.SerializerMethodField()
+    users = serializers.SerializerMethodField()
+    last_update_at = serializers.SerializerMethodField()
+    update_count = serializers.SerializerMethodField()
+    last_updated_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = [
+            "id", "name","permissions", "users", "last_update_at", "last_updated_by", "update_count",
+        ]
+        read_only_fields = ["id", "users","last_update_at", "last_updated_by", "update_count",]
+
+    def get_permissions(self, obj):
+        # List all permissions assigned to the group
+        return list(obj.permissions.values('id', 'name', 'codename'))
+
+    def get_users(self, obj):
+        return obj.user_set.count()
+
+    def get_last_update_at(self, obj):
+        return (
+            obj.group_profile.updated_at.strftime("%Y-%m-%d")
+            if hasattr(obj, "group_profile") and obj.group_profile.updated_at
+            else None
+        )
+
+    def get_update_count(self, obj):
+        return obj.group_profile.update_count if hasattr(obj, "group_profile") else 0
+
+    def get_last_updated_by(self, obj):
+        return f'{obj.group_profile.updated_by.first_name} {obj.group_profile.updated_by.last_name}' if hasattr(obj, "group_profile") and obj.group_profile.updated_by else None
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        group = Group.objects.create(**validated_data)
+
+        GroupProfile.objects.create(
+            group=group,
+            created_by=user,
+            updated_by=user,
+            update_count=1
+        )
+        return group
+
+    def update(self, instance, validated_data):
+        user = self.context['request'].user
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update GroupProfile
+        group_profile, _ = GroupProfile.objects.get_or_create(group=instance)
+        group_profile.update_count += 1
+        group_profile.updated_by = user
+        group_profile.save()
+
+        return instance
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ['id', 'name', 'codename', 'content_type']
+        depth = 1
 
 
 

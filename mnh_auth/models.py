@@ -3,6 +3,10 @@ import uuid
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager, PermissionsMixin, Permission
 from django.db.models import Q, F
+from django.contrib.auth.models import Group
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth.models import Group
 
 
 class UserManager(BaseUserManager):
@@ -213,6 +217,20 @@ class BaseModel(models.Model):
         abstract = True
 
 
+class GroupProfile(models.Model):
+    group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name="group_profile")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, related_name='group_created')
+    updated_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, related_name='group_updated')
+    update_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'auth_group_profile'
+
+    def __str__(self):
+        return self.group.name
+
 class Directory(BaseModel):
     name = models.CharField(max_length=150, null=True)
     code = models.CharField(max_length=100, null=True)
@@ -284,3 +302,22 @@ class UserProfile(BaseModel):
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.level.code})"
+
+
+# @receiver(post_save, sender=Group)
+# def create_or_update_group_profile(sender, instance, created, **kwargs):
+#     """
+#     Signal to create or update GroupProfile whenever Group is saved
+#     """
+#     # Create a profile if not exist
+#     group_profile, was_created = GroupProfile.objects.get_or_create(group=instance, defaults={
+#         'created_by': 1,
+#         'updated_by': 1,
+#         'update_count': 1
+#     })
+#
+#     # If a group already existed (updated)
+#     if not created:
+#         group_profile.update_count += 1
+#         group_profile.updated_by =
+#         group_profile.save()

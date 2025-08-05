@@ -10,7 +10,7 @@ from api.modules.approval_request import ApprovalRequestView
 from api.modules.department import DepartmentView
 from api.modules.directory import DirectoryView, UploadDirectoryExcelView
 from api.modules.external_auth.jeeva_roles import JeevaRoleView, JeevaRolePermissionListView
-from api.modules.system.user_roles import SystemRoleView, SystemPermissionView
+from api.modules.system.user_roles import SystemRoleView, SystemPermissionView, SystemRoleUsers
 
 urlpatterns = [
     path('date-range', DateRangeView.as_view(), name='date-range-view'),
@@ -50,6 +50,7 @@ path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
 
     path('system/roles', SystemRoleView.as_view(), name='system-roles'),
     path('system/roles/<str:uid>', SystemRoleView.as_view(), name='open-system-roles'),
+    path('system/roles-users', SystemRoleUsers.as_view(), name='view-system-roles-users'),
 
 
     path('system/system-permissions', SystemPermissionView.as_view(), name='system-permissions'),
