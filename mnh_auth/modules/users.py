@@ -4,6 +4,7 @@ from django.utils import timezone
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from sqlparse.engine.grouping import group
 
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
@@ -28,6 +29,10 @@ class UserView(APIView):
                 return CustomResponse.success(data=self.serializer_class(user).data)
 
             users = User.objects.filter(is_deleted=False)
+
+            group_id = request.GET.get('group_id', '').strip()
+            if group_id:
+                users = users.filter(groups__id=group_id)
 
             search_query = request.GET.get('search', '').strip()
             if search_query:

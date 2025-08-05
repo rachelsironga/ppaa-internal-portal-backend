@@ -59,11 +59,10 @@ class SystemRoleView(APIView):
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Retrieve Groups: {str(e)}')
 
-    def post(self, request):
+    def post(self, request, uid=None):
         """Create or update a group with permissions"""
         try:
             with transaction.atomic():
-                uid = request.data.get("uid")
                 instance = None
                 is_update = False
 
@@ -76,7 +75,8 @@ class SystemRoleView(APIView):
                 serializer = self.serializer_class(
                     instance=instance,
                     data=request.data,
-                    partial=is_update
+                    partial=is_update,
+                    context={"request": request}
                 )
 
                 if not serializer.is_valid():
@@ -89,9 +89,9 @@ class SystemRoleView(APIView):
                 group = serializer.save()
 
                 # Handle permissions if provided
-                permission_ids = request.data.get("permissions", [])
-                if isinstance(permission_ids, list):
-                    group.permissions.set(Permission.objects.filter(id__in=permission_ids))
+                permissions = request.data.get("permissions", [])
+                if isinstance(permissions, list):
+                    group.permissions.set(Permission.objects.filter(id__in=permissions))
 
                 return CustomResponse.success(data=self.serializer_class(group).data)
 
@@ -115,7 +115,7 @@ class SystemPermissionView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = PermissionSerializer
     required_permissions = {
-        "get": ["can_view_system_permission"],
+        "get": ["can_view_system_permission"]
     }
 
     def get(self, request):
@@ -157,3 +157,46 @@ class SystemPermissionView(APIView):
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Retrieve Permissions: {str(e)}')
 
+
+class SystemRoleUsers(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    serializer_class = UserSerializer
+
+    required_permissions = {
+        "get": ["can_view_group"]
+    }
+
+    def get(self, request):
+        try:
+            role_id = request.GET.get('role_id', 0)
+            if not role_id:
+                return CustomResponse.errors(message=f'Users not Found', )
+
+            users = User.objects.filter(is_deleted=False, groups__id=int(role_id))
+
+            search_query = request.GET.get('search', '').strip()
+            if search_query:
+                users = users.filter(
+                    Q(username__icontains=search_query) |
+                    Q(email__icontains=search_query) |
+                    Q(pf_number__icontains=search_query) |
+                    Q(check_number__icontains=search_query) |
+                    Q(first_name__icontains=search_query) |
+                    Q(middle_name__icontains=search_query) |
+                    Q(last_name__icontains=search_query) |
+                    Q(phone_number__icontains=search_query) |
+                    Q(alternative_contact__icontains=search_query)
+                )
+
+            if users.exists():
+                context = {"is_auth_view": False}
+                return CustomPagination.paginate(
+                    view_class=self,
+                    results=users,
+                    request=request,
+                    serializer_context=context
+                )
+
+            return CustomResponse.errors(message="User not found", data=[])
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Retrieve Users: {str(e)}', )
