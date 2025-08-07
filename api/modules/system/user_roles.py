@@ -8,7 +8,8 @@ from rest_framework.views import APIView
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import User, UserProfile
-from mnh_auth.serializers import UserSerializer, FileUploadSerializer, GroupSerializer, PermissionSerializer
+from mnh_auth.serializers import UserSerializer, FileUploadSerializer, GroupSerializer, PermissionSerializer, \
+    AssignUserRoleSerializer
 from utils.minio_storage import MinioStorage
 from utils.permissions import HasMethodPermission
 
@@ -168,11 +169,16 @@ class SystemRoleUsers(APIView):
 
     def get(self, request):
         try:
-            role_id = request.GET.get('role_id', 0)
-            if not role_id:
-                return CustomResponse.errors(message=f'Users not Found', )
+            role_id = request.GET.get('role_id', None)
+            excluded_role = request.GET.get('excluded_role', None)
 
-            users = User.objects.filter(is_deleted=False, groups__id=int(role_id))
+            if role_id:
+                users = User.objects.filter(is_deleted=False, groups__id=int(role_id))
+            elif excluded_role:
+                users = User.objects.filter(is_deleted=False).exclude(
+                    groups__id=int(excluded_role))
+            else:
+                return CustomResponse.errors(message=f'Please Specify the Role', )
 
             search_query = request.GET.get('search', '').strip()
             if search_query:
@@ -200,3 +206,55 @@ class SystemRoleUsers(APIView):
             return CustomResponse.errors(message="User not found", data=[])
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Retrieve Users: {str(e)}', )
+
+
+class SystemAssignRoleUser(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    serializer_class = AssignUserRoleSerializer
+
+    required_permissions = {
+        "post": ["can_assign_user_to_group"],
+        "delete": ["can_remove_user_to_group"]
+    }
+
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(data=request.data)
+                if not serializer.is_valid():
+                    return CustomResponse.errors(
+                        message="Save Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+
+                user_group = serializer.save()
+                return CustomResponse.success(data=self.serializer_class(user_group).data)
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Save User Group: {str(e)}')
+
+    def delete(self, request):
+        try:
+            with transaction.atomic():
+                user_id = str(request.GET.get('user','')).strip()
+                role_id = str(request.GET.get('role','')).strip()
+                print(user_id,role_id)
+
+                if user_id == "" or role_id == "":
+                    return CustomResponse.errors(
+                        message="You Must Specifier both User and Role"
+                    )
+
+                user = User.objects.filter(guid=user_id,is_deleted=False).first()
+                if not user:
+                    return CustomResponse.errors(message="User Not Found")
+                role = Group.objects.filter(id=role_id).first()
+                if not role:
+                    return CustomResponse.errors(message="Role Not Found")
+                user.groups.remove(role)
+                user.save()
+                return CustomResponse.success(message='User Role deleted successfully')
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f"Failed to Remove User From Role")

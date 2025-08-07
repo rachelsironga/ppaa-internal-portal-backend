@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
+from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 
@@ -62,6 +63,55 @@ class ActingUserSerializer(serializers.Serializer):
         write_only=True,
         required=True,
     )
+
+class AssignUserRoleSerializer(serializers.Serializer):
+    permitted_user = serializers.CharField(
+        write_only=True,
+        required=True,
+    )
+    selected_role = serializers.CharField(
+        write_only=True,
+        required=True,
+    )
+
+    def validate(self, data):
+        permitted_user = data.pop('permitted_user')
+        selected_role = data.pop('selected_role')
+
+        data['user'] =User.objects.filter(guid=permitted_user,is_deleted=False).first()
+        if not data['user']:
+                raise serializers.ValidationError("The user not be verified may be or deleted")
+
+        data['role'] =Group.objects.filter(id=int(selected_role)).first()
+        if not data['role']:
+                raise serializers.ValidationError("The role not be verified may be or deleted")
+
+        if data['user'] in data['role'].user_set.all():
+                raise serializers.ValidationError("The user already have the role")
+
+        return data
+
+    def create(self, validated_data):
+        user = self.validated_data['user']
+        role = self.validated_data['role']
+        user.groups.add(role)
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        user = self.validated_data['user']
+        role = self.validated_data['role']
+        user.groups.remove(role)
+        user.save()
+        return user
+
+    def delete(self, instance):
+        user = self.validated_data['user']
+        role = self.validated_data['role']
+        user.groups.remove(role)
+        user.save()
+        return user
+
 
 class GroupSerializer(serializers.ModelSerializer):
     permissions = serializers.SerializerMethodField()
