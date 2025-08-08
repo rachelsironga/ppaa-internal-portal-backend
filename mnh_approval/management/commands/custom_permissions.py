@@ -19,6 +19,9 @@ class Command(BaseCommand):
             ("can_add_group", "Can Add Group"),
             ("can_delete_group", "Can Delete Group"),
             ("can_view_group", "Can View Group"),
+            ("can_assign_user_to_group", "Can Assign User To Group"),
+            ("can_remove_user_to_group", "Can Remove User From Group"),
+            ("import_users", "Can Import Users"),
 
         ]
 
@@ -26,6 +29,7 @@ class Command(BaseCommand):
         groups_to_permissions = {
             "Approvers": ["can_assign_delegate", "can_view_directory"],
             "Delegators": ["can_assign_delegate","can_import_directory", "can_view_sensitive_data"],
+            "Admins": ["can_add_group", "can_delete_group", "can_view_group", "can_assign_user_to_group", "can_remove_user_to_group"],
         }
 
         # Use a default ContentType (you can pick any model)

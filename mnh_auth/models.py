@@ -47,10 +47,11 @@ class User(AbstractUser, PermissionsMixin):
     }
 
     # User Columns
-    guid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    email = models.EmailField(max_length=70, unique=True)
-    pf_number = models.CharField(max_length=50, unique=True)
-    check_number = models.CharField(max_length=50, unique=True)
+    guid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+    email = models.EmailField(max_length=70, unique=True,  db_index=True)
+    pf_number = models.CharField(max_length=50, unique=True, db_index=True)
+    check_number = models.CharField(max_length=50, default=None, null=True)
+    office_location = models.CharField(max_length=70, default=None, null=True, blank=True)
     first_name = models.CharField(max_length=80, null=False, blank=False)
     middle_name = models.CharField(max_length=80, null=True, blank=True)
     last_name = models.CharField(max_length=80, null=False, blank=False)
