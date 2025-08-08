@@ -21,6 +21,7 @@ class Command(BaseCommand):
             ("can_view_group", "Can View Group"),
             ("can_assign_user_to_group", "Can Assign User To Group"),
             ("can_remove_user_to_group", "Can Remove User From Group"),
+            ("import_users", "Can Import Users"),
 
         ]
 

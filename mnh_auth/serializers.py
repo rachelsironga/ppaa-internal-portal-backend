@@ -375,3 +375,7 @@ class UserIdentitySerializer(ModelSerializer):
         fields = ['id', 'guid']
 
 
+class UserImportSerializer(serializers.Serializer):
+    file = serializers.CharField(required=True)
+
+
