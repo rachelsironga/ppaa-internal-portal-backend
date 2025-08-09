@@ -275,8 +275,8 @@ class Department(BaseModel):
 
 class PositionalLevel(BaseModel):
     """Defines different levels of approval (e.g., Supervisor, Manager, Director)"""
-    name = models.CharField(max_length=100, null=True)
-    code = models.CharField(max_length=20, null=True)
+    name = models.CharField(max_length=200, null=True)
+    code = models.CharField(max_length=200, null=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:

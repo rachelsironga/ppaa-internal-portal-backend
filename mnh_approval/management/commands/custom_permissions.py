@@ -22,14 +22,15 @@ class Command(BaseCommand):
             ("can_assign_user_to_group", "Can Assign User To Group"),
             ("can_remove_user_to_group", "Can Remove User From Group"),
             ("import_users", "Can Import Users"),
-
+            ("import_designations", "Can Import Designations"),
         ]
 
         # Define groups and the permissions to assign
         groups_to_permissions = {
             "Approvers": ["can_assign_delegate", "can_view_directory"],
             "Delegators": ["can_assign_delegate","can_import_directory", "can_view_sensitive_data"],
-            "Admins": ["can_add_group", "can_delete_group", "can_view_group", "can_assign_user_to_group", "can_remove_user_to_group"],
+            "admin": ["can_add_group", "can_delete_group", "can_view_group", "can_assign_user_to_group",
+                      "can_remove_user_to_group","import_designations","import_users"],
         }
 
         # Use a default ContentType (you can pick any model)
