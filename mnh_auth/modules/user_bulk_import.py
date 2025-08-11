@@ -5,6 +5,8 @@ import pandas as pd
 import csv
 from io import BytesIO, StringIO
 from uuid import uuid4
+
+from django.contrib.auth.hashers import make_password
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import transaction
@@ -41,7 +43,7 @@ class BulkUserImportView(APIView):
                 df = df.replace({np.nan: None})
                 required_cols = [
                     "FIRSTNAME", "LAST_NAME", "LOGIN_ID", "USER_JOB_ROLE", "CHECK_NO",
-                    "DIRECTORATE", "USER_DEPT", "OFFICE_LOCATION", "FILE_NO"
+                    "DIRECTORATE", "USER_DEPT", "OFFICE_LOCATION", "FILE_NO","PHONE_NO","GENDER"
                 ]
                 if not all(col in df.columns for col in required_cols):
                     return CustomResponse.errors("Missing required columns", data=required_cols)
@@ -112,10 +114,10 @@ class BulkUserImportView(APIView):
                             updated_by=request.user.id,
                             created_at=timezone.now(),
                             updated_at=timezone.now(),
-                            is_active=True
+                            is_active=True,
                         )
                         password = f"{user.last_name.upper()}@{pf_number}"
-                        user.set_password(password)
+                        user.password =make_password(password)
                         # Save both for later profile creation
                         user_objs.append((user, level, dept))
 
@@ -133,13 +135,15 @@ class BulkUserImportView(APIView):
                             "USER_DEPT": row.get("USER_DEPT"),
                             "USER_JOB_ROLE": row.get("USER_JOB_ROLE"),
                             "DIRECTORATE": row.get("DIRECTORATE"),
+                            "PHONE_NO": row.get("PHONE_NO"),
+                            "GENDER": row.get("GENDER"),
                             "OFFICE_LOCATION": row.get("OFFICE_LOCATION"),
                             "ERROR_MESSAGE": str(e),
                         })
 
                 # Separate user and level from saved tuples
                 users = [item[0] for item in user_objs]
-                User.objects.bulk_create(users, batch_size=1000)
+                User.objects.bulk_create(users, batch_size=500)
 
 
                 # Re-map email to User to safely link UserProfiles

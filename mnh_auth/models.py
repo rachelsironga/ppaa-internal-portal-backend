@@ -275,8 +275,8 @@ class Department(BaseModel):
 
 class PositionalLevel(BaseModel):
     """Defines different levels of approval (e.g., Supervisor, Manager, Director)"""
-    name = models.CharField(max_length=100, null=True)
-    code = models.CharField(max_length=20, null=True)
+    name = models.CharField(max_length=200, null=True)
+    code = models.CharField(max_length=200, null=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -296,29 +296,10 @@ class UserProfile(BaseModel):
     department = models.ForeignKey('Department', models.DO_NOTHING, blank=True, null=True, default=None)
     is_active = models.BooleanField(default=True, null=False, blank=False)
     end_date = models.DateTimeField(blank=True, null=True)
-    description = models.TextField(blank=True, null=True)  # Optional explanation
+    description = models.TextField(blank=True, null=True)
 
     class Meta:
         db_table = 'user_profile'
 
     def __str__(self):
         return f"{self.user.get_full_name()} ({self.level.code})"
-
-
-# @receiver(post_save, sender=Group)
-# def create_or_update_group_profile(sender, instance, created, **kwargs):
-#     """
-#     Signal to create or update GroupProfile whenever Group is saved
-#     """
-#     # Create a profile if not exist
-#     group_profile, was_created = GroupProfile.objects.get_or_create(group=instance, defaults={
-#         'created_by': 1,
-#         'updated_by': 1,
-#         'update_count': 1
-#     })
-#
-#     # If a group already existed (updated)
-#     if not created:
-#         group_profile.update_count += 1
-#         group_profile.updated_by =
-#         group_profile.save()

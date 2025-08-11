@@ -378,4 +378,6 @@ class UserIdentitySerializer(ModelSerializer):
 class UserImportSerializer(serializers.Serializer):
     file = serializers.CharField(required=True)
 
+class DesignationImportSerializer(serializers.Serializer):
+    file = serializers.CharField(required=True)
 
