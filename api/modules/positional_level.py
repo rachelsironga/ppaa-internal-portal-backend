@@ -153,7 +153,7 @@ class BulkDesignationImportView(APIView):
                 for index, row in df.iterrows():
                     try:
                         index_number += 1
-                        position = str(row["DESIGNATIONS"]).strip()
+                        position = str(row["DESIGNATIONS"]).strip().lower()
                         if position is None or position == '':
                             raise Exception("DESIGNATIONS Column is required")
 
@@ -161,6 +161,8 @@ class BulkDesignationImportView(APIView):
                             raise Exception(f"Duplicate Designations with name : {position}")
 
                         position_code = position.replace(" ", "_")
+                        # Add to map so duplicates in the same file are caught
+                        designation_map[position] = None
 
                         designation_objs.append(PositionalLevel(
                             name=position,

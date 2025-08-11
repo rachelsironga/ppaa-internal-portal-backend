@@ -55,6 +55,22 @@ services:
       - mnh-network
     restart: unless-stopped
 
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: patrick.nachenga
+      MINIO_ROOT_PASSWORD: P@ssw0rd
+    volumes:
+      - /opt/mnh-data/minio-data:/data
+    networks:
+      - mnh-network
+    restart: unless-stopped
+
 volumes:
   static_volume:
   media_volume:
