@@ -143,10 +143,11 @@ class BulkUserImportView(APIView):
                             "ERROR_MESSAGE": str(e),
                         })
 
+
                 # Separate user and level from saved tuples
                 users = [item[0] for item in user_objs]
-                User.objects.bulk_create(users, batch_size=1000)
-
+                User.objects.bulk_create(users, batch_size=5000)
+                print("number of failed rows: ", len(failed_rows))
 
                 # Re-map email to User to safely link UserProfiles
                 username_to_user = {user.username: user for user in User.objects.filter(username__in=[u.username for u in users])}
@@ -167,7 +168,7 @@ class BulkUserImportView(APIView):
                             updated_at = timezone.now(),
                         ))
 
-                UserProfile.objects.bulk_create(user_profiles, batch_size=1000)
+                UserProfile.objects.bulk_create(user_profiles, batch_size=5000)
 
                 # Generate a failed report if needed
                 csv_report = None
@@ -175,7 +176,7 @@ class BulkUserImportView(APIView):
                     csv_buffer = StringIO()
                     writer = csv.DictWriter(csv_buffer, fieldnames=[
                         "FIRSTNAME","LAST_NAME","LOGIN_ID","FILE_NO","CHECK_NO","USER_DEPT","USER_JOB_ROLE",
-                        "DIRECTORATE", "OFFICE_LOCATION","ERROR_MESSAGE"
+                        "DIRECTORATE", "OFFICE_LOCATION","PHONE_NO","GENDER","ERROR_MESSAGE"
                     ])
                     writer.writeheader()
                     writer.writerows(failed_rows)

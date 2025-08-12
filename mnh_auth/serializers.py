@@ -4,6 +4,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 
+from mnh_approval.services.minio.minio_helpers import get_presigned_url
 from .models import User, GroupProfile
 from rest_framework import status
 from rest_framework.serializers import ModelSerializer
@@ -42,16 +43,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_photo(self, obj):
         if obj.photo:
-            # Ensure MEDIA_URL ends with /
-            base_url = settings.MEDIA_URL if settings.MEDIA_URL.endswith('/') else settings.MEDIA_URL + '/'
-            return f"{base_url}{obj.photo}"
+            # Assuming obj.photo holds the path/key in the bucket
+            return get_presigned_url(str(obj.photo))
         return None
 
     def get_signature(self, obj):
-        if obj.photo:
-            # Ensure MEDIA_URL ends with /
-            base_url = settings.MEDIA_URL if settings.MEDIA_URL.endswith('/') else settings.MEDIA_URL + '/'
-            return f"{base_url}{obj.signature}"
+        if obj.signature:
+            return get_presigned_url(str(obj.signature))
         return None
 
     def create(self, validated_data):
