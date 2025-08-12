@@ -61,6 +61,7 @@ class UserView(APIView):
 
             return CustomResponse.errors(message="User not found", data=[])
         except Exception as e:
+            print(f"Fail to Retrieve Users {e}")
             return CustomResponse.server_error(message=f'Failed to Retrieve Users: {str(e)}', )
 
     def post(self, request):
