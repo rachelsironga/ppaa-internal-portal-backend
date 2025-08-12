@@ -56,7 +56,7 @@ class User(AbstractUser, PermissionsMixin):
     middle_name = models.CharField(max_length=80, null=True, blank=True)
     last_name = models.CharField(max_length=80, null=False, blank=False)
     status = models.CharField(max_length=20, choices=ACCOUNT_STATUS_CHOICES, default='ACTIVE')
-    account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPE_CHOICES, default='LONG_TERM')
+    account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPE_CHOICES, default='NEW')
     dob = models.DateField(null=True, blank=True)
     sex = models.CharField(max_length=10, null=True, blank=True)
     # Other Personal Details

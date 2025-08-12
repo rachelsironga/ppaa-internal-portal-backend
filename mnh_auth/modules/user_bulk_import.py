@@ -6,7 +6,7 @@ import csv
 from io import BytesIO, StringIO
 from uuid import uuid4
 
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import Group
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import transaction
@@ -66,6 +66,7 @@ class BulkUserImportView(APIView):
                     lvl.name.strip().upper(): lvl for lvl in PositionalLevel.objects.filter(is_active=True)
                 }
 
+
                 user_objs = []
                 user_profiles = []
                 failed_rows = []
@@ -114,12 +115,13 @@ class BulkUserImportView(APIView):
                             updated_by=request.user.id,
                             created_at=timezone.now(),
                             updated_at=timezone.now(),
-                            is_active=True,
+                            is_active=True
                         )
-                        password = f"{user.last_name.upper()}@{pf_number}"
-                        user.password =make_password(password)
+                        # password = f"{user.last_name.upper()}@{pf_number}"
+                        # user.set_password(password)
                         # Save both for later profile creation
                         user_objs.append((user, level, dept))
+
 
                         # Track added emails and PFs
                         existing_usernames.add(username)
@@ -143,7 +145,7 @@ class BulkUserImportView(APIView):
 
                 # Separate user and level from saved tuples
                 users = [item[0] for item in user_objs]
-                User.objects.bulk_create(users, batch_size=500)
+                User.objects.bulk_create(users, batch_size=1000)
 
 
                 # Re-map email to User to safely link UserProfiles
