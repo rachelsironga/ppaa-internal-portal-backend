@@ -2,6 +2,8 @@ from datetime import datetime
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
+from django.db.models import Q
+from oauthlib.uri_validate import query
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
@@ -37,10 +39,37 @@ class ApprovalRequestView(APIView):
                 return CustomResponse.success(data=serializer.data)
 
             search_query = request.GET.get('search', '').strip()
+            row_filters = request.GET.get("filters", "")
+            filters = row_filters.split(",") if row_filters else []
             approval_request = ApprovalRequest.objects.filter(is_deleted=False)
 
+            query_objects = Q()
+            # Handle "MY_REQUEST"
+            if "MY_REQUEST" in filters:
+                query_objects &= Q(created_by=request.user)
+
+            # Handle status-based filters (can be combined)
+            status_filters = []
+            if "NEW" in filters:
+                status_filters.append("NEW")
+            if "PENDING" in filters:
+                status_filters.append("PENDING")
+            if "APPROVED" in filters:
+                status_filters.append("APPROVED")
+            if "REJECTED" in filters:
+                status_filters.append("REJECTED")
+
+            if status_filters:
+                query_objects |= Q(status__in=status_filters)
+
+            approval_request = approval_request.filter(query_objects).distinct()
+
+
+            print("approval_request", approval_request.query)
+
+
             if search_query:
-                approval_request = approval_request.filter(name__icontains=search_query)
+                approval_request = approval_request.filter(title__icontains=search_query)
 
             if approval_request.exists():
                 return CustomPagination.paginate(view_class=self, results=approval_request, request=request)

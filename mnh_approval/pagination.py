@@ -32,10 +32,17 @@ class CustomPagination(TestCase):
                     "total": total,
                 }
             )
-
         else:
             serializer = view_class.serializer_class(results, many=True, context=serializer_context)
+
+            serializer = view_class.serializer_class(
+                results,
+                many=True,
+                context={"is_auth_view": False},
+            )
+
             return CustomResponse.success(
                 data=serializer.data,
                 message="Success",
+
             )

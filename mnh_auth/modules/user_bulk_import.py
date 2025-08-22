@@ -117,8 +117,8 @@ class BulkUserImportView(APIView):
                             updated_at=timezone.now(),
                             is_active=True
                         )
-                        # password = f"{user.last_name.upper()}@{pf_number}"
-                        # user.set_password(password)
+                        password = f"{user.last_name.upper()}@{pf_number}"
+                        user.set_password(password)
                         # Save both for later profile creation
                         user_objs.append((user, level, dept))
 

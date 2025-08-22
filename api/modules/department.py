@@ -49,7 +49,6 @@ class DepartmentView(APIView):
             directory_uid = request.GET.get('directory', '').strip()
 
             departments = Department.objects.filter(is_deleted=False)
-
             if directory_uid:
                 departments = departments.filter(directory__uid=directory_uid)
 
@@ -57,6 +56,7 @@ class DepartmentView(APIView):
                 departments = departments.filter(
                     Q(name__icontains=search_query) | Q(code__icontains=search_query)
                 )
+
 
             if departments.exists():
                 return CustomPagination.paginate(view_class=self, results=departments, request=request)

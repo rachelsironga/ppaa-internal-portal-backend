@@ -23,6 +23,7 @@ class Command(BaseCommand):
             ("can_remove_user_to_group", "Can Remove User From Group"),
             ("import_users", "Can Import Users"),
             ("import_designations", "Can Import Designations"),
+            ("assign_user_permission", "Can Assign User Permission"),
         ]
 
         # Define groups and the permissions to assign
