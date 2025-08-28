@@ -24,9 +24,9 @@ class ApprovalRequestView(APIView):
         "get": ["view_approvalrequest"],
     }
 
-
     def get(self, request, uid=None):
         try:
+            # ---- Single request by UID ----
             if uid:
                 approval_request = ApprovalRequest.objects.filter(uid=uid, is_deleted=False).first()
                 if not approval_request:
@@ -34,21 +34,22 @@ class ApprovalRequestView(APIView):
 
                 serializer = ApprovalRequestSerializer(
                     approval_request,
-                    context={'request': request, 'show_full_user': True,'approval_request_uid': approval_request.uid}
+                    context={
+                        'request': request,
+                        'show_full_user': True,
+                        'approval_request_uid': approval_request.uid
+                    }
                 )
                 return CustomResponse.success(data=serializer.data)
 
+            # ---- List requests ----
             search_query = request.GET.get('search', '').strip()
             row_filters = request.GET.get("filters", "")
             filters = row_filters.split(",") if row_filters else []
+
             approval_request = ApprovalRequest.objects.filter(is_deleted=False)
 
-            query_objects = Q()
-            # Handle "MY_REQUEST"
-            if "MY_REQUEST" in filters:
-                query_objects &= Q(created_by=request.user)
-
-            # Handle status-based filters (can be combined)
+            # Build query
             status_filters = []
             if "NEW" in filters:
                 status_filters.append("NEW")
@@ -59,15 +60,22 @@ class ApprovalRequestView(APIView):
             if "REJECTED" in filters:
                 status_filters.append("REJECTED")
 
-            if status_filters:
-                query_objects |= Q(status__in=status_filters)
+            query_objects = Q()
+            if "MY_REQUEST" in filters and status_filters:
+                # Both MY_REQUEST + statuses
+                query_objects &= Q(created_by=request.user, status__in=status_filters)
+            elif "MY_REQUEST" in filters:
+                # Only MY_REQUEST
+                query_objects &= Q(created_by=request.user)
+            elif status_filters:
+                # Only statuses
+                query_objects &= Q(status__in=status_filters)
 
             approval_request = approval_request.filter(query_objects).distinct()
 
-
             print("approval_request", approval_request.query)
 
-
+            # Apply search
             if search_query:
                 approval_request = approval_request.filter(title__icontains=search_query)
 
@@ -75,8 +83,9 @@ class ApprovalRequestView(APIView):
                 return CustomPagination.paginate(view_class=self, results=approval_request, request=request)
 
             return CustomResponse.errors(message="Approval Request not found", data=[])
+
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Retrieve Approval Requests: {str(e)}', )
+            return CustomResponse.server_error(message=f'Failed to Retrieve Approval Requests: {str(e)}')
 
     def post(self, request):
         try:

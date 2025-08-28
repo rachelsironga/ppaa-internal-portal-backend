@@ -110,6 +110,79 @@ class AssignUserRoleSerializer(serializers.Serializer):
         user.save()
         return user
 
+class AssignUserRolesListSerializer(serializers.Serializer):
+    permitted_user = serializers.CharField(
+        write_only=True,
+        required=True,
+    )
+    selected_roles = serializers.ListField(
+        child=serializers.CharField(),
+        write_only=True,
+        required=True,
+    )
+
+    def validate(self, data):
+        permitted_user = data.pop("permitted_user")
+        selected_roles = data.pop("selected_roles")
+
+        # validate user
+        user = User.objects.filter(guid=permitted_user, is_deleted=False).first()
+        if not user:
+            raise serializers.ValidationError("The user could not be verified or may be deleted")
+
+        # validate roles
+        selected_roles = [int(role) for role in selected_roles]
+        roles = Group.objects.filter(id__in=selected_roles)
+        if not roles.exists():
+            raise serializers.ValidationError("No valid roles found for given IDs")
+
+        # check missing roles (invalid IDs)
+        invalid_roles = set(selected_roles) - set(roles.values_list("id", flat=True))
+        if invalid_roles:
+            raise serializers.ValidationError(f"Invalid role IDs: {list(invalid_roles)}")
+
+        data["user"] = user
+        data["roles"] = roles
+        return data
+
+    def create(self, validated_data):
+        user = validated_data["user"]
+        roles = validated_data["roles"]
+
+        # add each role if not already assigned
+        for role in roles:
+            if role not in user.groups.all():
+                user.groups.add(role)
+
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        user = validated_data["user"]
+        roles = validated_data["roles"]
+
+        # replace user roles with new ones
+        user.groups.set(roles)
+        user.save()
+        return user
+
+    def delete(self, instance):
+        user = self.validated_data["user"]
+        roles = self.validated_data["roles"]
+
+        for role in roles:
+            if role in user.groups.all():
+                user.groups.remove(role)
+
+        user.save()
+        return user
+
+class GroupListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Permission
+        fields = ['id', 'name']
+        depth = 1
+
 
 class GroupSerializer(serializers.ModelSerializer):
     permissions = serializers.SerializerMethodField()
@@ -209,6 +282,41 @@ class LoginSerializer(serializers.Serializer):
         }
     )
 
+class NewUserLoginSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=True, allow_blank=False, write_only=True)
+    password = serializers.CharField(required=True, allow_blank=False, write_only=True)
+    class Meta:
+        model = User
+        fields = [
+            "username", "password","phone_number", "email",
+        ]
+
+    def validate(self, data):
+        permitted_user = data.pop('username')
+        email = data.get('email')
+
+
+        data['user'] = User.objects.filter(username=permitted_user,is_deleted=False).first()
+        if not data['user']:
+                raise serializers.ValidationError("The user is not verified or may be removed")
+
+        if User.objects.filter(email=email,is_deleted=False).first():
+                raise serializers.ValidationError("The email Already Exists")
+
+        return data
+
+    def save(self):
+        user = self.validated_data['user']
+        user.set_password(self.validated_data['password'])
+        user.status = 'ACTIVE'
+        user_group = Group.objects.filter(Q(name='user') | Q(name='users') | Q(name='normal users')).first()
+        if user_group:
+            user.groups.add(user_group)
+
+        user.save()
+
+        return user
+
 
 class CheckUserNameSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=True, max_length=100)
@@ -228,6 +336,7 @@ class CheckUserNameSerializer(serializers.ModelSerializer):
 class RegistrationSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField()
     user_permissions = serializers.SerializerMethodField()
+    check_number = serializers.CharField(required=False,)
 
     class Meta:
         username = None
@@ -292,7 +401,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
             email=self.validated_data['email'],
             phone_number=self.validated_data['phone_number'],
         )
-        password = self.validated_data['password']
+        password = f"{str(self.validated_data['first_name']).upper()}@{self.validated_data['last_name']}"
         user.set_password(password)
         user.save()
 
@@ -371,6 +480,7 @@ class UserIdentitySerializer(ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'guid']
+
 
 
 class UserImportSerializer(serializers.Serializer):

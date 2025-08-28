@@ -9,7 +9,7 @@ from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import User, UserProfile
 from mnh_auth.serializers import UserSerializer, FileUploadSerializer, GroupSerializer, PermissionSerializer, \
-    AssignUserRoleSerializer
+    AssignUserRoleSerializer, AssignUserRolesListSerializer, GroupListSerializer
 from utils.minio_storage import MinioStorage
 from utils.permissions import HasMethodPermission
 
@@ -158,13 +158,39 @@ class SystemPermissionView(APIView):
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Retrieve Permissions: {str(e)}')
 
+class SystemGroupView(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission]
+    serializer_class = GroupListSerializer
+    required_permissions = {
+        "get": ["can_view_system_permission", "can_view_group"]
+    }
+
+    def get(self, request):
+        try:
+            search_query = request.GET.get('search', '').strip()
+            group = Group.objects.all()
+            if search_query:
+                group = group.filter(
+                    Q(name__icontains=search_query)
+                )
+            if group.exists():
+                return CustomPagination.paginate(
+                    view_class=self,
+                    results=group,
+                    request=request,
+                    serializer_context={}
+                )
+            return CustomResponse.errors(message="No Group found", data=[])
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Retrieve Group: {str(e)}')
 
 class SystemRoleUsers(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = UserSerializer
 
     required_permissions = {
-        "get": ["can_view_group"]
+        "get": ["can_view_group", "can_view_system_permission"]
     }
 
     def get(self, request):
@@ -207,7 +233,6 @@ class SystemRoleUsers(APIView):
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Retrieve Users: {str(e)}', )
 
-
 class SystemAssignRoleUser(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = AssignUserRoleSerializer
@@ -239,7 +264,6 @@ class SystemAssignRoleUser(APIView):
             with transaction.atomic():
                 user_id = str(request.GET.get('user','')).strip()
                 role_id = str(request.GET.get('role','')).strip()
-                print(user_id,role_id)
 
                 if user_id == "" or role_id == "":
                     return CustomResponse.errors(
@@ -258,3 +282,28 @@ class SystemAssignRoleUser(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message=f"Failed to Remove User From Role")
+
+class SystemAssignRoleListToUser(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    serializer_class = AssignUserRolesListSerializer
+
+    required_permissions = {
+        "post": ["can_assign_user_to_group"],
+    }
+
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(data=request.data)
+                if not serializer.is_valid():
+                    return CustomResponse.errors(
+                        message="Save Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+
+                user_group = serializer.save()
+                return CustomResponse.success(data=self.serializer_class(user_group).data)
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Save Assign Group: {str(e)}')
