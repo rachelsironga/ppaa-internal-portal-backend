@@ -1,7 +1,8 @@
 from django.db import transaction
 
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer
+from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer, \
+    NewUserLoginSerializer
 from django.contrib.auth import authenticate, login, logout
 from rest_framework import status, permissions
 from rest_framework.permissions import IsAuthenticated
@@ -73,24 +74,95 @@ class LoginView(APIView):
         username = request.data['username']
         password = request.data['password']
 
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            auth_data = MyTokenObtainPairSerializer.get_tokens_for_user(request)
-            if auth_data['status'] != status.HTTP_200_OK:
-                logout(request)
-                return CustomResponse.errors(
-                    message="Unable Authenticate Please provide Valid Credentials",
+        try:
+            # Check if user exists
+            user = User.objects.filter(username=username).first()
+            if not user:
+                return CustomResponse.unauthorized(
+                    message="Sorry Username not Exist",
+                    data=request.data,
                 )
-            auth_serializer = UserSerializer(user)
-            return CustomResponse.success(
-                data={**auth_data['data'], 'user': auth_serializer.data},
-                message="Successfully Logged In",
+
+            # Handle NEW user login
+            if user.status == "NEW":
+                if password != user.pf_number:
+                    return CustomResponse.errors(
+                        message="For first-time login, password must be your PF-number",
+                        code=STATUS_CODES['VALIDATION_ERROR']
+                    )
+                # Create payload for user Identification message
+                return CustomResponse.errors(
+                    message="First-time login. Please change your password.",
+                    code=STATUS_CODES['NEW_USER'],
+                    data={
+                        "username" : user.username,
+                        "first_name" : user.first_name,
+                        "last_name" : user.last_name,
+                        "email" : user.email,
+                        "status" : user.status,
+                    }
+                )
+
+            # Normal login for existing users
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user)
+                auth_data = MyTokenObtainPairSerializer.get_tokens_for_user(request)
+                if auth_data['status'] != status.HTTP_200_OK:
+                    logout(request)
+                    return CustomResponse.errors(
+                        message="Unable to authenticate. Please provide valid credentials",
+                    )
+                return CustomResponse.success(
+                    data={**auth_data['data'], 'user': UserSerializer(user).data},
+                    message="Successfully Logged In",
+                )
+
+            return CustomResponse.unauthorized(
+                message='Incorrect username or password',
+                data=request.data,
             )
-        return CustomResponse.unauthorized(
-            message='Incorrect email or password',
-            data=request.data,
-        )
+
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Login failed: {str(e)}"
+            )
+
+class LoginNewUser(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = NewUserLoginSerializer
+
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(data=request.data)
+
+                if serializer.is_valid():
+                    new_user = serializer.save()
+                    user = authenticate(request, username=new_user.username, password=serializer.validated_data['password'])
+                    if user is not None:
+                        login(request, user)
+                        auth_data = MyTokenObtainPairSerializer.get_tokens_for_user(request)
+                        if auth_data['status'] != status.HTTP_200_OK:
+                            logout(request)
+                            return CustomResponse.errors(
+                                message="Unable to authenticate. Please provide valid Details",
+                            )
+                        return CustomResponse.success(
+                            data={**auth_data['data'], 'user': UserSerializer(user).data},
+                            message="Successfully Logged In",
+                        )
+                else:
+                    return CustomResponse.errors(
+                        message="Validation Failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Login failed: {str(e)}"
+            )
+
 
 class LogoutView(APIView):
     def post(self, request):
@@ -108,7 +180,6 @@ class ChangePasswordView(APIView):
         return Response({'status': status.HTTP_200_OK, 'data': str(request.user), 'message': 'Password Changes'},
                         status=status.HTTP_200_OK)
 
-
 class CheckUserExistence(APIView):
     def get(self, request):
         serializer = CheckUserNameSerializer(data=request.data)
@@ -120,7 +191,6 @@ class CheckUserExistence(APIView):
         else:
             return Response({'status': status.HTTP_404_NOT_FOUND, 'message': 'User Not Exist'},
                             status=status.HTTP_404_NOT_FOUND)
-
 
 class UpdateMyProfileView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]

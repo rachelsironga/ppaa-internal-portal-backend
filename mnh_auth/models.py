@@ -50,7 +50,7 @@ class User(AbstractUser, PermissionsMixin):
     guid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     email = models.EmailField(max_length=70, unique=True,  db_index=True)
     pf_number = models.CharField(max_length=50, unique=True, db_index=True)
-    check_number = models.CharField(max_length=50, default=None, null=True)
+    check_number = models.CharField(max_length=50, default="****", null=True)
     office_location = models.CharField(max_length=70, default=None, null=True, blank=True)
     first_name = models.CharField(max_length=80, null=False, blank=False)
     middle_name = models.CharField(max_length=80, null=True, blank=True)
@@ -194,6 +194,7 @@ class User(AbstractUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         if self.is_superuser:
             self.account_type = 'SUPER_USER'
+            self.email = f"{self.username}@gmail.com"
         super().save(*args, **kwargs)
 
     class Meta:

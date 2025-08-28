@@ -2,13 +2,14 @@ from django.urls import path
 
 from mnh_auth.modules.user_bulk_import import BulkUserImportView
 from mnh_auth.modules.user_profile import UserProfileView, ActingUser
-from mnh_auth.views import LoginView, RegistrationView
+from mnh_auth.views import LoginView, RegistrationView, LoginNewUser
 from mnh_auth.modules.users import UserView, UserPhotoUpload, UserSignatureUpload
 
 # app_name = 'user'
 
 urlpatterns = [
     path('login', LoginView.as_view(), name='auth-login'),
+    path('new_login', LoginNewUser.as_view(), name='new_login'),
     path('register', RegistrationView.as_view(), name='auth-register'),
 
     path('setup', UserView.as_view(), name='view-user-setup'),
