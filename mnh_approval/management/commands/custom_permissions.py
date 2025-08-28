@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
-from django.contrib.auth.models import Permission, ContentType
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Permission, ContentType, Group
 from django.apps import apps
 
 class Command(BaseCommand):
@@ -9,7 +8,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write("Processing custom permissions...")
 
-        # Define your permissions as (codename, name)
+        # Define your custom permissions as (codename, name)
         permissions_to_create = [
             ("can_view_system_permission", "Can View System Permission"),
             ("can_assign_delegate", "Can Assign Delegate User"),
@@ -24,24 +23,39 @@ class Command(BaseCommand):
             ("import_users", "Can Import Users"),
             ("import_designations", "Can Import Designations"),
             ("assign_user_permission", "Can Assign User Permission"),
+            ("can_view_own_profile", "Can View Own Profile"),
+            ("can_change_own_password", "Can Change Own Password"),
+            ("can_view_approval_request", "Can View Approval Request"),
+            ("can_create_approval_request", "Can Create Approval Request"),
+            ("can_update_approval_request_status", "Can Update Approval Request Status"),
         ]
 
-        # Define groups and the permissions to assign
+        # Groups and permission mapping for non-admins
         groups_to_permissions = {
-            "Approvers": ["can_assign_delegate", "can_view_directory"],
-            "Delegators": ["can_assign_delegate","can_import_directory", "can_view_sensitive_data"],
-            "admin": ["can_add_group", "can_delete_group", "can_view_group", "can_assign_user_to_group",
-                      "can_remove_user_to_group","import_designations","import_users"],
+            "Approvers": [
+                "can_assign_delegate",
+                "can_view_directory",
+            ],
+            "Delegators": [
+                "can_assign_delegate",
+                "can_import_directory",
+                "can_view_sensitive_data",
+            ],
+            "staff": [
+                "can_view_group",
+                "can_view_directory",
+                "can_view_own_profile",
+                "can_change_own_password",
+                "can_view_approval_request",
+                "can_create_approval_request",
+                "can_update_approval_request_status",
+            ]
         }
 
-        # Use a default ContentType (you can pick any model)
-        # Here, we'll fall back to auth.Permission itself (safe, always exists)
-        try:
-            default_ct = ContentType.objects.get(app_label="auth", model="permission")
-        except ContentType.DoesNotExist:
-            self.stdout.write(self.style.ERROR("Default ContentType does not exist. Aborting."))
-            return
+        # Use a default ContentType (fallback to auth.Permission)
+        default_ct = ContentType.objects.get(app_label="auth", model="permission")
 
+        # Create custom permissions
         for codename, name in permissions_to_create:
             perm, created = Permission.objects.get_or_create(
                 codename=codename,
@@ -76,5 +90,15 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.WARNING(
                         f"Permission '{code}' does not exist. Skipped."
                     ))
+
+        # Handle admin group: assign all permissions
+        admin_group, created = Group.objects.get_or_create(name="admin")
+        if created:
+            self.stdout.write(self.style.SUCCESS("Created group 'admin'"))
+        else:
+            self.stdout.write("Group exists: admin")
+
+        admin_group.permissions.set(Permission.objects.all())
+        self.stdout.write(self.style.SUCCESS("Assigned ALL available permissions to admin group"))
 
         self.stdout.write(self.style.SUCCESS("Custom permissions and groups synchronized."))

@@ -309,7 +309,7 @@ class NewUserLoginSerializer(serializers.ModelSerializer):
         user = self.validated_data['user']
         user.set_password(self.validated_data['password'])
         user.status = 'ACTIVE'
-        user_group = Group.objects.filter(Q(name='user') | Q(name='users') | Q(name='normal users')).first()
+        user_group = Group.objects.filter(name='staff').first()
         if user_group:
             user.groups.add(user_group)
 
