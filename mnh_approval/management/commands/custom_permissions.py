@@ -12,8 +12,10 @@ class Command(BaseCommand):
         permissions_to_create = [
             ("can_view_system_permission", "Can View System Permission"),
             ("can_assign_delegate", "Can Assign Delegate User"),
+            ("can_remove_delegate", "Can Remove Delegate User"),
             ("can_view_sensitive_data", "Can View Sensitive Data"),
             ("can_view_directory", "Can View Directory"),
+            ("can_view_department", "Can View Department"),
             ("can_import_directory", "Import Directory From Excel File"),
             ("can_add_group", "Can Add Group"),
             ("can_delete_group", "Can Delete Group"),
@@ -28,6 +30,8 @@ class Command(BaseCommand):
             ("can_view_approval_request", "Can View Approval Request"),
             ("can_create_approval_request", "Can Create Approval Request"),
             ("can_update_approval_request_status", "Can Update Approval Request Status"),
+            ("can_upload_profile_photo", "Can Upload Profile Photo"),
+            ("can_upload_profile_signature", "Can Upload Profile Signature"),
         ]
 
         # Groups and permission mapping for non-admins
@@ -35,9 +39,12 @@ class Command(BaseCommand):
             "Approvers": [
                 "can_assign_delegate",
                 "can_view_directory",
+                "can_view_department",
+
             ],
             "Delegators": [
                 "can_assign_delegate",
+                "can_remove_delegate",
                 "can_import_directory",
                 "can_view_sensitive_data",
             ],
@@ -49,6 +56,12 @@ class Command(BaseCommand):
                 "can_view_approval_request",
                 "can_create_approval_request",
                 "can_update_approval_request_status",
+                "can_upload_profile_photo",
+                "can_view_department",
+                'can_upload_profile_signature',
+                'change_approval_request',
+
+
             ]
         }
 
