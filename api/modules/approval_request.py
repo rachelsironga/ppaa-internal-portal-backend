@@ -1,19 +1,14 @@
 from datetime import datetime
-
-from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
-from django.db.models import Q
-from oauthlib.uri_validate import query
 from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-
-from api.serializers import ApprovalRequestSerializer, REQUEST_TYPE_SERIALIZER_IMPORTS, get_serializer_class, \
-    ApprovalRequestStepSerializer
-from api.utils import send_custom_email
+from django.db.models import Q, Exists, OuterRef
+from api.serializers import ApprovalRequestSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_model.models import ApprovalRequest, ApprovalModule
+from mnh_auth.models import UserProfile
+from mnh_model.models import ApprovalRequest, ApprovalModuleLevel
 from utils.permissions import HasMethodPermission
 
 
@@ -21,18 +16,20 @@ class ApprovalRequestView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalRequestSerializer
     required_permissions = {
-        "get": ["view_approvalrequest"],
+        "get": ["view_approval_request"],
     }
 
     def get(self, request, uid=None):
         try:
-            # ---- Single request by UID ----
             if uid:
-                approval_request = ApprovalRequest.objects.filter(uid=uid, is_deleted=False).first()
+                approval_request = ApprovalRequest.objects.filter(
+                    uid=uid, is_deleted=False
+                ).select_related('module', 'department', 'created_by').first()
+
                 if not approval_request:
                     raise NotFound("Approval Request not found")
 
-                serializer = ApprovalRequestSerializer(
+                serializer = self.serializer_class(
                     approval_request,
                     context={
                         'request': request,
@@ -42,50 +39,52 @@ class ApprovalRequestView(APIView):
                 )
                 return CustomResponse.success(data=serializer.data)
 
-            # ---- List requests ----
-            search_query = request.GET.get('search', '').strip()
-            row_filters = request.GET.get("filters", "")
-            filters = row_filters.split(",") if row_filters else []
+            search_query = (request.GET.get('search') or '').strip()
+            raw_filters = (request.GET.get('filters') or '').strip()
+            filters = [f.strip().upper() for f in raw_filters.split(',') if f.strip()] if raw_filters else []
 
-            approval_request = ApprovalRequest.objects.filter(is_deleted=False)
+            # normalize ALL behavior (if ALL + others -> drop ALL, keep others)
+            if "ALL" in filters and len(filters) > 1:
+                filters = [f for f in filters if f != "ALL"]
 
-            # Build query
-            status_filters = []
-            if "NEW" in filters:
-                status_filters.append("NEW")
-            if "PENDING" in filters:
-                status_filters.append("PENDING")
-            if "APPROVED" in filters:
-                status_filters.append("APPROVED")
-            if "REJECTED" in filters:
-                status_filters.append("REJECTED")
+            # Base queryset: requests where user is involved via module-level match.
+            # Do NOT include creator yet; we handle "MY_REQUEST" explicitly below.
+            qs = get_user_related_requests(request, include_created=True)
 
-            query_objects = Q()
-            if "MY_REQUEST" in filters and status_filters:
-                # Both MY_REQUEST + statuses
-                query_objects &= Q(created_by=request.user, status__in=status_filters)
-            elif "MY_REQUEST" in filters:
-                # Only MY_REQUEST
-                query_objects &= Q(created_by=request.user)
-            elif status_filters:
-                # Only statuses
-                query_objects &= Q(status__in=status_filters)
+            # Status filters
+            valid_statuses = {"NEW", "PENDING", "APPROVED", "REJECTED"}
+            selected_statuses = [s for s in filters if s in valid_statuses]
+            if selected_statuses:
+                qs = qs.filter(status__in=selected_statuses)
 
-            approval_request = approval_request.filter(query_objects).distinct()
+            # "MY_REQUEST" filter (only my own created)
+            if "MY_REQUEST" in filters:
+                qs = ApprovalRequest.objects.filter(
+                    is_deleted=False, created_by=request.user
+                ).select_related('module', 'department', 'created_by')
 
-            print("approval_request", approval_request.query)
+                # keep any status filters the user selected
+                if selected_statuses:
+                    qs = qs.filter(status__in=selected_statuses)
 
-            # Apply search
+            # Search by title (case-insensitive)
             if search_query:
-                approval_request = approval_request.filter(title__icontains=search_query)
+                qs = qs.filter(title__icontains=search_query)
 
-            if approval_request.exists():
-                return CustomPagination.paginate(view_class=self, results=approval_request, request=request)
+            # If you need to additionally allow "creator OR matching-level" regardless of MY_REQUEST:
+            # qs = get_user_related_requests(profile, include_created=True)
+
+            if qs.exists():
+                return CustomPagination.paginate(view_class=self, results=qs, request=request)
 
             return CustomResponse.errors(message="Approval Request not found", data=[])
 
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Retrieve Approval Requests: {str(e)}')
+            # Helpful console output while keeping client-friendly message
+            print("Exception while listing approval requests:", repr(e))
+            return CustomResponse.server_error(
+                message=f'Failed to Retrieve Approval Requests: {str(e)}'
+            )
 
     def post(self, request):
         try:
@@ -134,3 +133,50 @@ class ApprovalRequestView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message="Something went wrong While Deleting Approval Request")
+
+# ---------- Helper: very fast (EXISTS), no duplicates, minimal queries ----------
+def get_user_related_requests(request, include_created=False):
+    """
+    Return ApprovalRequest for which there EXISTS at least one ApprovalModuleLevel
+    on the request's module matching the user's level + department.
+
+    If include_created=True, OR include requests created by this user.
+    """
+    # current active profile (robust if multiple profiles exist)
+    profile = (
+        UserProfile.objects
+        .select_related('level', 'department')
+        .filter(user=request.user, is_active=True)
+        .order_by('-created_at')
+        .first()
+    )
+
+    if not profile or not profile.level_id or not profile.department_id:
+        return (
+            ApprovalRequest.objects
+            .filter(is_deleted=False, created_by=request.user)
+            .select_related('module', 'department', 'created_by')
+        )
+
+    # Subquery: Does this request's module have a module-level matching the user?
+    matching_levels = ApprovalModuleLevel.objects.filter(
+        is_active=True,
+        module_id=OuterRef('module_id'),
+        level_id=profile.level_id,
+        department_id=profile.department_id,
+    )
+
+    qs = (
+        ApprovalRequest.objects
+        .filter(is_deleted=False)
+        .annotate(_has_match=Exists(matching_levels))
+        .select_related('module', 'department', 'created_by')
+    )
+
+    if include_created:
+        # user is involved if (has matching level/department) OR (is creator)
+        qs = qs.filter(Q(_has_match=True) | Q(created_by=profile.user))
+    else:
+        qs = qs.filter(_has_match=True)
+
+    return qs
