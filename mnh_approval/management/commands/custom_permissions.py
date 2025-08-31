@@ -14,6 +14,9 @@ class Command(BaseCommand):
             ("can_assign_delegate", "Can Assign Delegate User"),
             ("can_remove_delegate", "Can Remove Delegate User"),
             ("can_view_sensitive_data", "Can View Sensitive Data"),
+            ("can_add_directory", "Can add Directory"),
+            ("can_update_directory", "Can update Directory"),
+            ("can_view_directory", "Can View Directory"),
             ("can_view_directory", "Can View Directory"),
             ("can_view_department", "Can View Department"),
             ("can_import_directory", "Import Directory From Excel File"),
@@ -32,6 +35,9 @@ class Command(BaseCommand):
             ("can_update_approval_request_status", "Can Update Approval Request Status"),
             ("can_upload_profile_photo", "Can Upload Profile Photo"),
             ("can_upload_profile_signature", "Can Upload Profile Signature"),
+            ("can_view_request_handling","Can View Request Handling"),
+            ("can_perform_request_handling", "Can Perform Request Handling"),
+            ("change_approval_request","change Approval Request")
         ]
 
         # Groups and permission mapping for non-admins
@@ -40,7 +46,15 @@ class Command(BaseCommand):
                 "can_assign_delegate",
                 "can_view_directory",
                 "can_view_department",
+                "can_change_own_password",
 
+            ],
+            "Request_Handler" : [
+                "can_view_own_profile",
+                "can_change_own_password",
+                "can_view_request_handling",
+                "can_perform_request_handling",
+                "can_view_approval_request",
             ],
             "Delegators": [
                 "can_assign_delegate",
@@ -59,9 +73,8 @@ class Command(BaseCommand):
                 "can_upload_profile_photo",
                 "can_view_department",
                 'can_upload_profile_signature',
+                'can_upload_profile_signature',
                 'change_approval_request',
-
-
             ]
         }
 

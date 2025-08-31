@@ -96,7 +96,7 @@ class BulkUserImportView(APIView):
 
                         user = User(
                             guid=uuid4(),
-                            username=username,
+                            username=str(username).lower(),
                             email=f"{username}@mnh.or.tz",
                             pf_number=pf_number,
                             check_number=safe_str(row.CHECK_NO) or None,
