@@ -18,12 +18,14 @@ class ApprovalModuleView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalModuleSerializer
     required_permissions = {
-        "get": [
-            "view_directory",
+        "get": ["can_view_approval_module_lookup",
         ],
         "post": [
-            "add_directory",
-            "change_directory",
+            "can_add_approval_module",
+            "can_edit_approval_module",
+        ],
+        "delete": [
+            "can_delete_approval_module",
         ]
     }
 

@@ -22,7 +22,7 @@ class ApproveModuleLevelStepView(APIView):
     serializer_class = ApprovalRequestStepSerializer
     required_permissions = {
         "get": [
-            "view_approvalrequeststep"
+            "can_view_approval_request_step"
         ],
         "post": [
             "can_approve_request",
@@ -197,7 +197,9 @@ class ApproveModuleLevelActingUser(APIView):
     serializer_class = UserProfileSerializer
     required_permissions = {
         "get": [
-            "view_approvalrequeststep"
+            "can_view_approval_request_step",
+            "view_department_lookup",
+            "view_request_step",
         ],
     }
 

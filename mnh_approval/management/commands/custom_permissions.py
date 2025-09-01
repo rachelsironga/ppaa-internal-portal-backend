@@ -17,9 +17,12 @@ class Command(BaseCommand):
             ("can_add_directory", "Can add Directory"),
             ("can_update_directory", "Can update Directory"),
             ("can_view_directory", "Can View Directory"),
-            ("can_view_directory", "Can View Directory"),
-            ("can_view_department", "Can View Department"),
+            ("can_view_directory_lookup", "Can View Directory Lookup"),
             ("can_import_directory", "Import Directory From Excel File"),
+            ("can_add_department", "Can Add Department"),
+            ("can_view_department", "Can View Department"),
+            ("can_view_department_lookup", "Can View Department Lookup"),
+            ("can_delete_department", "Can Delete Department"),
             ("can_add_group", "Can Add Group"),
             ("can_delete_group", "Can Delete Group"),
             ("can_view_group", "Can View Group"),
@@ -37,7 +40,17 @@ class Command(BaseCommand):
             ("can_upload_profile_signature", "Can Upload Profile Signature"),
             ("can_view_request_handling","Can View Request Handling"),
             ("can_perform_request_handling", "Can Perform Request Handling"),
-            ("change_approval_request","change Approval Request")
+            ("change_approval_request","change Approval Request"),
+            ("can_view_approval_request_step", "Can View Approval Request Step"),
+            ("can_view_approval_modules","Can View Approval Module"),
+            ("can_view_approval_module_lookup","Can View Approval Module Lookup"),
+            ("can_add_approval_module","Can Add Approval Module"),
+            ("can_edit_approval_module","Can Edit Approval Module"),
+            ("can_delete_approval_module","Can Delete Approval Module"),
+            ("can_view_date_range", "Can View Date Range"),
+            ("can_view_date_range_lookup", "Can View Date Range Lookup"),
+            ("can_edit_date_range","Can Edit Date Range"),
+            ("can_delete_date_range","Can Delete Date Range"),
         ]
 
         # Groups and permission mapping for non-admins
@@ -47,7 +60,8 @@ class Command(BaseCommand):
                 "can_view_directory",
                 "can_view_department",
                 "can_change_own_password",
-
+                "can_view_approval_modules",
+                "can_view_approval_module_lookup",
             ],
             "Request_Handler" : [
                 "can_view_own_profile",
@@ -61,20 +75,29 @@ class Command(BaseCommand):
                 "can_remove_delegate",
                 "can_import_directory",
                 "can_view_sensitive_data",
+                "can_view_approval_modules",
+                "can_view_approval_module_lookup",
+                "can_add_approval_module",
+                "can_edit_approval_module",
+                "can_delete_approval_module"
             ],
             "staff": [
                 "can_view_group",
-                "can_view_directory",
+                "can_view_directory_lookup",
                 "can_view_own_profile",
                 "can_change_own_password",
                 "can_view_approval_request",
                 "can_create_approval_request",
                 "can_update_approval_request_status",
                 "can_upload_profile_photo",
-                "can_view_department",
+                "can_view_department_lookup",
                 'can_upload_profile_signature',
                 'can_upload_profile_signature',
                 'change_approval_request',
+                "can_view_approval_module_lookup",
+                "can_view_date_range_lookup",
+                "can_view_approval_request_step"
+
             ]
         }
 

@@ -32,4 +32,4 @@ class HasMethodPermission(BasePermission):
         user_permissions = request.user.get_permission_codes()
 
         # Require *all* permissions
-        return all(perm in user_permissions for perm in required_perms)
+        return any(perm in user_permissions for perm in required_perms)
