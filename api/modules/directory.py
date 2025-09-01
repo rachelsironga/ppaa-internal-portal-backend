@@ -29,7 +29,7 @@ class DirectoryView(APIView):
     serializer_class = DirectorySerializer
     required_permissions = {
         "get": [
-              "view_directory"
+              "view_directory", "can_view_directory","can_view_department_lookup"
             ],
         "post": [
             "add_directory",

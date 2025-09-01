@@ -18,11 +18,11 @@ class DateRangeView(APIView):
     serializer_class = DateRangeSerializer
     required_permissions = {
         "get": [
-            "view_daterange"
+            "view_daterange",  "can_view_date_range_lookup","can_edit_date_range","can_delete_date_range"
         ],
         "post": [
             "add_daterange",
-            "delete_daterange",
+            "can_view_date_range_lookup","can_edit_date_range","can_delete_date_range"
         ],
         "delete": [
             "change_daterange",

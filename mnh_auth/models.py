@@ -53,7 +53,7 @@ class User(AbstractUser, PermissionsMixin):
     check_number = models.CharField(max_length=50, default="****", null=True)
     office_location = models.CharField(max_length=70, default=None, null=True, blank=True)
     first_name = models.CharField(max_length=80, null=False, blank=False)
-    middle_name = models.CharField(max_length=80, null=True, blank=True)
+    middle_name = models.CharField(max_length=80, null=True, blank=True, default=" ")
     last_name = models.CharField(max_length=80, null=False, blank=False)
     status = models.CharField(max_length=20, choices=ACCOUNT_STATUS_CHOICES, default='ACTIVE')
     account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPE_CHOICES, default='NEW')
