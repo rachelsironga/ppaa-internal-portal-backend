@@ -3,6 +3,7 @@ from django.urls import path
 from api.modules.approval_action import ApprovalActionView
 from api.modules.approval_module_level_step import ApproveModuleLevelStepView, ApproveModuleLevelActingUser
 from api.modules.date_range import DateRangeView
+from api.modules.handler import RequestHandler
 from api.modules.positional_level import PositionalLevelView, BulkDesignationImportView
 from api.modules.approval_module import ApprovalModuleView
 from api.modules.approval_module_level import ApprovalModuleLevelView
@@ -44,6 +45,9 @@ path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
 
     path('approval-request', ApprovalRequestView.as_view(), name='view-approval-request'),
     path('approval-request/<str:uid>', ApprovalRequestView.as_view(), name='open-approval-request'),
+
+    path('approval-request-handler', RequestHandler.as_view(), name='approval-request-handler'),
+    path('approval-request-handler/<str:uid>', RequestHandler.as_view(), name='approval-request-handler'),
 
     path('approve-reject-request', ApproveModuleLevelStepView.as_view(), name='approve-reject-request'),
 

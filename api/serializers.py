@@ -623,3 +623,45 @@ class RequestJeevaAccessSerializer(serializers.ModelSerializer):
     class Meta:
         model = RequestJeevaAccess
         fields = '__all__'
+
+
+class RequestHandlerSerializer(serializers.ModelSerializer):
+    approval_request = ApprovalRequestSerializer(read_only=True)
+    handler = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ApprovalRequestHandler
+        fields = [
+            'uid', 'comment', 'is_notified', 'responded_at', 'status',  'created_by', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['uid', 'created_by', 'created_at', 'updated_at', 'status']
+
+
+    def validate(self, data):
+        module_uid = data.pop('module_uid')
+        date_range_uid = data.pop('date_range_uid')
+        department_uid = data.pop('department_uid')
+
+        try:
+            data['date_range'] = DateRange.objects.get(uid=date_range_uid, is_deleted=False)
+        except DateRange.DoesNotExist:
+            raise serializers.ValidationError({"date_range_uid": "Invalid Date Range, not found or deleted"})
+
+        try:
+            data['module'] = ApprovalModule.objects.get(uid=module_uid, is_deleted=False)
+            data['type'] = data['module'].code if data['module'] else None
+        except ApprovalModule.DoesNotExist:
+            raise serializers.ValidationError({"module_uid": "Invalid Module, not found or deleted"})
+
+        try:
+            data['department'] = Department.objects.get(uid=department_uid, is_deleted=False)
+        except Department.DoesNotExist:
+            raise serializers.ValidationError({"department_uid": "Invalid Department, not found or deleted"})
+
+        return data
+
+    def create(self, validated_data):
+        return ApprovalRequest.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)
