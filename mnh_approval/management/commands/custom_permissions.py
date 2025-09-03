@@ -51,6 +51,7 @@ class Command(BaseCommand):
             ("can_view_date_range_lookup", "Can View Date Range Lookup"),
             ("can_edit_date_range","Can Edit Date Range"),
             ("can_delete_date_range","Can Delete Date Range"),
+            ("can_approve_request" ,"Can Approve Request"),
         ]
 
         # Groups and permission mapping for non-admins
@@ -62,6 +63,7 @@ class Command(BaseCommand):
                 "can_change_own_password",
                 "can_view_approval_modules",
                 "can_view_approval_module_lookup",
+                "can_approve_request"
             ],
             "Request_Handler" : [
                 "can_view_own_profile",
