@@ -632,7 +632,7 @@ class RequestHandlerSerializer(serializers.ModelSerializer):
     class Meta:
         model = ApprovalRequestHandler
         fields = [
-            'uid', 'comment', 'is_notified', 'responded_at', 'status',  'created_by', 'created_at', 'updated_at'
+            'uid', 'comment', 'is_notified', 'responded_at', 'status','handler','approval_request',  'created_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['uid', 'created_by', 'created_at', 'updated_at', 'status']
 

@@ -27,9 +27,6 @@ class RequestHandler(APIView):
         """Build queryset based on user and filters"""
         qs = ApprovalRequestHandler.objects.filter(is_deleted=False)
 
-        if uid:
-            return qs.filter(uid=uid).first()
-
         # Superusers and admins see all, others see their own
         if not (request.user.is_superuser or "admin" in request.user.get_groups()):
             qs = qs.filter(handler=request.user)
@@ -38,34 +35,44 @@ class RequestHandler(APIView):
         search_query = request.GET.get("search", "").strip()
         if search_query:
             qs = qs.filter(
-                Q(approval_request__title__icontains=search_query)  # icontains is better for search
+                Q(approval_request__title__icontains=search_query)
             )
 
-        # Apply status filters
+        # Get raw filters from request
         raw_filters = (request.GET.get("filters") or "").strip()
         filters = [f.strip().upper() for f in raw_filters.split(",") if f.strip()]
-        if "ALL" in filters and len(filters) > 1:
-            filters = ["PENDING", "DONE", "POSTPONED"]
 
+        # Normalize "ALL" behavior
+        if "ALL" in filters:
+            filters = {'PENDING', 'DONE', 'POSTPONED'}
+
+        # Apply to queryset
         if filters:
             qs = qs.filter(status__in=filters)
 
+        # Single object by UID
+        if uid:
+            obj = qs.first()  # only 1 query executed here
+            if not obj:
+                raise NotFound("Approval Request Handler not found")
+            return obj
+
+        # List (queryset) for pagination
         return qs
 
     def get(self, request, uid=None):
         try:
-            serializer = self.serializer_class()
-            # Case 1: single record by UID
+            result = self.get_queryset(request, uid)
+
             if uid:
-                handlers = self.get_queryset(request, uid)
-                if not handlers:
-                    raise NotFound("Approval Request Handler not found")
+                # single object
                 return CustomResponse.success(
-                    data=ApprovalRequestHandler(handlers).data
+                    data=self.serializer_class(result).data
                 )
 
-            # Case 2: list with filters/pagination
-            queryset = self.get_queryset(request)
+            # list with filters/pagination
+            queryset = result
+
             if not queryset.exists():
                 return CustomResponse.errors(
                     message="Approval Request Handler not found", data=[]
@@ -76,6 +83,8 @@ class RequestHandler(APIView):
             )
 
         except Exception as e:
+            print(e)
+            return CustomResponse.errors(message=str(e), data=[])
             return CustomResponse.server_error(
                 message=f"Failed to Retrieve Approval Request Handlers: {str(e)}"
             )
