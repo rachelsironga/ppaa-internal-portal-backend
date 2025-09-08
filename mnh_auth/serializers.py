@@ -444,7 +444,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
             user.user_permissions.set(staff_permissions)
 
         else:  # Regular user
-            user_group, created = Group.objects.get_or_create(name='contributer')
+            user_group, created = Group.objects.get_or_create(name='staff')
             user.groups.add(user_group)
             # Assign view-only permissions
             user_permissions = Permission.objects.filter(codename__in=['view_user'])

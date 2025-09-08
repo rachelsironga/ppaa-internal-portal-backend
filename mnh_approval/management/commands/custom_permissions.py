@@ -58,10 +58,9 @@ class Command(BaseCommand):
         groups_to_permissions = {
             "Approvers": [
                 "can_assign_delegate",
-                "can_view_directory",
-                "can_view_department",
+                "can_view_directory_lookup",
+                "can_view_department_lookup",
                 "can_change_own_password",
-                "can_view_approval_modules",
                 "can_view_approval_module_lookup",
                 "can_approve_request"
             ],
@@ -98,8 +97,7 @@ class Command(BaseCommand):
                 'change_approval_request',
                 "can_view_approval_module_lookup",
                 "can_view_date_range_lookup",
-                "can_view_approval_request_step"
-
+                "can_view_approval_request_step",
             ]
         }
 
