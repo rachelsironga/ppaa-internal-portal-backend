@@ -47,7 +47,10 @@ class UserView(APIView):
                     Q(middle_name__icontains=search_query) |
                     Q(last_name__icontains=search_query) |
                     Q(phone_number__icontains=search_query) |
-                    Q(alternative_contact__icontains=search_query)
+                    Q(alternative_contact__icontains=search_query) |
+                    Q(status__icontains=search_query)
+
+
                 )
 
             if users.exists():
