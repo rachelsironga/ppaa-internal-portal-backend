@@ -171,6 +171,7 @@ class LogoutView(APIView):
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission, ]
+    serializer_class = PasswordChangeSerializer
 
     def post(self, request):
         serializer = PasswordChangeSerializer(context={'request': request}, data=request.data)

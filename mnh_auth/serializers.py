@@ -285,6 +285,8 @@ class LoginSerializer(serializers.Serializer):
 class NewUserLoginSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=True, allow_blank=False, write_only=True)
     password = serializers.CharField(required=True, allow_blank=False, write_only=True)
+    email = serializers.CharField(required=True, allow_blank=False, write_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -300,7 +302,7 @@ class NewUserLoginSerializer(serializers.ModelSerializer):
         if not data['user']:
                 raise serializers.ValidationError("The user is not verified or may be removed")
 
-        if User.objects.filter(email=email,is_deleted=False).first():
+        if User.objects.filter(email=email,is_deleted=False).exclude(guid=data['user'].guid).first():
                 raise serializers.ValidationError("The email Already Exists")
 
         return data
