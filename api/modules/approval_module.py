@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from api.serializers import ApprovalModuleSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
+from mnh_auth.models import Department
 from mnh_model.models import ApprovalModule, ApprovalModuleLevel
 from utils.permissions import HasMethodPermission
 
@@ -40,6 +41,11 @@ class ApprovalModuleView(APIView):
 
             search_query = request.GET.get('search', '').strip()
             approval_modules = ApprovalModule.objects.filter(is_deleted=False)
+
+            if request.query_params.get('directory_uid'):
+                approval_modules = approval_modules.filter(
+                    Q(directory_uid=request.query_params.get('directory_uid').strip())
+                )
 
             if search_query:
                 approval_modules = approval_modules.filter(

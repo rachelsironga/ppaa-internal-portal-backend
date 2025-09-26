@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
@@ -40,8 +42,10 @@ class ApprovalAction(BaseModel):
 class ApprovalModule(BaseModel):
     """Defines a module that requires approval processes"""
     name = models.CharField(max_length=255, unique=True)
-    code = models.CharField(max_length=50, default="")  # e.g., "APPROVE"
+    code = models.CharField(max_length=50, default="")
     description = models.TextField(blank=True, null=True)
+    directory_uid = models.UUIDField(default=uuid.uuid4, editable=True, blank=True, null=True)
+
 
     class Meta:
         db_table = 'approval_modules'
