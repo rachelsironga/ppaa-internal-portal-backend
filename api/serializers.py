@@ -422,10 +422,12 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
 
 class ApprovalModuleSerializer(serializers.ModelSerializer):
     approval_module_levels = serializers.SerializerMethodField()
+    directory_uid = serializers.UUIDField(write_only=True)
+    directory = serializers.SerializerMethodField()
 
     class Meta:
         model = ApprovalModule
-        fields = ['uid', 'code', 'name', 'description', 'approval_module_levels', 'created_at', 'updated_at']
+        fields = ['uid', 'code', 'name', 'description', 'approval_module_levels', 'directory_uid','directory', 'created_at', 'updated_at']
         read_only_fields = ['uid', 'approval_module_levels', 'created_at', 'updated_at']
         extra_kwargs = {
             'created_by': {'read_only': True},
@@ -447,6 +449,21 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
             ).data
             # return ApprovalModuleLevelSerializer(related_objects.all(), many=True).data
         return []
+
+    def get_directory(self, obj):
+        print("------------------------------------------>")
+        if obj.directory_uid is not None or obj.directory_uid != "":
+            # Filter is_deleted=False
+            directory = Directory.objects.filter(is_deleted=False, uid=obj.directory_uid).first()
+            if directory:
+                return DirectorySerializer(
+                    directory,
+                    many=False,
+                    context=self.context
+                ).data
+            else:
+                return {}
+        return {}
 
     def validate(self, data):
         name = data.get('name')
