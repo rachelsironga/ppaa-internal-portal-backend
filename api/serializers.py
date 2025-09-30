@@ -561,6 +561,21 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
 
+class ApprovalRequestCustomiseSerializer(serializers.ModelSerializer):
+    request_data = serializers.DictField(write_only=True)
+    class Meta:
+        model = ApprovalRequest
+        fields = [
+            'uid', 'request_data'
+        ]
+        read_only_fields = ['uid', 'created_by', 'created_at', 'updated_at', 'status']
+
+    def create(self, validated_data):
+        return ApprovalRequest.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)
+
 
 class JeevaRoleSerializer(serializers.ModelSerializer):
     class Meta:
