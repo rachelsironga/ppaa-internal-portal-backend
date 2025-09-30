@@ -1,7 +1,8 @@
 from django.urls import path
 
 from api.modules.approval_action import ApprovalActionView
-from api.modules.approval_module_level_step import ApproveModuleLevelStepView, ApproveModuleLevelActingUser
+from api.modules.approval_module_level_step import ApproveModuleLevelStepView, ApproveModuleLevelActingUser, \
+    ApprovalRequestCustomise
 from api.modules.date_range import DateRangeView
 from api.modules.handler import RequestHandler
 from api.modules.positional_level import PositionalLevelView, BulkDesignationImportView
@@ -13,6 +14,7 @@ from api.modules.directory import DirectoryView, UploadDirectoryExcelView
 from api.modules.external_auth.jeeva_roles import JeevaRoleView, JeevaRolePermissionListView
 from api.modules.system.user_roles import SystemRoleView, SystemPermissionView, SystemAssignRoleUser, SystemRoleUsers, \
     SystemAssignRoleListToUser, SystemGroupView
+from api.serializers import ApprovalRequestCustomiseSerializer
 
 urlpatterns = [
     path('date-range', DateRangeView.as_view(), name='date-range-view'),
@@ -53,6 +55,7 @@ path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
 
     path('approval-request-step/<str:request_uid>', ApproveModuleLevelStepView.as_view(), name='one-approval-request-step'),
     path('get-acting-user', ApproveModuleLevelActingUser.as_view(), name='get-acting-user'),
+    path('approval-request-update-permissions/<str:request_uid>', ApprovalRequestCustomise.as_view(), name='approval-request-update-permissions'),
 
     path('system/roles', SystemRoleView.as_view(), name='system-roles'),
     path('system/roles/<str:uid>', SystemRoleView.as_view(), name='open-system-roles'),

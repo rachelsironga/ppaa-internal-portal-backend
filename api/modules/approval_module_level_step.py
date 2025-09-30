@@ -7,7 +7,8 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 
-from api.serializers import ApprovalModuleSerializer, ApprovalRequestStepSerializer, UserProfileSerializer
+from api.serializers import ApprovalModuleSerializer, ApprovalRequestStepSerializer, UserProfileSerializer, \
+    ApprovalRequestSerializer, ApprovalRequestCustomiseSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import UserProfile, User
@@ -34,7 +35,7 @@ class ApproveModuleLevelStepView(APIView):
             if request_uid:
                 request_steps = ApprovalRequestStep.objects.filter(is_deleted=False,
                                                                    approval_request__uid=request_uid).order_by(
-                    'action_count')
+                    'created_at')
                 if request_steps.exists():
                     return CustomPagination.paginate(view_class=self, results=request_steps, request=request)
 
@@ -229,3 +230,42 @@ class ApproveModuleLevelActingUser(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Retrieve Departments: {str(e)}', )
+
+
+class ApprovalRequestCustomise(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    serializer_class = ApprovalRequestCustomiseSerializer
+    required_permissions = {
+        "post": [
+            "can_approve_request",
+        ],
+    }
+
+    def post(self, request, request_uid):
+        try:
+            with transaction.atomic():
+                if request_uid == "":
+                    return CustomResponse.errors(message="Unable to Retrieve Approval Request", code=STATUS_CODES["VALIDATION_ERROR"])
+                try:
+                    instance = ApprovalRequest.objects.get(uid=request_uid)
+                except ApprovalRequest.DoesNotExist:
+                    return CustomResponse.errors(message="Approval Request not found")
+
+                serializer = self.serializer_class(instance, data=request.data, partial=True)
+
+                # Validate and save
+                if serializer.is_valid():
+                    serializer.save(created_by=request.user, updated_by=request.user)
+                    return CustomResponse.success(data=ApprovalRequestSerializer(instance).data)
+
+                # Validation failed
+                return CustomResponse.errors(
+                    message="Validation Failed",
+                    data=serializer.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"]
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to Change Approval Request: {str(e)}"
+            )
+
