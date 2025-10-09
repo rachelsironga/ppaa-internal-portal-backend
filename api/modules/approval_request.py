@@ -13,10 +13,10 @@ from utils.permissions import HasMethodPermission
 
 
 class ApprovalRequestView(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
     serializer_class = ApprovalRequestSerializer
     required_permissions = {
-        "get": ["can_view_approval_request","can_view_approval_module_lookup"],
+        "get": ["can_view_approval_request", "can_view_approval_module_lookup"],
     }
 
     def get(self, request, uid=None):
@@ -61,6 +61,16 @@ class ApprovalRequestView(APIView):
             if "MY_REQUEST" in filters:
                 qs = ApprovalRequest.objects.filter(
                     is_deleted=False, created_by=request.user
+                ).select_related('module', 'department', 'created_by')
+
+                # keep any status filters the user selected
+                if selected_statuses:
+                    qs = qs.filter(status__in=selected_statuses)
+
+            # "MY_REQUEST" filter (only my own created)
+            if "RELATED" in filters:
+                qs = ApprovalRequest.objects.filter(is_deleted=False).exclude(
+                    created_by=request.user
                 ).select_related('module', 'department', 'created_by')
 
                 # keep any status filters the user selected
@@ -123,7 +133,7 @@ class ApprovalRequestView(APIView):
                 """ Soft delete a Approval Request by UID """
                 approval_request = ApprovalRequest.objects.filter(uid=uid, is_deleted=False).first()
                 if not approval_request:
-                    return CustomResponse.errors(message="Approval Request Not Found or Deleted",)
+                    return CustomResponse.errors(message="Approval Request Not Found or Deleted", )
 
                 approval_request.is_deleted = True
                 approval_request.deleted_at = datetime.now()
@@ -133,6 +143,7 @@ class ApprovalRequestView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message="Something went wrong While Deleting Approval Request")
+
 
 # ---------- Helper: very fast (EXISTS), no duplicates, minimal queries ----------
 def get_user_related_requests(request, include_created=False):
@@ -173,9 +184,7 @@ def get_user_related_requests(request, include_created=False):
         .select_related('module', 'department', 'created_by')
     )
 
-    print("------------------------------------>>>>>>>>>", request.user.get_group_names)
     user_groups = request.user.get_group_names()
-    print(user_groups)
 
     if any(group in user_groups for group in ["admin", "Admin", "Administrator", "ADMINISTRATOR"]):
         print("Administrator")
