@@ -173,6 +173,14 @@ def get_user_related_requests(request, include_created=False):
         .select_related('module', 'department', 'created_by')
     )
 
+    print("------------------------------------>>>>>>>>>", request.user.get_group_names)
+    user_groups = request.user.get_group_names()
+    print(user_groups)
+
+    if any(group in user_groups for group in ["admin", "Admin", "Administrator", "ADMINISTRATOR"]):
+        print("Administrator")
+        return qs
+
     if include_created:
         # user is involved if (has matching level/department) OR (is creator)
         qs = qs.filter(Q(_has_match=True) | Q(created_by=profile.user))
