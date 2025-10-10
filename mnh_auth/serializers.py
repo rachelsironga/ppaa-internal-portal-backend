@@ -17,6 +17,7 @@ class UserSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField()
     signature = serializers.SerializerMethodField()
     position = serializers.SerializerMethodField(read_only=True)
+    email = serializers.CharField(required=False, allow_blank=False)
 
     class Meta:
         model = User
@@ -53,7 +54,12 @@ class UserSerializer(serializers.ModelSerializer):
         return None
 
     def create(self, validated_data):
-        validated_data['username'] = validated_data.get('pf_number')
+        validated_data['first_name'] = validated_data['first_name'].strip().upper()
+        middle_name = validated_data.get('middle_name')
+        validated_data['middle_name'] = middle_name.strip().upper() if middle_name else ""
+        validated_data['last_name'] = validated_data['last_name'].strip().upper()
+        validated_data['username'] = f"{validated_data.get('first_name')}.{validated_data.get('last_name')}".lower()
+        validated_data['status'] = 'NEW'
         return super().create(validated_data)
 
 class ActingUserSerializer(serializers.Serializer):
