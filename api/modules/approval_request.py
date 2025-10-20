@@ -69,13 +69,47 @@ class ApprovalRequestView(APIView):
 
             # "MY_REQUEST" filter (only my own created)
             if "RELATED" in filters:
-                qs = ApprovalRequest.objects.filter(is_deleted=False).exclude(
-                    created_by=request.user
+                # qs = ApprovalRequest.objects.filter(is_deleted=False).exclude(
+                #     created_by=request.user
+                # ).select_related('module', 'department', 'created_by')
+                user_profile = request.user.user_profiles.filter(is_active=True).first()
+                if not user_profile:
+                    return None
+
+                # Get all module levels that match user's position
+                user_module_levels = ApprovalModuleLevel.objects.filter(
+                    level=user_profile.level,
+                    department=user_profile.department,
+                    is_active=True
                 ).select_related('module', 'department', 'created_by')
+
+
+                # Get module IDs and their required order
+                module_data = {
+                    level.module_id: level.order
+                    for level in user_module_levels
+                }
+
+                # Get requests where current_state matches (user's order - 1)
+                requests = ApprovalRequest.objects.filter(
+                    module_id__in=module_data.keys()
+                )
 
                 # keep any status filters the user selected
                 if selected_statuses:
-                    qs = qs.filter(status__in=selected_statuses)
+                    requests = requests.filter(status__in=selected_statuses)
+
+                # Filter in Python for more control (or use database filtering)
+                qs = [
+                    request for request in requests
+                    if request.current_state + 1 == module_data[request.module_id]
+                ]
+
+                print("---------------qs--------->", qs)
+
+
+
+
 
             # Search by title (case-insensitive)
             if search_query:
@@ -84,7 +118,7 @@ class ApprovalRequestView(APIView):
             # If you need to additionally allow "creator OR matching-level" regardless of MY_REQUEST:
             # qs = get_user_related_requests(profile, include_created=True)
 
-            if qs.exists():
+            if qs and  ((hasattr(qs, 'exists') and qs.exists()) or len(qs) > 0):
                 return CustomPagination.paginate(view_class=self, results=qs, request=request)
 
             return CustomResponse.errors(message="Approval Request not found", data=[])
