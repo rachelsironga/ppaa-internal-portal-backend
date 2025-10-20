@@ -123,6 +123,7 @@ INSTALLED_APPS = [
     'mnh_approval',
     'mnh_model',
     'mnh_auth',
+    'microservices.ict_assets',
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
