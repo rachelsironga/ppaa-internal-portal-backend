@@ -172,14 +172,30 @@ class LogoutView(APIView):
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission, ]
     serializer_class = PasswordChangeSerializer
+    required_permissions = {
+        "post": ["can_change_own_password"],
+    }
 
     def post(self, request):
-        serializer = PasswordChangeSerializer(context={'request': request}, data=request.data)
-        serializer.is_valid(raise_exception=True)  # Another way to write is as in Line 17
-        request.user.set_password(serializer.validated_data['new_password'])
-        request.user.save()
-        return Response({'status': status.HTTP_200_OK, 'data': str(request.user), 'message': 'Password Changes'},
-                        status=status.HTTP_200_OK)
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(context={'request': request}, data=request.data)
+                # Validate and save
+                if serializer.is_valid():
+                    request.user.set_password(serializer.validated_data['new_password'])
+                    request.user.save()
+                    return CustomResponse.success(data=UserSerializer(request.user).data)
+
+                # Validation failed
+                return CustomResponse.errors(
+                    message="Incorrect Current Password",
+                    data=serializer.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"]
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to Change Change Password: {str(e)}"
+            )
 
 class CheckUserExistence(APIView):
     def get(self, request):

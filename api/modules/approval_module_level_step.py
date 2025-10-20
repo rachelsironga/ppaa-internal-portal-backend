@@ -78,8 +78,12 @@ class ApproveModuleLevelStepView(APIView):
                     ).first()
 
                     if not expected_level:
+                        expected_level = ApprovalModuleLevel.objects.filter(
+                            module=approval_request.module,
+                            order=approval_request.current_state + 1
+                        ).query
                         return CustomResponse.errors(
-                            message="Sorry. Currently Unable to Find Approving Position Please Try Again",
+                            message=f"Sorry. Currently Unable to Find Approving Position Please Try Again {expected_level}",
                             code=STATUS_CODES["VALIDATION_ERROR"],
                         )
 
