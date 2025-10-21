@@ -90,6 +90,11 @@ class ApprovalRequest(BaseModel):
     request_data = models.JSONField(blank=True, null=True)
     status = models.CharField(max_length=15, default='NEW', choices=REQUEST_CHOICES)
     current_state = models.PositiveIntegerField(default=0)
+    is_handled = models.BooleanField(default=False)
+    handler_descriptions = models.TextField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'approval_requests'
 
     class Meta:
         db_table = 'approval_requests'

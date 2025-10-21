@@ -4,7 +4,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.db.models import Q, Exists, OuterRef
-from api.serializers import ApprovalRequestSerializer
+from api.serializers import ApprovalRequestSerializer, ApprovalRequestHandlerSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import UserProfile
@@ -17,6 +17,7 @@ class ApprovalRequestView(APIView):
     serializer_class = ApprovalRequestSerializer
     required_permissions = {
         "get": ["can_view_approval_request", "can_view_approval_module_lookup"],
+        "post": ["can_approve_request"],
     }
 
     def get(self, request, uid=None):
@@ -229,3 +230,33 @@ def get_user_related_requests(request, include_created=False):
         qs = qs.filter(_has_match=True)
 
     return qs
+
+
+class ApprovalRequestHandlerView(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
+    serializer_class = ApprovalRequestHandlerSerializer
+    required_permissions = {
+        "post": ["can_perform_request_handling"],
+    }
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                uid = request.data.get("uid") or request.data.get("request_uid")
+                instance = None
+                if uid:
+                    try:
+                        instance = ApprovalRequest.objects.get(uid=uid)
+                    except ApprovalRequest.DoesNotExist:
+                        return CustomResponse.errors(message="Approval Request not found")
+
+                serializer = self.serializer_class(instance=instance, data=request.data, partial=True, context={"request": request})
+                if serializer.is_valid():
+                    obj = serializer.save()
+                    # return serialized object (use serializer class again to include read-only fields)
+                    out = self.serializer_class(obj).data
+                    return CustomResponse.success(data=out)
+                return CustomResponse.errors(message=serializer.errors, data=serializer.errors, code=STATUS_CODES["VALIDATION_ERROR"])
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to Change Approval Request: {str(e)}"
+            )
