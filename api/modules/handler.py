@@ -89,7 +89,6 @@ class RequestHandler(APIView):
                 message=f"Failed to Retrieve Approval Request Handlers: {str(e)}"
             )
 
-
     def post(self, request):
         try:
             with (transaction.atomic()):

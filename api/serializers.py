@@ -495,7 +495,7 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
         fields = [
             'uid', 'title', 'description', 'type', 'request_data', 'module_uid', 'date_range_uid', 'department_uid',
             'requester_name', 'current_state', 'module', 'department', 'date_range', 'created_by', 'status',
-            'created_at', 'updated_at', 'request_details', 'request_handler'
+            'created_at', 'updated_at', 'request_details', 'request_handler', 'is_handled','handler_descriptions'
         ]
         read_only_fields = ['uid', 'created_by', 'created_at', 'updated_at', 'status']
 
@@ -697,3 +697,51 @@ class RequestHandlerSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
+
+
+class ApprovalRequestHandlerSerializer(serializers.ModelSerializer):
+    request_uid = serializers.UUIDField(write_only=True)
+    handler_descriptions = serializers.CharField(allow_blank=False, required=True)
+
+    class Meta:
+        model = ApprovalRequest
+        fields = [
+            "request_uid",
+            "uid",
+            "is_handled",
+            "status",
+            "handler_descriptions",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["uid", "created_at", "updated_at", "status"]
+
+    def validate(self, data):
+        print("----------------------------------->")
+        # Ensure request exists when serializer used without instance
+        request_uid = data.pop("request_uid", None)
+        if not self.instance:
+            if not request_uid:
+                raise serializers.ValidationError({"request_uid": "request Details is required."})
+            try:
+                instance = ApprovalRequest.objects.get(uid=request_uid)
+            except ApprovalRequest.DoesNotExist:
+                raise serializers.ValidationError({"request_uid": "Approval Request not found."})
+            # attach instance so update() will be called correctly
+            self.instance = instance
+        return data
+
+    def update(self, instance, validated_data):
+        desc = validated_data.get("handler_descriptions", None)
+        if desc is not None:
+            instance.handler_descriptions = desc
+        # mark handled
+        instance.is_handled = True
+        request = self.context.get("request", None)
+        if request and hasattr(request, "user"):
+            try:
+                instance.updated_by = request.user
+            except Exception:
+                pass
+        instance.save()
+        return instance
