@@ -17,7 +17,6 @@ class ApprovalRequestView(APIView):
     serializer_class = ApprovalRequestSerializer
     required_permissions = {
         "get": ["can_view_approval_request", "can_view_approval_module_lookup"],
-        "post": ["can_approve_request"],
     }
 
     def get(self, request, uid=None):
