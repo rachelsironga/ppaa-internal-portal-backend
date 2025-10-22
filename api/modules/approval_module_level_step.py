@@ -77,13 +77,14 @@ class ApproveModuleLevelStepView(APIView):
                         order=approval_request.current_state + 1
                     ).first()
 
+
+
                     if not expected_level:
                         expected_level = ApprovalModuleLevel.objects.filter(
                             module=approval_request.module,
-                            order=approval_request.current_state + 1
                         ).query
                         return CustomResponse.errors(
-                            message=f"Sorry. Currently Unable to Find Approving Position Please Try Again {expected_level}",
+                            message=f"Sorry. Currently Unable to Find Approving Position Please Try Again ",
                             code=STATUS_CODES["VALIDATION_ERROR"],
                         )
 
@@ -165,7 +166,9 @@ class ApproveModuleLevelStepView(APIView):
                     updated_at=timezone.now(),
                 )
 
-                approval_request.save()
+                # approval_request.save()
+                approval_request.updated_by = user  # Only update the updater
+                approval_request.save(update_fields=['status', 'current_state', 'updated_by'])
 
                 if approval_request.status == "APPROVED" or approval_request.status == "REJECTED":
                     handler_user_uid = validated.get("handler_user")
