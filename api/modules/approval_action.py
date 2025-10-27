@@ -94,7 +94,7 @@ class ApprovalActionView(APIView):
 
                 approval_action.is_deleted = True
                 approval_action.deleted_at = datetime.now()
-                approval_action.deleted_by = request.user.id
+                approval_action.deleted_by = request.user
                 approval_action.save()
                 return CustomResponse.success(message='Approval Action deleted successfully')
 
