@@ -169,7 +169,7 @@ class ApprovalRequestView(APIView):
 
                 approval_request.is_deleted = True
                 approval_request.deleted_at = datetime.now()
-                approval_request.deleted_by = request.user.id
+                approval_request.deleted_by = request.user
                 approval_request.save()
                 return CustomResponse.success(message='Approval Request deleted successfully')
 

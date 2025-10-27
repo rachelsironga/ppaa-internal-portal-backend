@@ -101,7 +101,7 @@ class DateRangeView(APIView):
 
                 date_range.is_deleted = True
                 date_range.deleted_at = datetime.now()
-                date_range.deleted_by = request.user.id
+                date_range.deleted_by = request.user
                 date_range.save()
                 return CustomResponse.success(message='Date Range deleted successfully')
 

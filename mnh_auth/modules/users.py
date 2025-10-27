@@ -209,7 +209,7 @@ class UserPhotoUpload(APIView):
                     old_file_path=instance.photo
                 )
                 instance.photo = photo_url
-                instance.updated_by = request.user.id
+                instance.updated_by = request.user
                 instance.updated_at = timezone.now()
                 instance.save(update_fields=["photo",'updated_by','updated_at'])
                 user_serializer = UserSerializer(instance)
@@ -257,7 +257,7 @@ class UserSignatureUpload(APIView):
                     old_file_path=instance.signature
                 )
                 instance.signature = file_url
-                instance.updated_by = request.user.id
+                instance.updated_by = request.user
                 instance.updated_at = timezone.now()
                 instance.save(update_fields=["signature",'updated_by','updated_at'])
                 user_serializer = UserSerializer(instance)
