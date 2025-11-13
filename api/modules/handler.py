@@ -130,7 +130,7 @@ class RequestHandler(APIView):
 
                 approval_request_handler.is_deleted = True
                 approval_request_handler.deleted_at = datetime.now()
-                approval_request_handler.deleted_by = request.user.id
+                approval_request_handler.deleted_by = request.user
                 approval_request_handler.save()
                 return CustomResponse.success(message='Approval Request Handler deleted successfully')
 

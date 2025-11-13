@@ -40,7 +40,7 @@ class ApprovalModuleView(APIView):
                 return CustomResponse.success(data=ApprovalModuleSerializer(approval_module).data)
 
             search_query = request.GET.get('search', '').strip()
-            approval_modules = ApprovalModule.objects.filter(is_deleted=False)
+            approval_modules = ApprovalModule.objects.filter(is_deleted=False).order_by("-created_at")
 
             if request.query_params.get('directory_uid'):
                 approval_modules = approval_modules.filter(
@@ -49,7 +49,10 @@ class ApprovalModuleView(APIView):
 
             if search_query:
                 approval_modules = approval_modules.filter(
-                    Q(name__icontains=search_query) | Q(description__icontains=search_query)
+                    Q(name__icontains=search_query) |
+                    Q(description__icontains=search_query) |
+                    Q(code__icontains=search_query) |
+                    Q(created_at__date__icontains=search_query)
                 )
 
             if approval_modules.exists():

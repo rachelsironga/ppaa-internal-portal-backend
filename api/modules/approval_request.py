@@ -17,7 +17,6 @@ class ApprovalRequestView(APIView):
     serializer_class = ApprovalRequestSerializer
     required_permissions = {
         "get": ["can_view_approval_request", "can_view_approval_module_lookup"],
-        "post": ["can_approve_request"],
     }
 
     def get(self, request, uid=None):
@@ -170,7 +169,7 @@ class ApprovalRequestView(APIView):
 
                 approval_request.is_deleted = True
                 approval_request.deleted_at = datetime.now()
-                approval_request.deleted_by = request.user.id
+                approval_request.deleted_by = request.user
                 approval_request.save()
                 return CustomResponse.success(message='Approval Request deleted successfully')
 

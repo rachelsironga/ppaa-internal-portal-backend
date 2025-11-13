@@ -107,7 +107,7 @@ class PositionalLevelView(APIView):
 
                 positional_level.is_deleted = True
                 positional_level.deleted_at = datetime.now()
-                positional_level.deleted_by = request.user.id
+                positional_level.deleted_by = request.user
                 positional_level.save()
                 return CustomResponse.success(message='Positional Level deleted successfully')
 
