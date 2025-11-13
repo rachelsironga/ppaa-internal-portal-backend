@@ -1,9 +1,12 @@
 # ict_assets/serializers.py
 from rest_framework import serializers
 from django.db import transaction
+from django.contrib.auth import get_user_model
 
 from mnh_auth.serializers import UserSerializer
 from .models import *
+
+User = get_user_model()
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
     """
@@ -20,87 +23,127 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
             for field_name in existing - allowed:
                 self.fields.pop(field_name)
 
-class TimestampMixin(serializers.ModelSerializer):
+class AuditMixin(serializers.ModelSerializer):
+    """Mixin for audit fields with standardized formatting"""
     created_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
-
-class UserReferenceMixin(serializers.ModelSerializer):
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     updated_by = serializers.PrimaryKeyRelatedField(read_only=True)
     deleted_by = serializers.PrimaryKeyRelatedField(read_only=True)
     
-    # Optional: Include user details for read operations
+    # User details for read operations
     created_by_details = serializers.SerializerMethodField()
     updated_by_details = serializers.SerializerMethodField()
-    deleted_by_details = serializers.SerializerMethodField()
+    
+    def get_user_details(self, user):
+        """Helper method to get user details"""
+        if not user:
+            return None
+        return {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name
+        }
     
     def get_created_by_details(self, obj):
-        if obj.created_by:
-            return {
-                'id': obj.created_by.id,
-                'username': obj.created_by.username,
-                'email': obj.created_by.email,
-                'first_name': obj.created_by.first_name,
-                'last_name': obj.created_by.last_name
-            }
-        return None
+        return self.get_user_details(obj.created_by)
     
     def get_updated_by_details(self, obj):
-        if obj.updated_by:
-            return {
-                'id': obj.updated_by.id,
-                'username': obj.updated_by.username,
-                'email': obj.updated_by.email,
-                'first_name': obj.updated_by.first_name,
-                'last_name': obj.updated_by.last_name
-            }
-        return None
-    
-    def get_deleted_by_details(self, obj):
-        if obj.deleted_by:
-            return {
-                'id': obj.deleted_by.id,
-                'username': obj.deleted_by.username,
-                'email': obj.deleted_by.email,
-                'first_name': obj.updated_by.first_name,
-                'last_name': obj.updated_by.last_name
-            }
-        return None
+        return self.get_user_details(obj.updated_by)
 
-class BaseModelSerializer(TimestampMixin, UserReferenceMixin, DynamicFieldsModelSerializer):
-    """Base serializer with common functionality"""
+class BaseModelSerializer(AuditMixin, DynamicFieldsModelSerializer):
+    """Base serializer with common functionality for all models"""
     uid = serializers.UUIDField(read_only=True)
-    updated_at = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S', read_only=True)
     is_deleted = serializers.BooleanField(read_only=True)
-    created_by = serializers.PrimaryKeyRelatedField(read_only=True)
-    updated_by = serializers.PrimaryKeyRelatedField(read_only=True)
-    deleted_by = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:
         fields = [
             'uid', 'created_at', 'updated_at', 'deleted_at', 'is_deleted', 
             'created_by', 'updated_by', 'deleted_by',
-            'created_by_details', 'updated_by_details', 'deleted_by_details'
+            'created_by_details', 'updated_by_details'
         ]
-        extra_kwargs = {
-            'created_by': {'read_only': True},
-            'updated_by': {'read_only': True},
-            'deleted_by': {'read_only': True},
-        }
 
+class NameCodeSerializer(BaseModelSerializer):
+    """Base serializer for simple name/code models"""
+    class Meta:
+        fields = BaseModelSerializer.Meta.fields + ['name', 'code']
+
+class NameDescriptionSerializer(BaseModelSerializer):
+    """Base serializer for name/description models"""
+    class Meta:
+        fields = BaseModelSerializer.Meta.fields + ['name', 'description']
+
+class RelatedFieldMixin:
+    """Mixin for common related field patterns"""
+    
+    @staticmethod
+    def get_related_name(source, read_only=True):
+        """Helper to create related name fields"""
+        return serializers.CharField(source=f'{source}.name', read_only=read_only)
+    
+    @staticmethod
+    def get_user_full_name(source, read_only=True):
+        """Helper to get user's full name"""
+        return serializers.SerializerMethodField(read_only=read_only)
+
+class SaveWithRequestUserMixin:
+    """Mixin to handle setting created_by/updated_by from request user"""
+    
+    def save(self, **kwargs):
+        """Set created_by/updated_by from request user"""
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        
+        if user and user.is_authenticated:
+            if self.instance is None:
+                kwargs['created_by'] = user
+            kwargs['updated_by'] = user
+        
+        return super().save(**kwargs)
 
 # Category and Type Serializers
-class AssetCategorySerializer(BaseModelSerializer):
-    parent_category_name = serializers.CharField(source='parent_category.name', read_only=True)
-    
+class AssetCategorySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    parent_category_name = RelatedFieldMixin.get_related_name('parent_category')
+
     class Meta:
         model = AssetCategory
         fields = BaseModelSerializer.Meta.fields + [
             'name', 'description', 'parent_category', 'parent_category_name'
         ]
 
-class AssetTypeSerializer(BaseModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True)
+    def validate(self, data):
+        name = data.get('name')
+        parent = data.get('parent_category')
+        instance = getattr(self, 'instance', None)
+
+        if not name:
+            raise serializers.ValidationError({'name': 'This field is required.'})
+
+        # Unique within the same parent
+        qs = AssetCategory.objects.filter(name__iexact=name, parent_category=parent)
+        if instance:
+            qs = qs.exclude(pk=instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError({
+                'name': 'A category with this name already exists under the specified parent.'
+            })
+
+        # Prevent circular references
+        if instance and parent:
+            current = parent
+            while current:
+                if current.pk == instance.pk:
+                    raise serializers.ValidationError({
+                        'parent_category': 'Invalid parent - would create a circular category reference.'
+                    })
+                current = current.parent_category
+
+        return data
+
+class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    category_name = RelatedFieldMixin.get_related_name('category')
     
     class Meta:
         model = AssetType
@@ -108,45 +151,29 @@ class AssetTypeSerializer(BaseModelSerializer):
             'name', 'category', 'category_name', 'specifications_template'
         ]
 
-class AssetTypeDetailSerializer(AssetTypeSerializer):
-    """Extended serializer with nested category"""
-    category = AssetCategorySerializer(read_only=True)
-
-class AssetCategoryDetailSerializer(AssetCategorySerializer):
-    """Extended serializer with nested children"""
-    subcategories = serializers.SerializerMethodField()
-    
-    def get_subcategories(self, obj):
-        children = AssetCategory.objects.filter(parent_category=obj)
-        return AssetCategorySerializer(children, many=True).data
-    
-
 # Manufacturer and Supplier Serializers
-class ManufacturerSerializer(BaseModelSerializer):
+class ManufacturerSerializer(SaveWithRequestUserMixin, NameDescriptionSerializer):
     class Meta:
         model = Manufacturer
-        fields = BaseModelSerializer.Meta.fields + [
-            'name', 'contact_email', 'support_phone', 'website'
+        fields = NameDescriptionSerializer.Meta.fields + [
+            'contact_email', 'support_phone', 'website'
         ]
 
-class SupplierSerializer(BaseModelSerializer):
+class SupplierSerializer(SaveWithRequestUserMixin, NameDescriptionSerializer):
     class Meta:
         model = Supplier
-        fields = BaseModelSerializer.Meta.fields + [
-            'name', 'contact_person', 'email', 'phone', 'address'
+        fields = NameDescriptionSerializer.Meta.fields + [
+            'contact_person', 'email', 'phone', 'address'
         ]
-
 
 # Location Serializers
-class BuildingSerializer(BaseModelSerializer):
+class BuildingSerializer(SaveWithRequestUserMixin, NameCodeSerializer):
     class Meta:
         model = Building
-        fields = BaseModelSerializer.Meta.fields + [
-            'name', 'code', 'address'
-        ]
+        fields = NameCodeSerializer.Meta.fields + ['address']
 
-class FloorSerializer(BaseModelSerializer):
-    building_name = serializers.CharField(source='building.name', read_only=True)
+class FloorSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    building_name = RelatedFieldMixin.get_related_name('building')
     
     class Meta:
         model = Floor
@@ -154,10 +181,10 @@ class FloorSerializer(BaseModelSerializer):
             'building', 'building_name', 'number', 'name'
         ]
 
-class LocationSerializer(BaseModelSerializer):
-    building_name = serializers.CharField(source='building.name', read_only=True)
+class LocationSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    building_name = RelatedFieldMixin.get_related_name('building')
     floor_number = serializers.IntegerField(source='floor.number', read_only=True)
-    parent_name = serializers.CharField(source='parent.name', read_only=True)
+    parent_name = RelatedFieldMixin.get_related_name('parent')
     
     class Meta:
         model = Location
@@ -166,34 +193,9 @@ class LocationSerializer(BaseModelSerializer):
             'floor_number', 'room', 'parent', 'parent_name'
         ]
 
-class LocationDetailSerializer(LocationSerializer):
-    """Extended location serializer with nested relationships"""
-    building = BuildingSerializer(read_only=True)
-    floor = FloorSerializer(read_only=True)
-    parent = LocationSerializer(read_only=True)
-
-
 # Core Asset Serializers
-class AssetListSerializer(BaseModelSerializer):
-    """Lightweight serializer for listing assets"""
-    asset_type_name = serializers.CharField(source='asset_type.name', read_only=True)
-    manufacturer_name = serializers.CharField(source='manufacturer.name', read_only=True)
-    custodian_name = serializers.SerializerMethodField()
-    location_name = serializers.CharField(source='location.name', read_only=True)
-    
-    class Meta:
-        model = Asset
-        fields = BaseModelSerializer.Meta.fields + [
-            'asset_tag', 'serial_number', 'asset_type', 'asset_type_name',
-            'manufacturer', 'manufacturer_name', 'model', 'status', 'condition',
-            'custodian', 'custodian_name', 'location', 'location_name', 'is_active'
-        ]
-    
-    def get_custodian_name(self, obj):
-        return f"{obj.custodian.first_name} {obj.custodian.last_name}" if obj.custodian else None
-
-class AssetSerializer(BaseModelSerializer):
-    """Detailed asset serializer for create/update operations"""
+class AssetSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    """Base asset serializer for create/update operations"""
     class Meta:
         model = Asset
         fields = BaseModelSerializer.Meta.fields + [
@@ -203,38 +205,54 @@ class AssetSerializer(BaseModelSerializer):
             'is_active', 'last_audit_date', 'notes'
         ]
     
-    def validate_asset_tag(self, value):
-        """Ensure asset tag is unique"""
-        instance = getattr(self, 'instance', None)
-        if instance and instance.asset_tag == value:
-            return value
-            
-        if Asset.objects.filter(asset_tag=value).exists():
-            raise serializers.ValidationError("An asset with this tag already exists.")
-        return value
-    
-    def validate_serial_number(self, value):
-        """Ensure serial number is unique if provided"""
+    def validate_unique_field(self, field_name, value):
+        """Helper to validate unique fields"""
         if not value:
             return value
             
         instance = getattr(self, 'instance', None)
-        if instance and instance.serial_number == value:
+        if instance and getattr(instance, field_name) == value:
             return value
             
-        if Asset.objects.filter(serial_number=value).exists():
-            raise serializers.ValidationError("An asset with this serial number already exists.")
+        if Asset.objects.filter(**{field_name: value}).exists():
+            raise serializers.ValidationError(f"An asset with this {field_name.replace('_', ' ')} already exists.")
         return value
+    
+    def validate_asset_tag(self, value):
+        return self.validate_unique_field('asset_tag', value)
+    
+    def validate_serial_number(self, value):
+        return self.validate_unique_field('serial_number', value)
+
+class AssetListSerializer(AssetSerializer):
+    """Lightweight serializer for listing assets"""
+    asset_type_name = RelatedFieldMixin.get_related_name('asset_type')
+    manufacturer_name = RelatedFieldMixin.get_related_name('manufacturer')
+    location_name = RelatedFieldMixin.get_related_name('location')
+    custodian_name = RelatedFieldMixin.get_user_full_name('custodian')
+    
+    def get_custodian_name(self, obj):
+        if obj.custodian:
+            return f"{obj.custodian.first_name} {obj.custodian.last_name}"
+        return None
+    
+    class Meta:
+        model = Asset
+        fields = [
+            'uid', 'asset_tag', 'serial_number', 'asset_type', 'asset_type_name',
+            'manufacturer', 'manufacturer_name', 'model', 'status', 'condition',
+            'custodian', 'custodian_name', 'location', 'location_name', 'is_active'
+        ]
 
 class AssetDetailSerializer(AssetSerializer):
-    """Extended asset serializer with nested relationships for read operations"""
+    """Extended asset serializer with nested relationships"""
     asset_type = AssetTypeSerializer(read_only=True)
     manufacturer = ManufacturerSerializer(read_only=True)
     supplier = SupplierSerializer(read_only=True)
     location = LocationSerializer(read_only=True)
     custodian = UserSerializer(read_only=True)
     
-    # Computed fields
+    # Hardware type flags
     has_computer = serializers.SerializerMethodField()
     has_network_device = serializers.SerializerMethodField()
     has_peripheral = serializers.SerializerMethodField()
@@ -247,12 +265,26 @@ class AssetDetailSerializer(AssetSerializer):
     
     def get_has_peripheral(self, obj):
         return hasattr(obj, 'peripheral')
-    
 
 # Hardware Specific Serializers
-class ComputerSerializer(BaseModelSerializer):
+class HardwareBaseSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    """Base serializer for hardware models"""
     asset_details = AssetSerializer(source='asset', read_only=True)
     
+    def validate_json_field(self, value, required_fields):
+        """Validate JSON field structure"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Must be a list of objects.")
+        
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError("Each item must be an object.")
+            for field in required_fields:
+                if field not in item:
+                    raise serializers.ValidationError(f"Each item must have '{field}'.")
+        return value
+
+class ComputerSerializer(HardwareBaseSerializer):
     class Meta:
         model = Computer
         fields = BaseModelSerializer.Meta.fields + [
@@ -264,20 +296,9 @@ class ComputerSerializer(BaseModelSerializer):
         ]
     
     def validate_disks(self, value):
-        """Validate disks JSON structure"""
-        if not isinstance(value, list):
-            raise serializers.ValidationError("Disks must be a list of disk objects.")
-        
-        for disk in value:
-            if not isinstance(disk, dict):
-                raise serializers.ValidationError("Each disk must be an object.")
-            if 'type' not in disk or 'size_gb' not in disk:
-                raise serializers.ValidationError("Each disk must have 'type' and 'size_gb'.")
-        return value
+        return self.validate_json_field(value, ['type', 'size_gb'])
 
-class NetworkDeviceSerializer(BaseModelSerializer):
-    asset_details = AssetSerializer(source='asset', read_only=True)
-    
+class NetworkDeviceSerializer(HardwareBaseSerializer):
     class Meta:
         model = NetworkDevice
         fields = BaseModelSerializer.Meta.fields + [
@@ -285,24 +306,21 @@ class NetworkDeviceSerializer(BaseModelSerializer):
             'mac_address', 'ports'
         ]
 
-class PeripheralSerializer(BaseModelSerializer):
-    asset_details = AssetSerializer(source='asset', read_only=True)
-    
+class PeripheralSerializer(HardwareBaseSerializer):
     class Meta:
         model = Peripheral
         fields = BaseModelSerializer.Meta.fields + [
             'asset', 'asset_details', 'peripheral_type', 'connection_type'
         ]
 
-
 # Software Serializers
-class SoftwareCategorySerializer(BaseModelSerializer):
+class SoftwareCategorySerializer(SaveWithRequestUserMixin, NameDescriptionSerializer):
     class Meta:
         model = SoftwareCategory
-        fields = BaseModelSerializer.Meta.fields + ['name', 'description']
+        fields = NameDescriptionSerializer.Meta.fields
 
-class SoftwareSerializer(BaseModelSerializer):
-    category_name = serializers.CharField(source='category.name', read_only=True)
+class SoftwareSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    category_name = RelatedFieldMixin.get_related_name('category')
     
     class Meta:
         model = Software
@@ -311,13 +329,15 @@ class SoftwareSerializer(BaseModelSerializer):
             'license_type', 'cost', 'purchase_date', 'expiration_date', 'notes'
         ]
 
-class SoftwareDetailSerializer(SoftwareSerializer):
-    category = SoftwareCategorySerializer(read_only=True)
-
-class SoftwareInstallationSerializer(BaseModelSerializer):
-    software_name = serializers.CharField(source='software.name', read_only=True)
-    asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
-    installed_by_name = serializers.SerializerMethodField()
+class SoftwareInstallationSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    software_name = RelatedFieldMixin.get_related_name('software')
+    asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
+    installed_by_name = RelatedFieldMixin.get_user_full_name('installed_by')
+    
+    def get_installed_by_name(self, obj):
+        if obj.installed_by:
+            return f"{obj.installed_by.first_name} {obj.installed_by.last_name}"
+        return None
     
     class Meta:
         model = SoftwareInstallation
@@ -325,20 +345,33 @@ class SoftwareInstallationSerializer(BaseModelSerializer):
             'software', 'software_name', 'asset', 'asset_tag', 'installed_date',
             'license_key', 'installed_by', 'installed_by_name'
         ]
-    
-    def get_installed_by_name(self, obj):
-        return f"{obj.installed_by.first_name} {obj.installed_by.last_name}" if obj.installed_by else None
-
-class SoftwareInstallationDetailSerializer(SoftwareInstallationSerializer):
-    software = SoftwareSerializer(read_only=True)
-    asset = AssetListSerializer(read_only=True)
-    installed_by = UserSerializer(read_only=True)
-
 
 # Assignment and Maintenance Serializers
-class AssetAssignmentSerializer(BaseModelSerializer):
-    asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
-    assigned_to_name = serializers.SerializerMethodField()
+class AssignmentBaseSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    """Base serializer for assignment-like models"""
+    asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
+    
+    def validate_dates(self, start_date_field, end_date_field, data):
+        """Validate that end date is not before start date"""
+        start_date = data.get(start_date_field)
+        end_date = data.get(end_date_field)
+        
+        if start_date and end_date and start_date > end_date:
+            raise serializers.ValidationError({
+                end_date_field: f'{end_date_field.replace("_", " ").title()} cannot be before {start_date_field.replace("_", " ")}.'
+            })
+        return data
+
+class AssetAssignmentSerializer(AssignmentBaseSerializer):
+    assigned_to_name = RelatedFieldMixin.get_user_full_name('assigned_to')
+    
+    def get_assigned_to_name(self, obj):
+        if obj.assigned_to:
+            return f"{obj.assigned_to.first_name} {obj.assigned_to.last_name}"
+        return None
+    
+    def validate(self, data):
+        return self.validate_dates('assigned_date', 'return_date', data)
     
     class Meta:
         model = AssetAssignment
@@ -346,25 +379,12 @@ class AssetAssignmentSerializer(BaseModelSerializer):
             'asset', 'asset_tag', 'assigned_to', 'assigned_to_name',
             'assigned_date', 'return_date', 'condition_on_assignment', 'notes'
         ]
-    
-    def get_assigned_to_name(self, obj):
-        return f"{obj.assigned_to.first_name} {obj.assigned_to.last_name}" if obj.assigned_to else None
+
+class MaintenanceRecordSerializer(AssignmentBaseSerializer):
+    asset_type_name = RelatedFieldMixin.get_related_name('asset.asset_type')
     
     def validate(self, data):
-        """Validate assignment dates"""
-        if data.get('return_date') and data['assigned_date'] > data['return_date']:
-            raise serializers.ValidationError({
-                'return_date': 'Return date cannot be before assigned date.'
-            })
-        return data
-
-class AssetAssignmentDetailSerializer(AssetAssignmentSerializer):
-    asset = AssetListSerializer(read_only=True)
-    assigned_to = UserSerializer(read_only=True)
-
-class MaintenanceRecordSerializer(BaseModelSerializer):
-    asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
-    asset_type_name = serializers.CharField(source='asset.asset_type.name', read_only=True)
+        return self.validate_dates('scheduled_date', 'completed_date', data)
     
     class Meta:
         model = MaintenanceRecord
@@ -373,21 +393,15 @@ class MaintenanceRecordSerializer(BaseModelSerializer):
             'scheduled_date', 'completed_date', 'status', 'cost', 'description',
             'technician', 'notes'
         ]
+
+class SupportTicketSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
+    assigned_technician_name = RelatedFieldMixin.get_user_full_name('assigned_technician')
     
-    def validate(self, data):
-        """Validate maintenance dates"""
-        if data.get('completed_date') and data['scheduled_date'] > data['completed_date']:
-            raise serializers.ValidationError({
-                'completed_date': 'Completed date cannot be before scheduled date.'
-            })
-        return data
-
-class MaintenanceRecordDetailSerializer(MaintenanceRecordSerializer):
-    asset = AssetListSerializer(read_only=True)
-
-class SupportTicketSerializer(BaseModelSerializer):
-    asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
-    assigned_technician_name = serializers.SerializerMethodField()
+    def get_assigned_technician_name(self, obj):
+        if obj.assigned_technician:
+            return f"{obj.assigned_technician.first_name} {obj.assigned_technician.last_name}"
+        return None
     
     class Meta:
         model = SupportTicket
@@ -396,21 +410,16 @@ class SupportTicketSerializer(BaseModelSerializer):
             'status', 'created_date', 'resolved_date', 'assigned_technician',
             'assigned_technician_name', 'resolution_notes'
         ]
-    
-    def get_assigned_technician_name(self, obj):
-        if obj.assigned_technician:
-            return f"{obj.assigned_technician.first_name} {obj.assigned_technician.last_name}"
-        return None
-
-class SupportTicketDetailSerializer(SupportTicketSerializer):
-    asset = AssetListSerializer(read_only=True)
-    assigned_technician = UserSerializer(read_only=True)
-
 
 # Procurement and Configuration Serializers
-class DisposalRecordSerializer(BaseModelSerializer):
-    asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
-    approved_by_name = serializers.SerializerMethodField()
+class DisposalRecordSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
+    approved_by_name = RelatedFieldMixin.get_user_full_name('approved_by')
+    
+    def get_approved_by_name(self, obj):
+        if obj.approved_by:
+            return f"{obj.approved_by.first_name} {obj.approved_by.last_name}"
+        return None
     
     class Meta:
         model = DisposalRecord
@@ -418,26 +427,12 @@ class DisposalRecordSerializer(BaseModelSerializer):
             'asset', 'asset_tag', 'disposal_date', 'disposal_method',
             'disposal_reason', 'disposal_value', 'approved_by', 'approved_by_name', 'notes'
         ]
+
+class WarrantySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
     
-    def get_approved_by_name(self, obj):
-        return f"{obj.approved_by.first_name} {obj.approved_by.last_name}" if obj.approved_by else None
-
-class DisposalRecordDetailSerializer(DisposalRecordSerializer):
-    asset = AssetListSerializer(read_only=True)
-    approved_by = UserSerializer(read_only=True)
-
-class DepreciationPolicySerializer(BaseModelSerializer):
-    asset_category_name = serializers.CharField(source='asset_category.name', read_only=True)
-    
-    class Meta:
-        model = DepreciationPolicy
-        fields = BaseModelSerializer.Meta.fields + [
-            'asset_category', 'asset_category_name', 'useful_life_years',
-            'depreciation_rate', 'method'
-        ]
-
-class WarrantySerializer(BaseModelSerializer):
-    asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
+    def validate(self, data):
+        return self.validate_dates('start_date', 'end_date', data)
     
     class Meta:
         model = Warranty
@@ -446,19 +441,6 @@ class WarrantySerializer(BaseModelSerializer):
             'po_number', 'po_date', 'po_amount', 'procurement_notes',
             'contract_file', 'coverage_details', 'support_contact'
         ]
-    
-    def validate(self, data):
-        """Validate warranty dates"""
-        if data['start_date'] > data['end_date']:
-            raise serializers.ValidationError({
-                'end_date': 'End date cannot be before start date.'
-            })
-        return data
-
-class WarrantyDetailSerializer(WarrantySerializer):
-    asset = AssetListSerializer(read_only=True)
-
-
 
 # Specialized Serializers for Complex Operations
 class AssetBulkUpdateSerializer(serializers.Serializer):
@@ -469,66 +451,57 @@ class AssetBulkUpdateSerializer(serializers.Serializer):
     )
     status = serializers.ChoiceField(choices=Asset.ASSET_STATUS, required=False)
     condition = serializers.ChoiceField(choices=Asset.CONDITION_CHOICES, required=False)
-    location = serializers.PrimaryKeyRelatedField(
-        queryset=Location.objects.all(), required=False
-    )
-    custodian = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), required=False
-    )
+    location = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), required=False)
+    custodian = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
 
 class AssetSearchSerializer(serializers.Serializer):
     """Serializer for asset search functionality"""
     query = serializers.CharField(required=False)
-    asset_type = serializers.PrimaryKeyRelatedField(
-        queryset=AssetType.objects.all(), required=False
-    )
+    asset_type = serializers.PrimaryKeyRelatedField(queryset=AssetType.objects.all(), required=False)
     status = serializers.ChoiceField(choices=Asset.ASSET_STATUS, required=False)
-    location = serializers.PrimaryKeyRelatedField(
-        queryset=Location.objects.all(), required=False
-    )
-    manufacturer = serializers.PrimaryKeyRelatedField(
-        queryset=Manufacturer.objects.all(), required=False
-    )
+    location = serializers.PrimaryKeyRelatedField(queryset=Location.objects.all(), required=False)
+    manufacturer = serializers.PrimaryKeyRelatedField(queryset=Manufacturer.objects.all(), required=False)
 
-class AssetWithRelationsSerializer(AssetDetailSerializer):
-    """Comprehensive asset serializer with all related data"""
-    computer = serializers.SerializerMethodField()
-    network_device = serializers.SerializerMethodField()
-    peripheral = serializers.SerializerMethodField()
-    software_installations = serializers.SerializerMethodField()
-    maintenance_records = serializers.SerializerMethodField()
-    warranty = serializers.SerializerMethodField()
-    assignment = serializers.SerializerMethodField()
+# Detail serializers with nested relationships
+class AssetTypeDetailSerializer(AssetTypeSerializer):
+    category = AssetCategorySerializer(read_only=True)
+
+class AssetCategoryDetailSerializer(AssetCategorySerializer):
+    subcategories = serializers.SerializerMethodField()
     
-    def get_computer(self, obj):
-        if hasattr(obj, 'computer'):
-            return ComputerSerializer(obj.computer).data
-        return None
-    
-    def get_network_device(self, obj):
-        if hasattr(obj, 'networkdevice'):
-            return NetworkDeviceSerializer(obj.networkdevice).data
-        return None
-    
-    def get_peripheral(self, obj):
-        if hasattr(obj, 'peripheral'):
-            return PeripheralSerializer(obj.peripheral).data
-        return None
-    
-    def get_software_installations(self, obj):
-        installations = SoftwareInstallation.objects.filter(asset=obj)
-        return SoftwareInstallationSerializer(installations, many=True).data
-    
-    def get_maintenance_records(self, obj):
-        records = MaintenanceRecord.objects.filter(asset=obj)
-        return MaintenanceRecordSerializer(records, many=True).data
-    
-    def get_warranty(self, obj):
-        if hasattr(obj, 'warranty'):
-            return WarrantySerializer(obj.warranty).data
-        return None
-    
-    def get_assignment(self, obj):
-        if hasattr(obj, 'assetassignment'):
-            return AssetAssignmentSerializer(obj.assetassignment).data
-        return None
+    def get_subcategories(self, obj):
+        children = AssetCategory.objects.filter(parent_category=obj)
+        return AssetCategorySerializer(children, many=True).data
+
+class LocationDetailSerializer(LocationSerializer):
+    building = BuildingSerializer(read_only=True)
+    floor = FloorSerializer(read_only=True)
+    parent = LocationSerializer(read_only=True)
+
+class SoftwareDetailSerializer(SoftwareSerializer):
+    category = SoftwareCategorySerializer(read_only=True)
+
+class SoftwareInstallationDetailSerializer(SoftwareInstallationSerializer):
+    software = SoftwareSerializer(read_only=True)
+    asset = AssetListSerializer(read_only=True)
+    installed_by = UserSerializer(read_only=True)
+
+class AssetAssignmentDetailSerializer(AssetAssignmentSerializer):
+    asset = AssetListSerializer(read_only=True)
+    assigned_to = UserSerializer(read_only=True)
+
+class MaintenanceRecordDetailSerializer(MaintenanceRecordSerializer):
+    asset = AssetListSerializer(read_only=True)
+
+class SupportTicketDetailSerializer(SupportTicketSerializer):
+    asset = AssetListSerializer(read_only=True)
+    assigned_technician = UserSerializer(read_only=True)
+
+class DisposalRecordDetailSerializer(DisposalRecordSerializer):
+    asset = AssetListSerializer(read_only=True)
+    approved_by = UserSerializer(read_only=True)
+
+class WarrantyDetailSerializer(WarrantySerializer):
+    asset = AssetListSerializer(read_only=True)
+
+
