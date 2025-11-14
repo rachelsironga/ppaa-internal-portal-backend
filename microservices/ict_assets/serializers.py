@@ -504,4 +504,54 @@ class DisposalRecordDetailSerializer(DisposalRecordSerializer):
 class WarrantyDetailSerializer(WarrantySerializer):
     asset = AssetListSerializer(read_only=True)
 
+class DashboardSummarySerializer(serializers.Serializer):
+    """Main dashboard summary statistics"""
+    total_assets = serializers.IntegerField()
+    operational_assets = serializers.IntegerField()
+    assets_in_repair = serializers.IntegerField()
+    retired_assets = serializers.IntegerField()
+    
+    total_computers = serializers.IntegerField()
+    total_network_devices = serializers.IntegerField()
+    total_peripherals = serializers.IntegerField()
+    
+    # Cost statistics
+    total_asset_value = serializers.DecimalField(max_digits=12, decimal_places=2)
+    average_asset_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Maintenance stats
+    pending_maintenance = serializers.IntegerField()
+    open_tickets = serializers.IntegerField()
+    
+    # Warranty alerts
+    expiring_warranties = serializers.IntegerField()
+
+class AssetStatusDistributionSerializer(serializers.Serializer):
+    """Asset status distribution for charts"""
+    status = serializers.CharField()
+    count = serializers.IntegerField()
+    percentage = serializers.FloatField()
+
+class AssetCategoryDistributionSerializer(serializers.Serializer):
+    """Asset category distribution"""
+    category = serializers.CharField()
+    count = serializers.IntegerField()
+    total_value = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+class MaintenanceMetricsSerializer(serializers.Serializer):
+    """Maintenance performance metrics"""
+    completed_this_month = serializers.IntegerField()
+    scheduled_next_month = serializers.IntegerField()
+    average_completion_time = serializers.FloatField()
+    maintenance_cost_ytd = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+class RecentActivitySerializer(serializers.Serializer):
+    """Recent system activities"""
+    activity_type = serializers.CharField()
+    description = serializers.CharField()
+    asset_tag = serializers.CharField()
+    timestamp = serializers.DateTimeField()
+    user = serializers.CharField()
+
+
 

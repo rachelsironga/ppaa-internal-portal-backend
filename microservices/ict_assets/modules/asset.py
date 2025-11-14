@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from microservices.ict_assets.models import Asset
-from microservices.ict_assets.serializers import AssetSerializer
+from microservices.ict_assets.serializers import AssetDetailSerializer, AssetListSerializer, AssetSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from utils.permissions import HasMethodPermission
@@ -29,13 +29,14 @@ class AssetView(APIView):
         ]
     }
 
+
     def get(self, request, uid=None):
         try:
             if uid:
                 asset = Asset.objects.filter(uid=uid, is_deleted=False).first()
                 if not asset:
                     raise NotFound("Asset not found")
-                return CustomResponse.success(data=AssetDetailSerializer(asset).data)
+                return CustomResponse.success(data=AssetSerializer(asset).data)
 
             search_query = request.GET.get('search', '').strip()
             asset_type_uid = request.GET.get('asset_type', '').strip()
@@ -44,29 +45,27 @@ class AssetView(APIView):
             
             assets = Asset.objects.filter(is_deleted=False)
 
+            if search_query:
+                assets = assets.filter(
+                    Q(name__icontains=search_query) | Q(description__icontains=search_query)
+                )
+
             if asset_type_uid:
                 assets = assets.filter(asset_type__uid=asset_type_uid)
-
-            if location_uid:
-                assets = assets.filter(location__uid=location_uid)
 
             if status:
                 assets = assets.filter(status=status)
 
-            if search_query:
-                assets = assets.filter(
-                    Q(asset_tag__icontains=search_query) | 
-                    Q(serial_number__icontains=search_query) |
-                    Q(model__icontains=search_query) |
-                    Q(manufacturer__name__icontains=search_query)
-                )
+            if location_uid:
+                assets = assets.filter(location__uid=location_uid)
 
             if assets.exists():
-                return CustomPagination.paginate(view_class=self, results=assets, request=request, serializer_class=AssetListSerializer)
+                return CustomPagination.paginate(view_class=self, results=assets, request=request)
 
-            return CustomResponse.errors(message="Assets not found", data=[])
+            return CustomResponse.errors(message="Asset not found", data=[])
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Retrieve Assets: {str(e)}')
+            return CustomResponse.server_error(message=f'Failed to Retrieve Asset: {str(e)}')
+        
 
     def post(self, request):
         try:

@@ -1,6 +1,8 @@
 # ict_assets/models.py
 from django.db import models
-from mnh_auth.models import BaseModel, User
+from mnh_auth.models import BaseModel
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 class AssetCategory(BaseModel):
     name = models.CharField(max_length=100)
