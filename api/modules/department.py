@@ -16,11 +16,30 @@ from api.serializers import DepartmentSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import Department
+from utils.permissions import HasMethodPermission
+
 
 
 class DepartmentView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = DepartmentSerializer
+    required_permissions = {
+        "get": [
+            "can_add_department",
+            "can_view_department",
+            "can_view_department_lookup",
+            "can_delete_department"
+        ],
+        "post": [
+            "add_department",
+            "can_add_department",
+            "can_delete_department"
+        ],
+        "delete": [
+            "can_add_department",
+            "can_delete_department",
+        ]
+    }
 
     def get(self, request, uid=None):
         try:
@@ -35,7 +54,6 @@ class DepartmentView(APIView):
             directory_uid = request.GET.get('directory', '').strip()
 
             departments = Department.objects.filter(is_deleted=False)
-
             if directory_uid:
                 departments = departments.filter(directory__uid=directory_uid)
 
@@ -43,6 +61,7 @@ class DepartmentView(APIView):
                 departments = departments.filter(
                     Q(name__icontains=search_query) | Q(code__icontains=search_query)
                 )
+
 
             if departments.exists():
                 return CustomPagination.paginate(view_class=self, results=departments, request=request)
@@ -93,7 +112,7 @@ class DepartmentView(APIView):
 
                 department.is_deleted = True
                 department.deleted_at = datetime.now()
-                department.deleted_by = request.user.id
+                department.deleted_by = request.user
                 department.save()
                 return CustomResponse.success(message='Department deleted successfully')
 

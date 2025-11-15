@@ -16,7 +16,9 @@ class CustomPagination(TestCase):
 
             start_num = (page - 1) * page_size
             end_num = page_size * page
-            total = results.count()
+            # Handle both QuerySet and list
+            total = len(results)
+
             serializer = view_class.serializer_class(
                 results[start_num:end_num],
                 many=True,
@@ -32,10 +34,17 @@ class CustomPagination(TestCase):
                     "total": total,
                 }
             )
-
         else:
             serializer = view_class.serializer_class(results, many=True, context=serializer_context)
+
+            serializer = view_class.serializer_class(
+                results,
+                many=True,
+                context={"is_auth_view": False},
+            )
+
             return CustomResponse.success(
                 data=serializer.data,
                 message="Success",
+
             )

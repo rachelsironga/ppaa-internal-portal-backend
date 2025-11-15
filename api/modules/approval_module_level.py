@@ -9,11 +9,25 @@ from api.serializers import ApprovalModuleLevelSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_model.models import ApprovalModuleLevel, ApprovalModule
+from utils.permissions import HasMethodPermission
+
 
 
 class ApprovalModuleLevelView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalModuleLevelSerializer
+    required_permissions = {
+        "get": [
+            "view_approvalmodulelevel"
+        ],
+        "post": [
+            "add_approvalmodulelevel",
+            "change_approvalmodulelevel",
+        ],
+        "delete": [
+            "delete_approvalmodulelevel",
+        ]
+    }
 
 
     def get(self, request, uid=None):
@@ -39,8 +53,12 @@ class ApprovalModuleLevelView(APIView):
 
     def post(self, request):
         try:
-            with (transaction.atomic()):
+            with transaction.atomic():
                 uid = request.data.get('uid', None)
+                sort_list = request.data.get('sort_list', None)
+                module_uid = request.data.get('module_uid', None)
+
+                # --- CASE 1: UPDATE existing level ---
                 if uid:
                     try:
                         instance = ApprovalModuleLevel.objects.get(uid=uid)
@@ -48,56 +66,71 @@ class ApprovalModuleLevelView(APIView):
                     except ApprovalModuleLevel.DoesNotExist:
                         return CustomResponse.errors(message="Approval Module Level not found")
 
-                sort_list = request.data.get('sort_list', None)
-                module_uid = request.data.get('module_uid', None)
-                if sort_list and module_uid:
+                # --- CASE 2: SORTING existing levels ---
+                elif sort_list and module_uid:
                     module = ApprovalModule.objects.filter(uid=module_uid, is_deleted=False).first()
                     if not module:
-                        CustomResponse.errors(message="Approval Module Level not found")
+                        return CustomResponse.errors(message="Approval Module not found")
 
-                    # get all levels under the selected module
                     levels = ApprovalModuleLevel.objects.filter(module=module, is_deleted=False).all()
                     if not levels:
-                        return CustomResponse.errors(message="Approval Module Level not found")
+                        return CustomResponse.errors(message="No levels found under this module")
 
-                    # Create a mapping of uid to desired order
-                    uid_to_order = {uid: index+1 for index, uid in enumerate(sort_list)}
-                    # Prepare list for bulk update
+                    uid_to_order = {uid: index + 1 for index, uid in enumerate(sort_list)}
                     levels_to_update = []
                     for level in levels:
                         level_uid_str = str(level.uid)
                         if level_uid_str in uid_to_order:
                             level.order = uid_to_order[level_uid_str]
                             levels_to_update.append(level)
-                    try:
-                        with transaction.atomic():
-                            ApprovalModuleLevel.objects.bulk_update(levels_to_update, ['order'])
-                        return CustomResponse.success(message="Positional Levels updated successfully")
-                    except Exception as e:
-                        return CustomResponse.errors(message=f"Failed to update: {str(e)}")
+
+                    ApprovalModuleLevel.objects.bulk_update(levels_to_update, ['order'])
+                    return CustomResponse.success(message="Positional Levels updated successfully")
+
+                # --- CASE 3: CREATE new level ---
                 else:
-                    '''Handle create if no UID and sort_list or module_uid passed in request'''
                     serializer = self.serializer_class(data=request.data)
 
+                    if serializer.is_valid():
+                        module_uid = request.data.get('module_uid')
+                        module = ApprovalModule.objects.filter(uid=module_uid, is_deleted=False).first()
 
-                # Validate and save
-                if serializer.is_valid():
-                    if uid and instance:
-                        serializer.update(instance=instance, validated_data=serializer.validated_data)
-                    else:
-                        serializer.save(created_by=request.user, updated_by=request.user)
-                    return CustomResponse.success(data=serializer.data)
+                        if not module:
+                            return CustomResponse.errors(message="Approval Module not found")
 
-                # Validation failed
-                return CustomResponse.errors(
-                    message="Validation Failed, Please Try Again",
-                    data=serializer.errors,
-                    code=STATUS_CODES["VALIDATION_ERROR"],
-                )
+                        # ✅ Find next available order number for this module
+                        last_level = (
+                            ApprovalModuleLevel.objects
+                            .filter(module=module, is_deleted=False)
+                            .order_by('-order', '-created_at')
+                            .first()
+                        )
+                        next_order = last_level.order + 1 if last_level else 1
+
+                        # Save with the new order
+                        serializer.save(
+                            module=module,
+                            order=next_order,
+                            created_by=request.user,
+                            updated_by=request.user
+                        )
+
+                        return CustomResponse.success(
+                            message=f"Level created successfully (Order {next_order})",
+                            data=serializer.data
+                        )
+
+                    # Validation failed
+                    return CustomResponse.errors(
+                        message="Validation Failed, Please Try Again",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"],
+                    )
 
         except Exception as e:
-            # Catch unexpected errors that occur in the entire process
-            return CustomResponse.server_error(message=f'Failed to Change Approval Module Level: {str(e)}', )
+            return CustomResponse.server_error(
+                message=f'Failed to Change Approval Module Level: {str(e)}'
+            )
 
     def delete(self, request, uid):
         try:
@@ -109,9 +142,10 @@ class ApprovalModuleLevelView(APIView):
 
                 approval_module_level.is_deleted = True
                 approval_module_level.deleted_at = datetime.now()
-                approval_module_level.deleted_by = request.user.id
+                approval_module_level.deleted_by = request.user
                 approval_module_level.save()
                 return CustomResponse.success(message='Approval Module Level deleted successfully')
 
         except Exception as e:
+            print(f'{str(e)}')
             return CustomResponse.server_error(message="Something went wrong While Deleting Approval Module Level")

@@ -9,12 +9,26 @@ from rest_framework.views import APIView
 from api.serializers import ApprovalModuleSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
+from mnh_auth.models import Department
 from mnh_model.models import ApprovalModule, ApprovalModuleLevel
+from utils.permissions import HasMethodPermission
+
 
 
 class ApprovalModuleView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = ApprovalModuleSerializer
+    required_permissions = {
+        "get": ["can_view_approval_module_lookup",
+        ],
+        "post": [
+            "can_add_approval_module",
+            "can_edit_approval_module",
+        ],
+        "delete": [
+            "can_delete_approval_module",
+        ]
+    }
 
 
     def get(self, request, uid=None):
@@ -26,11 +40,19 @@ class ApprovalModuleView(APIView):
                 return CustomResponse.success(data=ApprovalModuleSerializer(approval_module).data)
 
             search_query = request.GET.get('search', '').strip()
-            approval_modules = ApprovalModule.objects.filter(is_deleted=False)
+            approval_modules = ApprovalModule.objects.filter(is_deleted=False).order_by("-created_at")
+
+            if request.query_params.get('directory_uid'):
+                approval_modules = approval_modules.filter(
+                    Q(directory_uid=request.query_params.get('directory_uid').strip())
+                )
 
             if search_query:
                 approval_modules = approval_modules.filter(
-                    Q(name__icontains=search_query) | Q(description__icontains=search_query)
+                    Q(name__icontains=search_query) |
+                    Q(description__icontains=search_query) |
+                    Q(code__icontains=search_query) |
+                    Q(created_at__date__icontains=search_query)
                 )
 
             if approval_modules.exists():
@@ -81,9 +103,10 @@ class ApprovalModuleView(APIView):
 
                 approval_module.is_deleted = True
                 approval_module.deleted_at = datetime.now()
-                approval_module.deleted_by = request.user.id
+                approval_module.deleted_by = request.user
                 approval_module.save()
                 return CustomResponse.success(message='Approval Module deleted successfully')
 
         except Exception as e:
+            print(f'Failed to Delete Approval Module: {str(e)}')
             return CustomResponse.server_error(message="Something went wrong While Deleting Approval Module")

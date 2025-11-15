@@ -1,19 +1,24 @@
-from django.db import transaction
+import pandas as pd
+from django.db import transaction, models
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from sqlparse.engine.grouping import group
 
+from api.utils import base64_to_excel_file, generate_acronym
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import User, UserProfile
-from mnh_auth.serializers import UserSerializer, FileUploadSerializer
+from mnh_auth.serializers import UserSerializer, FileUploadSerializer, UserImportSerializer
 from utils.minio_storage import MinioStorage
+from utils.permissions import HasMethodPermission
+
 
 
 class UserView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = UserSerializer
 
     def get(self, request, uid=None):
@@ -26,9 +31,14 @@ class UserView(APIView):
 
             users = User.objects.filter(is_deleted=False)
 
+            group_id = request.GET.get('group_id', '').strip()
+            if group_id:
+                users = users.filter(groups__id=group_id)
+
             search_query = request.GET.get('search', '').strip()
             if search_query:
-                users = users.filter(
+                # Search only user fields first
+                user_search = Q(
                     Q(username__icontains=search_query) |
                     Q(email__icontains=search_query) |
                     Q(pf_number__icontains=search_query) |
@@ -37,8 +47,45 @@ class UserView(APIView):
                     Q(middle_name__icontains=search_query) |
                     Q(last_name__icontains=search_query) |
                     Q(phone_number__icontains=search_query) |
-                    Q(alternative_contact__icontains=search_query)
+                    Q(alternative_contact__icontains=search_query) |
+                    Q(status__icontains=search_query)
                 )
+
+                # Search profile fields separately
+                profile_search = Q(
+                    Q(user_profiles__level__name__icontains=search_query) |
+                    Q(user_profiles__department__name__icontains=search_query) |
+                    Q(user_profiles__directory__name__icontains=search_query),
+                    user_profiles__is_active=True,
+                    user_profiles__is_deleted=False
+                )
+
+                users = users.filter(user_search | profile_search).distinct()
+
+            # Add annotations for display only
+            users = users.annotate(
+                current_level_name=models.Subquery(
+                    UserProfile.objects.filter(
+                        user=models.OuterRef('pk'),
+                        is_active=True,
+                        is_deleted=False
+                    ).values('level__name')[:1]
+                ),
+                current_department_name=models.Subquery(
+                    UserProfile.objects.filter(
+                        user=models.OuterRef('pk'),
+                        is_active=True,
+                        is_deleted=False
+                    ).values('department__name')[:1]
+                ),
+                current_directory_name=models.Subquery(
+                    UserProfile.objects.filter(
+                        user=models.OuterRef('pk'),
+                        is_active=True,
+                        is_deleted=False
+                    ).values('directory__name')[:1]
+                )
+            )
 
             if users.exists():
                 context = {"is_auth_view": False}
@@ -51,6 +98,7 @@ class UserView(APIView):
 
             return CustomResponse.errors(message="User not found", data=[])
         except Exception as e:
+            print(f"Fail to Retrieve Users {e}")
             return CustomResponse.server_error(message=f'Failed to Retrieve Users: {str(e)}', )
 
     def post(self, request):
@@ -122,9 +170,8 @@ class UserView(APIView):
             print(f'Failed to Perform Action: {str(e)}')
             return CustomResponse.server_error(message="Something went wrong While Deleting User")
 
-
 class UserPhotoUpload(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
     serializer_class = FileUploadSerializer
 
     def post(self, request):
@@ -162,7 +209,7 @@ class UserPhotoUpload(APIView):
                     old_file_path=instance.photo
                 )
                 instance.photo = photo_url
-                instance.updated_by = request.user.id
+                instance.updated_by = request.user
                 instance.updated_at = timezone.now()
                 instance.save(update_fields=["photo",'updated_by','updated_at'])
                 user_serializer = UserSerializer(instance)
@@ -170,3 +217,51 @@ class UserPhotoUpload(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Change User Photo: {str(e)}', )
+
+class UserSignatureUpload(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    serializer_class = FileUploadSerializer
+
+    def post(self, request):
+        try:
+            with (transaction.atomic()):
+                serializer = self.serializer_class(
+                    instance=None,
+                    data=request.data,
+                    partial=False
+                )
+
+                if not serializer.is_valid():
+                    return CustomResponse.errors(
+                        message="Validation failed, please try again"
+                            if request.data.get('uid', None)
+                            else "You can't update. You must Specify User to Update Photo",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"],
+                    )
+
+                try:
+                    instance = User.objects.get(guid=serializer.validated_data.get('uid'))
+                    if instance.is_deleted:
+                        return CustomResponse.errors(message="You can't update. Deleted User")
+                except User.DoesNotExist:
+                    return CustomResponse.errors(message="You can't update. You must Specify User to Update Signature")
+
+                file_base64 = serializer.validated_data.get('based64_file', '')
+                minio = MinioStorage()
+                file_name = instance.guid
+                file_url = minio.upload_base64_file(
+                    file_base64,
+                    folder="user_signatures",
+                    file_name=file_name,
+                    old_file_path=instance.signature
+                )
+                instance.signature = file_url
+                instance.updated_by = request.user
+                instance.updated_at = timezone.now()
+                instance.save(update_fields=["signature",'updated_by','updated_at'])
+                user_serializer = UserSerializer(instance)
+                return CustomResponse.success(data=user_serializer.data)
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Change User signature: {str(e)}', )

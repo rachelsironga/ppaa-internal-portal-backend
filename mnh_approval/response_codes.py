@@ -1,5 +1,7 @@
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import APIException
+
 
 STATUS_CODES = {
     "SUCCESSFUL": 8000,
@@ -9,6 +11,7 @@ STATUS_CODES = {
     "UNAUTHORIZED": 8004,
     "SERVER_ERROR": 8005,
     "FORBIDDEN": 8006,
+    "NEW_USER": 8007,
 }
 
 
@@ -55,3 +58,13 @@ class CustomResponse:
             "message": message,
             "data": data
         }, status=status.HTTP_401_UNAUTHORIZED)
+
+class CustomPermissionDenied(APIException):
+    status_code = 403
+    default_detail = "You do not have permission to perform this action."
+    default_code = "permission_denied"
+
+    def __init__(self, detail=None, code=None):
+        self.detail = CustomResponse.forbidden(
+            message=self.default_detail
+        )

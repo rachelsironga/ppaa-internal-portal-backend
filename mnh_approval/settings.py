@@ -60,12 +60,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "EXCEPTION_HANDLER": "utils.api_exception_handle.custom_api_exception_handler",
 }
 
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
-    "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(hours=2),
     # "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     # "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
     "ROTATE_REFRESH_TOKENS": True,
@@ -80,7 +81,30 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4001",
     "http://127.0.0.1:4001",
+    "http://frontend.approval.mnh",
+    "http://minio.mnh",
+    "http://localhost:8091",
+    "http://127.0.0.1:8091",
+    "http://localhost:8092",
+    "http://127.0.0.1:8092",
+    # "http://192.168.10.166:8091",
+    # "http://192.168.10.166:8092"
 ]
+
+# Make sure these match your CORS settings
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:4001",
+    "http://127.0.0.1:4001",
+    "http://frontend.approval.mnh",
+    "http://minio.mnh",
+    "http://localhost:8091",
+    "http://127.0.0.1:8091",
+    "http://localhost:8092",
+    "http://127.0.0.1:8092",
+    # "http://192.168.10.166:8091",
+    # "http://192.168.10.166:8092"
+]
+
 
 
 
@@ -99,11 +123,12 @@ INSTALLED_APPS = [
     'mnh_approval',
     'mnh_model',
     'mnh_auth',
+    'microservices.ict_assets',
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
     'rest_framework_simplejwt.token_blacklist',
-    'storages'
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -115,7 +140,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
+    'django.middleware.security.SecurityMiddleware'
 ]
 
 
@@ -210,6 +235,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -217,10 +244,12 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_USE_TLS = True
-EMAIL_HOST = 'mail.whaletechnology.net'
-EMAIL_HOST_USER = 'developer@whaletechnology.net' #os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = 'P@ssw0rd@whaletech' #os.getenv("EMAIL_HOST_PASSWORD")
-EMAIL_PORT = 587
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_USE_TLS=True
+EMAIL_USE_SSL=True
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+EMAIL_PORT = os.getenv("EMAIL_PORT")
 APPEND_SLASH=False
+DEFAULT_FROM_EMAIL=os.getenv("DEFAULT_FROM_EMAIL")
