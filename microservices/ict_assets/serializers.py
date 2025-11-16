@@ -103,6 +103,50 @@ class SaveWithRequestUserMixin:
         
         return super().save(**kwargs)
 
+# Users/Custodian Serializers UserSerializer
+class CustodianSerializer(serializers.ModelSerializer):
+    """Lightweight serializer used only for listing/searching users."""
+    
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'guid',
+            'username',
+            'email',
+            'pf_number',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'full_name',
+            'phone_number',
+            'office_location',
+        ]
+        read_only_fields = fields
+
+
+class TechnicianSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing/searching technicians."""
+    
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'guid',
+            'username',
+            'email',
+            'pf_number',
+            'first_name',
+            'middle_name',
+            'last_name',
+            'full_name',
+            'phone_number',
+            'office_location',
+        ]
+        read_only_fields = fields
+
 # Category and Type Serializers
 class AssetCategorySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     parent_category_name = RelatedFieldMixin.get_related_name('parent_category')
@@ -152,19 +196,20 @@ class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         ]
 
 # Manufacturer and Supplier Serializers
-class ManufacturerSerializer(SaveWithRequestUserMixin, NameDescriptionSerializer):
+class ManufacturerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = Manufacturer
-        fields = NameDescriptionSerializer.Meta.fields + [
-            'contact_email', 'support_phone', 'website'
+        fields = BaseModelSerializer.Meta.fields + [
+            'name', 'contact_email', 'support_phone', 'website'
         ]
-
-class SupplierSerializer(SaveWithRequestUserMixin, NameDescriptionSerializer):
+        
+class SupplierSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = Supplier
-        fields = NameDescriptionSerializer.Meta.fields + [
-            'contact_person', 'email', 'phone', 'address'
+        fields = BaseModelSerializer.Meta.fields + [
+            'name', 'contact_person', 'email', 'phone', 'address'
         ]
+
 
 # Location Serializers
 class BuildingSerializer(SaveWithRequestUserMixin, NameCodeSerializer):
@@ -196,12 +241,21 @@ class LocationSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
 # Core Asset Serializers
 class AssetSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     """Base asset serializer for create/update operations"""
+    asset_type_name = RelatedFieldMixin.get_related_name('asset_type')
+    manufacturer_name = RelatedFieldMixin.get_related_name('manufacturer')
+    location_name = RelatedFieldMixin.get_related_name('location')
+    custodian_name = RelatedFieldMixin.get_user_full_name('custodian')
+    
+    def get_custodian_name(self, obj):
+        if obj.custodian:
+            return f"{obj.custodian.first_name} {obj.custodian.last_name}"
+        return None
     class Meta:
         model = Asset
         fields = BaseModelSerializer.Meta.fields + [
-            'asset_tag', 'barcode', 'serial_number', 'asset_type', 'manufacturer',
+            'asset_tag', 'barcode', 'serial_number', 'asset_type', 'asset_type_name', 'manufacturer', 'manufacturer_name',
             'model', 'purchase_date', 'purchase_cost', 'supplier', 'status',
-            'condition', 'location', 'custodian', 'warranty_expiry', 'photo',
+            'condition', 'location', 'location_name', 'custodian', 'custodian_name', 'warranty_expiry', 'photo',
             'is_active', 'last_audit_date', 'notes'
         ]
     
@@ -223,6 +277,64 @@ class AssetSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     
     def validate_serial_number(self, value):
         return self.validate_unique_field('serial_number', value)
+    
+    def to_internal_value(self, data):
+        # Convert empty strings to None for date fields
+        date_fields = ['purchase_date', 'warranty_expiry']
+        for field_name in date_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Define field lookup mappings
+        field_mappings = {
+            'asset_type': ('uid', None),
+            'manufacturer': ('uid', None), 
+            'supplier': ('uid', None),
+            'location': ('uid', None),
+            'custodian': ('guid', 'User')  # Special case for User model
+        }
+        
+        for field_name, (lookup_field, custom_model) in field_mappings.items():
+            if field_name in data and data[field_name]:
+                try:
+                    if custom_model == 'User':
+                        from django.contrib.auth import get_user_model
+                        related_model = get_user_model()
+                    else:
+                        related_model = self.Meta.model._meta.get_field(field_name).related_model
+                    
+                    instance = related_model.objects.get(**{lookup_field: data[field_name]})
+                    data[field_name] = instance.id
+                except related_model.DoesNotExist:
+                    raise serializers.ValidationError({
+                        field_name: f'Invalid {lookup_field.upper()} - {related_model.__name__} not found'
+                    })
+                except Exception as e:
+                    raise serializers.ValidationError({
+                        field_name: f'Error processing {field_name}: {str(e)}'
+                    })
+            elif field_name in data and data[field_name] == '':
+                data[field_name] = None
+            
+        return super().to_internal_value(data)
+    
+    def to_representation(self, instance):
+        """Convert IDs back to UIDs/GUIDs for response"""
+        representation = super().to_representation(instance)
+        
+        # Convert foreign key IDs to UIDs/GUIDs
+        if instance.asset_type:
+            representation['asset_type'] = str(instance.asset_type.uid)
+        if instance.manufacturer:
+            representation['manufacturer'] = str(instance.manufacturer.uid)
+        if instance.supplier:
+            representation['supplier'] = str(instance.supplier.uid)
+        if instance.location:
+            representation['location'] = str(instance.location.uid)
+        if instance.custodian:
+            representation['custodian'] = str(instance.custodian.guid)
+        
+        return representation
 
 class AssetListSerializer(AssetSerializer):
     """Lightweight serializer for listing assets"""
@@ -382,26 +494,160 @@ class AssetAssignmentSerializer(AssignmentBaseSerializer):
 
 class MaintenanceRecordSerializer(AssignmentBaseSerializer):
     asset_type_name = RelatedFieldMixin.get_related_name('asset.asset_type')
+    technician_name = RelatedFieldMixin.get_user_full_name('technician')
+    
+    def get_technician_name(self, obj):
+        if obj.technician:
+            return f"{obj.technician.first_name} {obj.technician.last_name}"
+        return None
     
     def validate(self, data):
         return self.validate_dates('scheduled_date', 'completed_date', data)
+    
+    def to_internal_value(self, data):
+        # Convert empty strings to None for date fields
+        date_fields = ['scheduled_date', 'completed_date']
+        for field_name in date_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Convert asset UID to ID
+        if 'asset' in data and data['asset']:
+            try:
+                asset = Asset.objects.get(uid=data['asset'])
+                data['asset'] = asset.id
+            except Asset.DoesNotExist:
+                raise serializers.ValidationError({
+                    'asset': 'Invalid UID - Asset not found'
+                })
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'asset': f'Error processing asset: {str(e)}'
+                })
+        elif 'asset' in data and data['asset'] == '':
+            data['asset'] = None
+        
+        # Convert technician GUID to ID
+        if 'technician' in data and data['technician']:
+            try:
+                technician = User.objects.get(guid=data['technician'])
+                data['technician'] = technician.id
+            except User.DoesNotExist:
+                raise serializers.ValidationError({
+                    'technician': 'Invalid GUID - Technician not found'
+                })
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'technician': f'Error processing technician: {str(e)}'
+                })
+        elif 'technician' in data and data['technician'] == '':
+            data['technician'] = None
+
+        return super().to_internal_value(data)
+    
+    def to_representation(self, instance):
+        """Convert IDs back to UIDs/GUIDs for response"""
+        representation = super().to_representation(instance)
+        
+        if instance.asset:
+            representation['asset'] = str(instance.asset.uid)
+        if instance.technician:
+            representation['technician'] = str(instance.technician.guid)
+        
+        return representation
     
     class Meta:
         model = MaintenanceRecord
         fields = BaseModelSerializer.Meta.fields + [
             'asset', 'asset_tag', 'asset_type_name', 'maintenance_type',
             'scheduled_date', 'completed_date', 'status', 'cost', 'description',
-            'technician', 'notes'
+            'technician', 'technician_name', 'notes'
         ]
 
 class SupportTicketSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
     assigned_technician_name = RelatedFieldMixin.get_user_full_name('assigned_technician')
+    ticket_id = serializers.CharField(read_only=True)
     
     def get_assigned_technician_name(self, obj):
         if obj.assigned_technician:
             return f"{obj.assigned_technician.first_name} {obj.assigned_technician.last_name}"
         return None
+    
+    def generate_ticket_id(self):
+        """Generate ticket ID in format: TKT-YYMMDD-XXXX"""
+        from datetime import datetime
+        
+        date_prefix = datetime.now().strftime('%y%m%d')
+        
+        # Get the latest ticket for today
+        today_tickets = SupportTicket.objects.filter(
+            ticket_id__startswith=f'TKT-{date_prefix}'
+        ).order_by('-ticket_id').first()
+        
+        if today_tickets:
+            # Extract the sequence number and increment
+            last_sequence = int(today_tickets.ticket_id.split('-')[-1])
+            new_sequence = last_sequence + 1
+        else:
+            new_sequence = 1
+        
+        return f'TKT-{date_prefix}-{new_sequence:04d}'
+    
+    def to_internal_value(self, data):
+        # Convert empty strings to None for datetime fields
+        if 'resolved_date' in data and data['resolved_date'] == '':
+            data['resolved_date'] = None
+        
+        # Convert asset UID to ID
+        if 'asset' in data and data['asset']:
+            try:
+                asset = Asset.objects.get(uid=data['asset'])
+                data['asset'] = asset.id
+            except Asset.DoesNotExist:
+                raise serializers.ValidationError({
+                    'asset': 'Invalid UID - Asset not found'
+                })
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'asset': f'Error processing asset: {str(e)}'
+                })
+        elif 'asset' in data and data['asset'] == '':
+            data['asset'] = None
+        
+        # Convert assigned_technician GUID to ID
+        if 'assigned_technician' in data and data['assigned_technician']:
+            try:
+                technician = User.objects.get(guid=data['assigned_technician'])
+                data['assigned_technician'] = technician.id
+            except User.DoesNotExist:
+                raise serializers.ValidationError({
+                    'assigned_technician': 'Invalid GUID - Technician not found'
+                })
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'assigned_technician': f'Error processing technician: {str(e)}'
+                })
+        elif 'assigned_technician' in data and data['assigned_technician'] == '':
+            data['assigned_technician'] = None
+        
+        return super().to_internal_value(data)
+    
+    def to_representation(self, instance):
+        """Convert IDs back to UIDs/GUIDs for response"""
+        representation = super().to_representation(instance)
+        
+        if instance.asset:
+            representation['asset'] = str(instance.asset.uid)
+        if instance.assigned_technician:
+            representation['assigned_technician'] = str(instance.assigned_technician.guid)
+        
+        return representation
+    
+    def create(self, validated_data):
+        """Auto-generate ticket_id on creation"""
+        validated_data['ticket_id'] = self.generate_ticket_id()
+        return super().create(validated_data)
     
     class Meta:
         model = SupportTicket
@@ -552,6 +798,36 @@ class RecentActivitySerializer(serializers.Serializer):
     asset_tag = serializers.CharField()
     timestamp = serializers.DateTimeField()
     user = serializers.CharField()
+
+
+# History Tracking Serializers
+class AssetCustodianHistorySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
+    custodian_name = RelatedFieldMixin.get_user_full_name('custodian')
+    
+    def get_custodian_name(self, obj):
+        if obj.custodian:
+            return f"{obj.custodian.first_name} {obj.custodian.last_name}"
+        return "Unassigned"
+    
+    class Meta:
+        model = AssetCustodianHistory
+        fields = BaseModelSerializer.Meta.fields + [
+            'asset', 'asset_tag', 'custodian', 'custodian_name', 
+            'assigned_date', 'notes'
+        ]
+
+
+class AssetLocationHistorySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    asset_tag = serializers.CharField(source='asset.asset_tag', read_only=True)
+    location_name = RelatedFieldMixin.get_related_name('location')
+    
+    class Meta:
+        model = AssetLocationHistory
+        fields = BaseModelSerializer.Meta.fields + [
+            'asset', 'asset_tag', 'location', 'location_name', 
+            'moved_date', 'notes'
+        ]
 
 
 

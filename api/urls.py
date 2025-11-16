@@ -20,9 +20,12 @@ from api.serializers import ApprovalRequestCustomiseSerializer
 from microservices.ict_assets.modules.asset import AssetView
 from microservices.ict_assets.modules.asset_assignment import AssetAssignmentView
 from microservices.ict_assets.modules.asset_category import AssetCategoryView
+from microservices.ict_assets.modules.asset_history import AssetActivitiesAPIView, AssetCustodianHistoryView, AssetLocationHistoryView
 from microservices.ict_assets.modules.asset_type import AssetTypeView
 from microservices.ict_assets.modules.building import BuildingView
 from microservices.ict_assets.modules.computer import ComputerView
+from microservices.ict_assets.modules.custodian import CustodianListView
+from microservices.ict_assets.modules.technician import TechnicianListView
 from microservices.ict_assets.modules.dashboard_summary import (
     AssetTypeBreakdownAPIView,
     DashboardAPIView,
@@ -125,7 +128,7 @@ urlpatterns += [
    path('asset-manufacturers/<uuid:uid>/update', ManufacturerView.as_view(), name='manufacturer-update'),
    path('asset-manufacturers/<uuid:uid>/delete', ManufacturerView.as_view(), name='manufacturer-delete'),
     
-    # Supplier URLs
+    # Supplier URLs assets-suppliers?
    path('asset-suppliers', SupplierView.as_view(), name='supplier-list'),
    path('asset-suppliers/create', SupplierView.as_view(), name='supplier-create'),
    path('asset-suppliers/<uuid:uid>', SupplierView.as_view(), name='supplier-detail'),
@@ -159,6 +162,23 @@ urlpatterns += [
     path('assets/<uuid:uid>', AssetView.as_view(), name='asset-detail'),
     path('assets/<uuid:uid>/update', AssetView.as_view(), name='asset-update'),
     path('assets/<uuid:uid>/delete', AssetView.as_view(), name='asset-delete'),
+
+    # Custodian URLs
+    path('assets-custodians', CustodianListView.as_view(), name='asset-custodian-list'),
+    path('assets-custodians/<uuid:guid>', CustodianListView.as_view(), name='asset-custodian-detail'),
+    
+    # Technician URLs
+    path('assets-technicians', TechnicianListView.as_view(), name='asset-technician-list'),
+    path('assets-technicians/<uuid:guid>', TechnicianListView.as_view(), name='asset-technician-detail'),
+    
+    # Asset History URLs
+    # assets/assets-activities/54e36dff-d942-4276-b025-e1052a5dffed/history
+    path('assets-activities/recent', AssetActivitiesAPIView.as_view(), name='recent-activities'),
+    path('assets-activities/<uuid:uid>/history', AssetActivitiesAPIView.as_view(), name='asset-activities-history'),
+    path('assets-custodian-history', AssetCustodianHistoryView.as_view(), name='asset-custodian-history-list'),
+    path('assets-custodian-history/<uuid:uid>', AssetCustodianHistoryView.as_view(), name='asset-custodian-history-detail'),
+    path('assets-location-history', AssetLocationHistoryView.as_view(), name='asset-location-history-list'),
+    path('assets-location-history/<uuid:uid>', AssetLocationHistoryView.as_view(), name='asset-location-history-detail'),
     
     # Computer URLs
    path('asset-computers', ComputerView.as_view(), name='computer-list'),

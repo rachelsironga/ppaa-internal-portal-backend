@@ -34,7 +34,12 @@ class Supplier(BaseModel):
 class Asset(BaseModel):
     ASSET_STATUS = [
         ('operational', 'Operational'),
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
         ('in_repair', 'In Repair'),
+        ('under_maintenance', 'Under Maintenance'),
+        ('in_storage', 'In Storage'),
+        ('reserved', 'Reserved'),
         ('retired', 'Retired'),
         ('lost', 'Lost'),
         ('disposed', 'Disposed'),
@@ -77,6 +82,38 @@ class Asset(BaseModel):
 
     def __str__(self):
         return f"{self.asset_tag} ({self.asset_type.name})"
+
+
+class AssetCustodianHistory(BaseModel):
+    """Tracks the history of asset custodian changes"""
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='custodian_history')
+    custodian = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='asset_custodian_history')
+    assigned_date = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-assigned_date']
+        verbose_name_plural = "Asset Custodian Histories"
+    
+    def __str__(self):
+        custodian_name = f"{self.custodian.get_full_name()}" if self.custodian else "Unassigned"
+        return f"{self.asset.asset_tag} - {custodian_name} ({self.assigned_date.strftime('%Y-%m-%d')})"
+
+
+class AssetLocationHistory(BaseModel):
+    """Tracks the history of asset location changes"""
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='location_history')
+    location = models.ForeignKey('Location', on_delete=models.SET_NULL, null=True, blank=True, related_name='asset_location_history')
+    moved_date = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-moved_date']
+        verbose_name_plural = "Asset Location Histories"
+    
+    def __str__(self):
+        location_name = self.location.name if self.location else "No Location"
+        return f"{self.asset.asset_tag} - {location_name} ({self.moved_date.strftime('%Y-%m-%d')})"
 
 
 # Hardware Specific Models
@@ -291,6 +328,10 @@ class MaintenanceRecord(BaseModel):
         ('corrective', 'Corrective'),
         ('predictive', 'Predictive'),
         ('calibration', 'Calibration'),
+        ('inspection', 'Inspection'),
+        ('upgrade', 'Upgrade'),
+        ('repair', 'Repair'),
+        ('cleaning', 'Cleaning'),
     ]
 
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
@@ -300,7 +341,7 @@ class MaintenanceRecord(BaseModel):
     status = models.CharField(max_length=20, choices=MAINTENANCE_STATUS, default='scheduled')
     cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     description = models.TextField()
-    technician = models.CharField(max_length=100, blank=True)
+    technician = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='maintenance_records')
     notes = models.TextField(blank=True)
 
 

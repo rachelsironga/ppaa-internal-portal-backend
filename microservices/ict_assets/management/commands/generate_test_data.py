@@ -1,11 +1,14 @@
 # generate_test_data.py
 from django.core.management.base import BaseCommand
+from django.db import IntegrityError
+import factory
 from microservices.ict_assets.factories import *
 from microservices.ict_assets.models import (
     DisposalRecord, Warranty, SupportTicket, MaintenanceRecord,
     AssetAssignment, SoftwareInstallation, Peripheral, NetworkDevice,
     Computer, Asset, Software, SoftwareCategory, Location, Floor,
-    Building, Supplier, Manufacturer, AssetType, AssetCategory
+    Building, Supplier, Manufacturer, AssetType, AssetCategory,
+    AssetCustodianHistory, AssetLocationHistory, DepreciationPolicy
 )
 
 from django.contrib.auth import get_user_model
@@ -39,9 +42,22 @@ class Command(BaseCommand):
 
         self.stdout.write('Generating test data with Factory Boy...')
         
-        # Create users
-        users = UserFactory.create_batch(options['users'])
-        self.stdout.write(f'Created {len(users)} users')
+        # Create or get existing users
+        users = []
+        existing_users = list(User.objects.filter(username__startswith='testuser'))
+        
+        if len(existing_users) >= options['users']:
+            users = existing_users[:options['users']]
+            self.stdout.write(f'Using {len(users)} existing users')
+        else:
+            users = existing_users
+            needed = options['users'] - len(existing_users)
+            for i in range(needed):
+                try:
+                    users.append(UserFactory.create())
+                except IntegrityError:
+                    self.stdout.write(self.style.WARNING(f'User creation failed, skipping...'))
+            self.stdout.write(f'Created {len(users) - len(existing_users)} new users, using {len(existing_users)} existing users')
 
         # Create asset categories and types
         categories = AssetCategoryFactory.create_batch(5)
@@ -79,7 +95,8 @@ class Command(BaseCommand):
             asset_type=factory.Iterator(asset_types),
             manufacturer=factory.Iterator(manufacturers),
             supplier=factory.Iterator(suppliers),
-            location=factory.Iterator(locations)
+            location=factory.Iterator(locations),
+            custodian=factory.Iterator(users)
         )
         self.stdout.write(f'Created {len(assets)} assets')
 
@@ -95,43 +112,100 @@ class Command(BaseCommand):
             installations.extend(SoftwareInstallationFactory.create_batch(
                 3, 
                 asset=computer.asset,
-                software=factory.Iterator(software_list)
+                software=factory.Iterator(software_list),
+                installed_by=factory.Iterator(users)
             ))
         self.stdout.write(f'Created {len(installations)} software installations')
 
         # Create assignments
-        assignments = AssetAssignmentFactory.create_batch(30, asset=factory.Iterator(assets[:30]))
+        assignments = AssetAssignmentFactory.create_batch(
+            30, 
+            asset=factory.Iterator(assets[:30]),
+            assigned_to=factory.Iterator(users)
+        )
         self.stdout.write(f'Created {len(assignments)} asset assignments')
 
         # Create maintenance records
-        maintenance_records = MaintenanceRecordFactory.create_batch(25, asset=factory.Iterator(assets[:25]))
+        maintenance_records = MaintenanceRecordFactory.create_batch(
+            25, 
+            asset=factory.Iterator(assets[:25]),
+            technician=factory.Iterator(users)
+        )
         self.stdout.write(f'Created {len(maintenance_records)} maintenance records')
 
         # Create support tickets
-        support_tickets = SupportTicketFactory.create_batch(20, asset=factory.Iterator(assets[:20]))
+        support_tickets = SupportTicketFactory.create_batch(
+            20, 
+            asset=factory.Iterator(assets[:20]),
+            assigned_technician=factory.Iterator(users)
+        )
         self.stdout.write(f'Created {len(support_tickets)} support tickets')
 
         # Create warranties
         warranties = WarrantyFactory.create_batch(40, asset=factory.Iterator(assets[:40]))
         self.stdout.write(f'Created {len(warranties)} warranties')
+        
+        # Create disposal records with approved_by
+        disposal_records = []
+        for i, asset in enumerate(assets[45:50]):
+            try:
+                disposal_records.append(DisposalRecordFactory.create(
+                    asset=asset,
+                    approved_by=users[i % len(users)]
+                ))
+            except IntegrityError:
+                pass
+        self.stdout.write(f'Created {len(disposal_records)} disposal records')
+        
+        # Create asset custodian history
+        custodian_history = []
+        for asset in assets[:30]:
+            for i in range(2):
+                try:
+                    custodian_history.append(AssetCustodianHistoryFactory.create(
+                        asset=asset,
+                        custodian=users[i % len(users)]
+                    ))
+                except IntegrityError:
+                    pass
+        self.stdout.write(f'Created {len(custodian_history)} custodian history records')
+        
+        # Create asset location history
+        location_history = []
+        for asset in assets[:30]:
+            for i in range(2):
+                try:
+                    location_history.append(AssetLocationHistoryFactory.create(
+                        asset=asset,
+                        location=locations[i % len(locations)]
+                    ))
+                except IntegrityError:
+                    pass
+        self.stdout.write(f'Created {len(location_history)} location history records')
+        
+        # Create depreciation policies
+        depreciation_policies = DepreciationPolicyFactory.create_batch(
+            len(categories),
+            asset_category=factory.Iterator(categories)
+        )
+        self.stdout.write(f'Created {len(depreciation_policies)} depreciation policies')
+
+        self.stdout.write(self.style.SUCCESS('Test data generation completed!'))
+
     def clear_data(self):
+        self.stdout.write('Clearing existing test data...')
+        
         models = [
             DisposalRecord, Warranty, SupportTicket, MaintenanceRecord,
             AssetAssignment, SoftwareInstallation, Peripheral, NetworkDevice,
-            Computer, Asset, Software, SoftwareCategory, Location, Floor,
-            Building, Supplier, Manufacturer, AssetType, AssetCategory
+            Computer, Asset, AssetCustodianHistory, AssetLocationHistory,
+            Software, SoftwareCategory, Location, Floor, Building, 
+            Supplier, Manufacturer, AssetType, AssetCategory, DepreciationPolicy
         ]
         
         for model in models:
             count, _ = model.objects.all().delete()
             self.stdout.write(f'Deleted {count} {model.__name__} records')
         
-        User.objects.filter(username__startswith='testuser').delete()
-        
-        for model in models:
-            count, _ = model.objects.all().delete()
-            self.stdout.write(f'Deleted {count} {model.__name__} records')
-        
-        User.objects.filter(username__startswith='testuser').delete()
-
-        
+        user_count, _ = User.objects.filter(username__startswith='testuser').delete()
+        self.stdout.write(f'Deleted {user_count} test users')

@@ -21,11 +21,16 @@ class SupportTicketView(APIView):
             "view_supportticket"
         ],
         "post": [
-            "add_supportticket",
-            "change_supportticket",
+            "add_supportticket"
+        ],
+        "put": [
+            "change_supportticket"
+        ],
+        "patch": [
+            "change_supportticket"
         ],
         "delete": [
-            "delete_supportticket",
+            "delete_supportticket"
         ]
     }
 
@@ -75,28 +80,75 @@ class SupportTicketView(APIView):
     def post(self, request):
         try:
             with transaction.atomic():
-                uid = request.data.get('uid', None)
-                if uid:
-                    try:
-                        instance = SupportTicket.objects.get(uid=uid, is_deleted=False)
-                        serializer = self.serializer_class(instance, data=request.data, partial=True, context={'request': request})
-                    except SupportTicket.DoesNotExist:
-                        return CustomResponse.errors(message="Support Ticket not found")
-                else:
-                    serializer = self.serializer_class(data=request.data, context={'request': request})
+                serializer = self.serializer_class(data=request.data, context={'request': request})
 
                 if serializer.is_valid():
                     serializer.save()
-                    return CustomResponse.success(data=serializer.data)
+                    return CustomResponse.success(
+                        message="Support Ticket created successfully",
+                        data=serializer.data
+                    )
 
                 return CustomResponse.errors(
                     message="Validation Failed, Please Try Again",
                     data=serializer.errors,
-                    code=STATUS_CODES["VALIDATION_ERROR"],
+                    code=STATUS_CODES["VALIDATION_ERROR"]
                 )
 
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Change Support Ticket: {str(e)}')
+            return CustomResponse.server_error(message=f'Failed to Create Support Ticket: {str(e)}')
+
+    def put(self, request, uid):
+        try:
+            with transaction.atomic():
+                try:
+                    instance = SupportTicket.objects.get(uid=uid, is_deleted=False)
+                except SupportTicket.DoesNotExist:
+                    return CustomResponse.errors(message="Support Ticket not found")
+
+                serializer = self.serializer_class(instance, data=request.data, context={'request': request})
+
+                if serializer.is_valid():
+                    serializer.save()
+                    return CustomResponse.success(
+                        message="Support Ticket updated successfully",
+                        data=serializer.data
+                    )
+
+                return CustomResponse.errors(
+                    message="Validation Failed, Please Try Again",
+                    data=serializer.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"]
+                )
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Update Support Ticket: {str(e)}')
+
+    def patch(self, request, uid):
+        try:
+            with transaction.atomic():
+                try:
+                    instance = SupportTicket.objects.get(uid=uid, is_deleted=False)
+                except SupportTicket.DoesNotExist:
+                    return CustomResponse.errors(message="Support Ticket not found")
+
+                serializer = self.serializer_class(instance, data=request.data, partial=True, context={'request': request})
+
+                if serializer.is_valid():
+                    serializer.save()
+                    return CustomResponse.success(
+                        message="Support Ticket updated successfully",
+                        data=serializer.data
+                    )
+
+                return CustomResponse.errors(
+                    message="Validation Failed, Please Try Again",
+                    data=serializer.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"]
+                )
+
+        except Exception as e:
+            return CustomResponse.server_error(message=f'Failed to Update Support Ticket: {str(e)}')
 
     def delete(self, request, uid):
         try:

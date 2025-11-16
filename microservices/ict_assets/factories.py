@@ -167,41 +167,6 @@ class SupplierFactory(factory.django.DjangoModelFactory):
     address = factory.Faker('address')
     created_by = factory.SubFactory(UserFactory)
 
-# class BuildingFactory(factory.django.DjangoModelFactory):
-#     class Meta:
-#         model = Building
-    
-#     name = factory.Sequence(lambda n: f'Building {n}')
-#     code = factory.Sequence(lambda n: f'B{n:02d}')
-#     address = factory.Faker('address')
-#     created_by = factory.SubFactory(UserFactory)
-
-# class FloorFactory(factory.django.DjangoModelFactory):
-#     class Meta:
-#         model = Floor
-    
-#     building = factory.SubFactory(BuildingFactory)
-#     number = factory.Sequence(lambda n: n + 1)
-#     name = factory.LazyAttribute(lambda obj: f'Floor {obj.number}')
-#     created_by = factory.SubFactory(UserFactory)
-
-# class LocationFactory(factory.django.DjangoModelFactory):
-#     class Meta:
-#         model = Location
-    
-#     name = factory.Sequence(lambda n: f'Location {n}')
-#     building = factory.SubFactory(BuildingFactory)
-#     floor = factory.SubFactory(FloorFactory)
-#     room = factory.Sequence(lambda n: f'{random.randint(1, 10)}{n:02d}')
-#     address = factory.LazyAttribute(lambda obj: f'{obj.building.address}, Room {obj.room}')
-#     created_by = factory.SubFactory(UserFactory)
-
-#     @factory.lazy_attribute
-#     def parent(self):
-#         if random.random() < 0.2 and Location.objects.exists():
-#             return random.choice(Location.objects.all())
-#         return None
-
 class BuildingFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Building

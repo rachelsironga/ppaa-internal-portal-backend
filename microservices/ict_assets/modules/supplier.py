@@ -23,7 +23,7 @@ class SupplierView(APIView):
         "post": [
             "add_supplier",
             "change_supplier",
-        ],
+        ], 
         "delete": [
             "delete_supplier",
         ]

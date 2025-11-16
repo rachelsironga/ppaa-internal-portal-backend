@@ -133,7 +133,6 @@ class ApprovalRequestHandler(BaseModel):
         unique_together = ('approval_request', 'handler')
         ordering = ['-created_at']
 
-
 class RequestInternetEmailAccess(BaseModel):
     approval_request = models.OneToOneField(
         ApprovalRequest,unique=True, on_delete=models.CASCADE, related_name="internet_email_access"
