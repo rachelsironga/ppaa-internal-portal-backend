@@ -258,7 +258,6 @@ class PermissionSerializer(serializers.ModelSerializer):
         depth = 1
 
 
-
 class FileUploadSerializer(serializers.Serializer):
     uid = serializers.UUIDField(write_only=True, required=True)
     based64_file = serializers.CharField(
@@ -459,7 +458,6 @@ class RegistrationSerializer(serializers.ModelSerializer):
             user.user_permissions.set(user_permissions)
 
         user.save()
-
 
 
 class PasswordChangeSerializer(serializers.Serializer):

@@ -84,7 +84,12 @@ class User(AbstractUser, PermissionsMixin):
         return f'{self.first_name} {self.last_name}'
 
     def get_full_name(self):
-        return self.first_name + ' ' + self.middle_name + ' ' + self.last_name
+        return " ".join(filter(None, [
+            self.first_name,
+            self.middle_name,
+            self.last_name
+        ]))
+
 
     def get_short_name(self):
         return self.first_name
@@ -208,6 +213,7 @@ class BaseModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True)
     is_deleted = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, related_name='created_%(class)s', on_delete=models.SET_NULL, null=True,
                                    blank=True)
     updated_by = models.ForeignKey(User, related_name='updated_%(class)s', on_delete=models.SET_NULL, null=True,
@@ -250,7 +256,6 @@ class Directory(BaseModel):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
-
 
 class Department(BaseModel):
     name = models.CharField(max_length=150, null=True)
