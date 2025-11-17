@@ -33,6 +33,7 @@ class Command(BaseCommand):
             ("assign_user_permission", "Can Assign User Permission"),
             ("can_view_own_profile", "Can View Own Profile"),
             ("can_change_own_password", "Can Change Own Password"),
+            ("can_reset_user_passwords", "Can Reset User Passwords"),
             ("can_view_approval_request", "Can View Approval Request"),
             ("can_create_approval_request", "Can Create Approval Request"),
             ("can_update_approval_request_status", "Can Update Approval Request Status"),

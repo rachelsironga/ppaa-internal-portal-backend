@@ -341,6 +341,26 @@ class CheckUserNameSerializer(serializers.ModelSerializer):
             'email': {'required': False}
         }
 
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    guid = serializers.CharField(required=True, allow_blank=False, write_only=True)
+    password = serializers.CharField(style={"input_type": "password"}, required=True)
+    confirm_password = serializers.CharField(style={"input_type": "password"}, required=True)
+
+    def validate(self, data):
+        guid = data.pop('guid')
+        data['password'] = data.pop('password')
+        confirm_password = data.pop('confirm_password')
+        if data['password'] != confirm_password:
+            raise serializers.ValidationError("Passwords do not match")
+        data['user'] = User.objects.filter(guid=guid,is_deleted=False).first()
+        if not data['user']:
+                raise serializers.ValidationError("The user is not verified or may be removed")
+        return data
+
+
+
 class RegistrationSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField()
     user_permissions = serializers.SerializerMethodField()
