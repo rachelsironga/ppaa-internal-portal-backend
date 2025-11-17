@@ -2,7 +2,7 @@ from django.db import transaction
 
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer, \
-    NewUserLoginSerializer, PasswordResetSerializer
+    NewUserLoginSerializer
 from django.contrib.auth import authenticate, login, logout
 from rest_framework import status, permissions
 from rest_framework.permissions import IsAuthenticated
@@ -168,36 +168,6 @@ class LogoutView(APIView):
     def post(self, request):
         logout(request)
         return Response({'msg': 'Successfully Logged out'}, status=status.HTTP_200_OK)
-
-
-class ResetPasswordView(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission, ]
-    serializer_class = PasswordResetSerializer
-    required_permissions = {
-        "post": ["can_reset_user_passwords"],
-    }
-
-    def post(self, request):
-        try:
-            with transaction.atomic():
-                serializer = self.serializer_class(context={'request': request}, data=request.data)
-                # Validate and save
-                if serializer.is_valid():
-                    user = serializer.validated_data['user']
-                    user.set_password(serializer.validated_data['password'])
-                    user.save()
-                    return CustomResponse.success(data=UserSerializer(user).data)
-
-                # Validation failed
-                return CustomResponse.errors(
-                    message="Unable to Reset Password",
-                    data=serializer.errors,
-                    code=STATUS_CODES["VALIDATION_ERROR"]
-                )
-        except Exception as e:
-            return CustomResponse.server_error(
-                message=f"Failed to  Reset Password: {str(e)}"
-            )
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission, ]

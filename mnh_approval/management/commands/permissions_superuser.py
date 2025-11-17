@@ -1,9 +1,9 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Permission, ContentType, Group
-from django.apps import apps
+from django.contrib.auth import get_user_model
 
 class Command(BaseCommand):
-    help = "Create custom permissions and assign them to groups"
+    help = "Create custom permissions, assign them to groups, and give superusers all permissions"
 
     def handle(self, *args, **options):
         self.stdout.write("Processing custom permissions...")
@@ -89,7 +89,6 @@ class Command(BaseCommand):
                 "can_upload_profile_photo",
                 "can_view_department_lookup",
                 'can_upload_profile_signature',
-                'can_upload_profile_signature',
                 'change_approval_request',
                 "can_view_approval_module_lookup",
                 "can_view_date_range_lookup",
@@ -114,6 +113,7 @@ class Command(BaseCommand):
 
         self.stdout.write("Processing groups...")
 
+        # Assign permissions to groups
         for group_name, perm_codes in groups_to_permissions.items():
             group, created = Group.objects.get_or_create(name=group_name)
             if created:
@@ -143,7 +143,18 @@ class Command(BaseCommand):
         else:
             self.stdout.write("Group exists: admin")
 
-        admin_group.permissions.set(Permission.objects.all())
+        all_permissions = Permission.objects.all()
+        admin_group.permissions.set(all_permissions)
         self.stdout.write(self.style.SUCCESS("Assigned ALL available permissions to admin group"))
 
-        self.stdout.write(self.style.SUCCESS("Custom permissions and groups synchronized."))
+        # Assign all permissions to superusers
+        User = get_user_model()
+        superusers = User.objects.filter(is_superuser=True)
+
+        for user in superusers:
+            user.user_permissions.set(all_permissions)
+            self.stdout.write(self.style.SUCCESS(
+                f"Assigned ALL permissions to superuser '{user.username}'"
+            ))
+
+        self.stdout.write(self.style.SUCCESS("Custom permissions, groups, and superusers synchronized."))

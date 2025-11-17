@@ -2,8 +2,7 @@ from django.urls import path
 
 from mnh_auth.modules.user_bulk_import import BulkUserImportView
 from mnh_auth.modules.user_profile import UserProfileView, ActingUser
-from mnh_auth.views import LoginView, RegistrationView, LoginNewUser, ChangePasswordView, \
-    ResetPasswordView
+from mnh_auth.views import LoginView, RegistrationView, LoginNewUser, ChangePasswordView
 from mnh_auth.modules.users import UserView, UserPhotoUpload, UserSignatureUpload
 
 # app_name = 'user'
@@ -19,7 +18,6 @@ urlpatterns = [
     path('setup/assign-delegated-user', ActingUser.as_view(), name='assign-delegated-user'),
     path('setup/<str:uid>', UserView.as_view(), name='open-user-setup'),
     path('change-password', ChangePasswordView.as_view(), name='user-change-password'),
-    path('reset_password', ResetPasswordView.as_view(), name='reset_password'),
     path('import-user-excel', BulkUserImportView.as_view(), name='import-user-excel'),
 
 
