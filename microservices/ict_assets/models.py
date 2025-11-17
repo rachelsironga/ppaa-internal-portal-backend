@@ -120,12 +120,13 @@ class AssetLocationHistory(BaseModel):
 class Computer(BaseModel):
     STORAGE_TYPES = [
         ('hdd', 'HDD'),
-        ('ssd', 'SSD'),
+        ('SSD', 'SSD'),
         ('nvme', 'NVMe'),
         ('hybrid', 'Hybrid (SSHD)'),
         ('external', 'External'),
         ('nas', 'Network Attached Storage'),
     ]
+
     CPU_ARCH_CHOICES = [
         ('x86', 'x86 (32-bit)'),
         ('x86_64', 'x86_64 (64-bit)'),
