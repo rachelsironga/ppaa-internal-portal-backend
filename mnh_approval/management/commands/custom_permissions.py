@@ -76,11 +76,7 @@ class Command(BaseCommand):
                 "can_remove_delegate",
                 "can_import_directory",
                 "can_view_sensitive_data",
-                "can_view_approval_modules",
                 "can_view_approval_module_lookup",
-                "can_add_approval_module",
-                "can_edit_approval_module",
-                "can_delete_approval_module"
             ],
             "staff": [
                 "can_view_group",

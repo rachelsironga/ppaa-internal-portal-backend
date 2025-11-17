@@ -6,7 +6,6 @@ from django.db.models import Q, F
 from django.contrib.auth.models import Group
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.contrib.auth.models import Group
 
 
 class UserManager(BaseUserManager):
@@ -296,9 +295,9 @@ class UserProfile(BaseModel):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, related_name='user_profiles', on_delete=models.SET_NULL, null=True, blank=True)
     level = models.ForeignKey(PositionalLevel, on_delete=models.CASCADE)
-    directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='user_profiles')
     acting_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='acting_user')
 
+    directory = models.ForeignKey('Directory', on_delete=models.CASCADE, related_name='user_profiles')
     department = models.ForeignKey('Department', models.DO_NOTHING, blank=True, null=True, default=None)
     is_active = models.BooleanField(default=True, null=False, blank=False)
     end_date = models.DateTimeField(blank=True, null=True)

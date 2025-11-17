@@ -4,7 +4,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django.db.models import Q, Exists, OuterRef
-from api.serializers import ApprovalRequestSerializer
+from api.serializers import ApprovalRequestSerializer, ApprovalRequestHandlerSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.models import UserProfile
@@ -69,13 +69,44 @@ class ApprovalRequestView(APIView):
 
             # "MY_REQUEST" filter (only my own created)
             if "RELATED" in filters:
-                qs = ApprovalRequest.objects.filter(is_deleted=False).exclude(
-                    created_by=request.user
+                # qs = ApprovalRequest.objects.filter(is_deleted=False).exclude(
+                #     created_by=request.user
+                # ).select_related('module', 'department', 'created_by')
+                user_profile = request.user.user_profiles.filter(is_active=True).first()
+                if not user_profile:
+                    return None
+
+                # Get all module levels that match user's position
+                user_module_levels = ApprovalModuleLevel.objects.filter(
+                    level=user_profile.level,
+                    department=user_profile.department,
+                    is_active=True
                 ).select_related('module', 'department', 'created_by')
+
+
+                # Get module IDs and their required order
+                module_data = {
+                    level.module_id: level.order
+                    for level in user_module_levels
+                }
+
+                # Get requests where current_state matches (user's order - 1)
+                requests = ApprovalRequest.objects.filter(
+                    module_id__in=module_data.keys()
+                ).exclude(
+                    status__in=["APPROVED", "REJECTED"]
+                )
 
                 # keep any status filters the user selected
                 if selected_statuses:
-                    qs = qs.filter(status__in=selected_statuses)
+                    requests = requests.filter(status__in=selected_statuses)
+
+                # Filter in Python for more control (or use database filtering)
+                qs = [
+                    request for request in requests
+                    if request.current_state + 1 == module_data[request.module_id]
+                ]
+
 
             # Search by title (case-insensitive)
             if search_query:
@@ -84,7 +115,8 @@ class ApprovalRequestView(APIView):
             # If you need to additionally allow "creator OR matching-level" regardless of MY_REQUEST:
             # qs = get_user_related_requests(profile, include_created=True)
 
-            if qs.exists():
+            # if qs and  ((hasattr(qs, 'exists') and qs.exists()) or len(qs) > 0):
+            if len(qs):
                 return CustomPagination.paginate(view_class=self, results=qs, request=request)
 
             return CustomResponse.errors(message="Approval Request not found", data=[])
@@ -137,7 +169,7 @@ class ApprovalRequestView(APIView):
 
                 approval_request.is_deleted = True
                 approval_request.deleted_at = datetime.now()
-                approval_request.deleted_by = request.user.id
+                approval_request.deleted_by = request.user
                 approval_request.save()
                 return CustomResponse.success(message='Approval Request deleted successfully')
 
@@ -197,3 +229,33 @@ def get_user_related_requests(request, include_created=False):
         qs = qs.filter(_has_match=True)
 
     return qs
+
+
+class ApprovalRequestHandlerView(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
+    serializer_class = ApprovalRequestHandlerSerializer
+    required_permissions = {
+        "post": ["can_perform_request_handling"],
+    }
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                uid = request.data.get("uid") or request.data.get("request_uid")
+                instance = None
+                if uid:
+                    try:
+                        instance = ApprovalRequest.objects.get(uid=uid)
+                    except ApprovalRequest.DoesNotExist:
+                        return CustomResponse.errors(message="Approval Request not found")
+
+                serializer = self.serializer_class(instance=instance, data=request.data, partial=True, context={"request": request})
+                if serializer.is_valid():
+                    obj = serializer.save()
+                    # return serialized object (use serializer class again to include read-only fields)
+                    out = self.serializer_class(obj).data
+                    return CustomResponse.success(data=out)
+                return CustomResponse.errors(message=serializer.errors, data=serializer.errors, code=STATUS_CODES["VALIDATION_ERROR"])
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to Change Approval Request: {str(e)}"
+            )

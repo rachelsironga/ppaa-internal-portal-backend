@@ -1,5 +1,5 @@
 import pandas as pd
-from django.db import transaction
+from django.db import transaction, models
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
@@ -26,7 +26,6 @@ class UserView(APIView):
             if uid:
                 user = User.objects.filter(guid=uid, is_deleted=False).first()
                 if not user:
-
                     raise NotFound("User not found")
                 return CustomResponse.success(data=self.serializer_class(user).data)
 
@@ -38,7 +37,8 @@ class UserView(APIView):
 
             search_query = request.GET.get('search', '').strip()
             if search_query:
-                users = users.filter(
+                # Search only user fields first
+                user_search = Q(
                     Q(username__icontains=search_query) |
                     Q(email__icontains=search_query) |
                     Q(pf_number__icontains=search_query) |
@@ -49,9 +49,43 @@ class UserView(APIView):
                     Q(phone_number__icontains=search_query) |
                     Q(alternative_contact__icontains=search_query) |
                     Q(status__icontains=search_query)
-
-
                 )
+
+                # Search profile fields separately
+                profile_search = Q(
+                    Q(user_profiles__level__name__icontains=search_query) |
+                    Q(user_profiles__department__name__icontains=search_query) |
+                    Q(user_profiles__directory__name__icontains=search_query),
+                    user_profiles__is_active=True,
+                    user_profiles__is_deleted=False
+                )
+
+                users = users.filter(user_search | profile_search).distinct()
+
+            # Add annotations for display only
+            users = users.annotate(
+                current_level_name=models.Subquery(
+                    UserProfile.objects.filter(
+                        user=models.OuterRef('pk'),
+                        is_active=True,
+                        is_deleted=False
+                    ).values('level__name')[:1]
+                ),
+                current_department_name=models.Subquery(
+                    UserProfile.objects.filter(
+                        user=models.OuterRef('pk'),
+                        is_active=True,
+                        is_deleted=False
+                    ).values('department__name')[:1]
+                ),
+                current_directory_name=models.Subquery(
+                    UserProfile.objects.filter(
+                        user=models.OuterRef('pk'),
+                        is_active=True,
+                        is_deleted=False
+                    ).values('directory__name')[:1]
+                )
+            )
 
             if users.exists():
                 context = {"is_auth_view": False}
@@ -175,7 +209,7 @@ class UserPhotoUpload(APIView):
                     old_file_path=instance.photo
                 )
                 instance.photo = photo_url
-                instance.updated_by = request.user.id
+                instance.updated_by = request.user
                 instance.updated_at = timezone.now()
                 instance.save(update_fields=["photo",'updated_by','updated_at'])
                 user_serializer = UserSerializer(instance)
@@ -223,7 +257,7 @@ class UserSignatureUpload(APIView):
                     old_file_path=instance.signature
                 )
                 instance.signature = file_url
-                instance.updated_by = request.user.id
+                instance.updated_by = request.user
                 instance.updated_at = timezone.now()
                 instance.save(update_fields=["signature",'updated_by','updated_at'])
                 user_serializer = UserSerializer(instance)

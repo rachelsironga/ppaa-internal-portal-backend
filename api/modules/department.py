@@ -112,7 +112,7 @@ class DepartmentView(APIView):
 
                 department.is_deleted = True
                 department.deleted_at = datetime.now()
-                department.deleted_by = request.user.id
+                department.deleted_by = request.user
                 department.save()
                 return CustomResponse.success(message='Department deleted successfully')
 

@@ -80,7 +80,7 @@ class JeevaRoleView(APIView):
 
                 jeeva_role.is_deleted = True
                 jeeva_role.deleted_at = datetime.now()
-                jeeva_role.deleted_by = request.user.id
+                jeeva_role.deleted_by = request.user
                 jeeva_role.save()
                 return CustomResponse.success(message='Jeeva Role deleted successfully')
 

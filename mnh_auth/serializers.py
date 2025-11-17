@@ -18,13 +18,17 @@ class UserSerializer(serializers.ModelSerializer):
     signature = serializers.SerializerMethodField()
     position = serializers.SerializerMethodField(read_only=True)
     email = serializers.CharField(required=False, allow_blank=False)
+    current_level_name = serializers.CharField(read_only=True)
+    current_department_name = serializers.CharField(read_only=True)
+    current_directory_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
         fields = [
             'guid','username','email','pf_number','check_number','first_name', 'middle_name','last_name','status',
             'account_type','dob','sex','is_active','is_staff','photo','signature','phone_number','alternative_contact',
-            'account_number','created_at','updated_at','created_by','groups', 'user_permissions','position'
+            'account_number','created_at','updated_at','created_by','groups', 'user_permissions','position',
+            'current_level_name', 'current_department_name', 'current_directory_name'
         ]
         read_only_fields = [
             'guid', 'username', 'status', 'updated_at','account_type', 'created_at', 'updated_at',
@@ -336,9 +340,6 @@ class CheckUserNameSerializer(serializers.ModelSerializer):
             'password': {'required': False},
             'email': {'required': False}
         }
-
-
-
 
 class RegistrationSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField()

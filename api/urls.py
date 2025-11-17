@@ -8,7 +8,7 @@ from api.modules.handler import RequestHandler
 from api.modules.positional_level import PositionalLevelView, BulkDesignationImportView
 from api.modules.approval_module import ApprovalModuleView
 from api.modules.approval_module_level import ApprovalModuleLevelView
-from api.modules.approval_request import ApprovalRequestView
+from api.modules.approval_request import ApprovalRequestView, ApprovalRequestHandlerView
 from api.modules.department import DepartmentView
 from api.modules.directory import DirectoryView, UploadDirectoryExcelView
 from api.modules.external_auth.jeeva_roles import JeevaRoleView, JeevaRolePermissionListView
@@ -58,7 +58,7 @@ urlpatterns = [
 
     path('departments', DepartmentView.as_view(), name='view'),
     path('departments/<str:uid>', DepartmentView.as_view(), name='open'),
-path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
+    path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
 
     path('positional-level', PositionalLevelView.as_view(), name='view-positional-level'),
     path('positional-level/<str:uid>', PositionalLevelView.as_view(), name='open-positional-level'),
@@ -83,6 +83,7 @@ path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
 
     path('approval-request-handler', RequestHandler.as_view(), name='approval-request-handler'),
     path('approval-request-handler/<str:uid>', RequestHandler.as_view(), name='approval-request-handler'),
+    path('handle-approval-request', ApprovalRequestHandlerView.as_view(), name='handle-approval-request'),
 
     path('approve-reject-request', ApproveModuleLevelStepView.as_view(), name='approve-reject-request'),
 
