@@ -57,7 +57,9 @@ class MaintenanceRecordView(APIView):
                 maintenance_records = maintenance_records.filter(
                     Q(asset__asset_tag__icontains=search_query) | 
                     Q(description__icontains=search_query) |
-                    Q(technician__icontains=search_query) |
+                    Q(technician__first_name__icontains=search_query) |
+                    Q(technician__last_name__icontains=search_query) |
+                    Q(technician__username__icontains=search_query) |
                     Q(notes__icontains=search_query)
                 )
 

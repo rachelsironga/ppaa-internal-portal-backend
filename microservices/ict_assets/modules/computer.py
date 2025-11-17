@@ -6,7 +6,7 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from microservices.ict_assets.models import Computer
+from microservices.ict_assets.models import Asset, Computer
 from microservices.ict_assets.serializers import ComputerSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
@@ -25,9 +25,6 @@ class ComputerView(APIView):
         "delete": ["delete_computer"],
     }
 
-    # -----------------------------
-    # GET (List / Retrieve)
-    # -----------------------------
     def get(self, request, uid=None):
         try:
             if uid:
@@ -66,16 +63,14 @@ class ComputerView(APIView):
                 message=f'Failed to Retrieve Computers: {str(e)}'
             )
 
-    # -----------------------------
-    # POST (Create or Update)
-    # -----------------------------
     def post(self, request):
         try:
             with transaction.atomic():
                 uid = request.data.get('uid')
 
                 if uid:
-                    instance = Computer.objects.filter(uid=uid, is_deleted=False).first()
+                    # asset = Asset.objects.filter(uid=uid, is_deleted=False).first()
+                    instance = Computer.objects.filter(asset__uid=uid).first()
                     if not instance:
                         return CustomResponse.errors(message="Computer not found")
 
@@ -106,9 +101,6 @@ class ComputerView(APIView):
                 message=f'Failed to Change Computer: {str(e)}'
             )
 
-    # -----------------------------
-    # PUT (Strict Update)
-    # -----------------------------
     def put(self, request, uid):
         try:
             with transaction.atomic():
@@ -138,9 +130,6 @@ class ComputerView(APIView):
                 message=f'Failed to Update Computer: {str(e)}'
             )
 
-    # -----------------------------
-    # PATCH (Partial Update)
-    # -----------------------------
     def patch(self, request, uid):
         try:
             with transaction.atomic():
@@ -170,9 +159,6 @@ class ComputerView(APIView):
                 message=f'Failed to Partially Update Computer: {str(e)}'
             )
 
-    # -----------------------------
-    # DELETE (Soft Delete)
-    # -----------------------------
     def delete(self, request, uid):
         try:
             with transaction.atomic():

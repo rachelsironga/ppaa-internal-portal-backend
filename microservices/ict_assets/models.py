@@ -120,7 +120,7 @@ class AssetLocationHistory(BaseModel):
 class Computer(BaseModel):
     STORAGE_TYPES = [
         ('hdd', 'HDD'),
-        ('SSD', 'SSD'),
+        ('ssd', 'SSD'),
         ('nvme', 'NVMe'),
         ('hybrid', 'Hybrid (SSHD)'),
         ('external', 'External'),
@@ -184,6 +184,12 @@ class NetworkDevice(BaseModel):
         ('switch', 'Switch'),
         ('firewall', 'Firewall'),
         ('access_point', 'Access Point'),
+        ('load_balancer', 'Load Balancer'),
+        ('gateway', 'Gateway'),
+        ('modem', 'Modem'),
+        ('hub', 'Hub'),
+        ('bridge', 'Bridge'),
+        ('other', 'Other'),
     ]
 
     asset = models.OneToOneField(Asset, on_delete=models.CASCADE)
@@ -194,26 +200,44 @@ class NetworkDevice(BaseModel):
 
 
 class Peripheral(BaseModel):
+
     PERIPHERAL_TYPES = [
         ('printer', 'Printer'),
         ('scanner', 'Scanner'),
-        ('monitor', 'Monitor'),
         ('keyboard', 'Keyboard'),
         ('mouse', 'Mouse'),
+        ('monitor', 'Monitor'),
+        ('speaker', 'Speaker'),
+        ('webcam', 'Webcam'),
+        ('headset', 'Headset'),
+        ('microphone', 'Microphone'),
+        ('other', 'Other'),
     ]
 
     CONNECTION_TYPES = [
         ('usb', 'USB'),
-        ('utp', 'UTP'),
-        ('bluetooth', 'BLUETOOTH'),
-        ('wi-fi', 'Wi-FI'),
+        ('bluetooth', 'Bluetooth'),
+        ('wireless', 'Wireless'),
+        ('hdmi', 'HDMI'),
+        ('vga', 'VGA'),
+        ('ps2', 'PS/2'),
+        ('ethernet', 'Ethernet'),
+        ('other', 'Other'),
     ]
 
     asset = models.OneToOneField(Asset, on_delete=models.CASCADE)
     peripheral_type = models.CharField(max_length=20, choices=PERIPHERAL_TYPES)
     connection_type = models.CharField(max_length=20, choices=CONNECTION_TYPES)
 
+    def save(self, *args, **kwargs):
+        # Normalize fields before saving
+        if self.peripheral_type:
+            self.peripheral_type = self.peripheral_type.strip().lower()
+        if self.connection_type:
+            self.connection_type = self.connection_type.strip().lower()
+        super().save(*args, **kwargs)
 
+        
 # software models
 class SoftwareCategory(BaseModel):
     """
