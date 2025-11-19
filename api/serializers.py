@@ -456,7 +456,6 @@ class ApprovalModuleSerializer(serializers.ModelSerializer):
         return []
 
     def get_directory(self, obj):
-        print("------------------------------------------>")
         if obj.directory_uid is not None or obj.directory_uid != "":
             # Filter is_deleted=False
             directory = Directory.objects.filter(is_deleted=False, uid=obj.directory_uid).first()

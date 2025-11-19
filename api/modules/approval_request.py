@@ -43,6 +43,7 @@ class ApprovalRequestView(APIView):
             raw_filters = (request.GET.get('filters') or '').strip()
             filters = [f.strip().upper() for f in raw_filters.split(',') if f.strip()] if raw_filters else []
 
+
             # normalize ALL behavior (if ALL + others -> drop ALL, keep others)
             if "ALL" in filters and len(filters) > 1:
                 filters = [f for f in filters if f != "ALL"]
@@ -57,8 +58,11 @@ class ApprovalRequestView(APIView):
             if selected_statuses:
                 qs = qs.filter(status__in=selected_statuses)
 
+
+
             # "MY_REQUEST" filter (only my own created)
             if "MY_REQUEST" in filters:
+
                 qs = ApprovalRequest.objects.filter(
                     is_deleted=False, created_by=request.user
                 ).select_related('module', 'department', 'created_by')
@@ -76,6 +80,8 @@ class ApprovalRequestView(APIView):
                 if not user_profile:
                     return None
 
+                print("----------------------user_profile---------------->",user_profile)
+
                 # Get all module levels that match user's position
                 user_module_levels = ApprovalModuleLevel.objects.filter(
                     level=user_profile.level,
@@ -89,6 +95,9 @@ class ApprovalRequestView(APIView):
                     level.module_id: level.order
                     for level in user_module_levels
                 }
+
+                print("----------------------module_data---------------->",module_data)
+
 
                 # Get requests where current_state matches (user's order - 1)
                 requests = ApprovalRequest.objects.filter(
@@ -104,7 +113,7 @@ class ApprovalRequestView(APIView):
                 # Filter in Python for more control (or use database filtering)
                 qs = [
                     request for request in requests
-                    if request.current_state + 1 == module_data[request.module_id]
+                    if request.current_state == module_data[request.module_id]
                 ]
 
 
