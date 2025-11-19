@@ -118,6 +118,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         validated_data.pop('directory_uid', None)
+        validated_data.pop('created_by', None)
         return super().update(instance, validated_data)
 
 
@@ -324,6 +325,8 @@ class ApprovalRequestStepSerializer(serializers.ModelSerializer):
         """
         validated_data.pop('module_level_uid', None)
         validated_data.pop('request_uid', None)
+        validated_data.pop('created_by', None)
+
 
         return super().update(instance, validated_data)
 
@@ -416,6 +419,8 @@ class ApprovalModuleLevelSerializer(serializers.ModelSerializer):
         validated_data.pop('level_uid', None)
         validated_data.pop('action_uid', None)
         validated_data.pop('department_uid')
+        validated_data.pop('created_by', None)
+
 
         return super().update(instance, validated_data)
 
@@ -559,6 +564,7 @@ class ApprovalRequestSerializer(serializers.ModelSerializer):
         return ApprovalRequest.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop('created_by', None)
         return super().update(instance, validated_data)
 
 class ApprovalRequestCustomiseSerializer(serializers.ModelSerializer):
@@ -574,6 +580,7 @@ class ApprovalRequestCustomiseSerializer(serializers.ModelSerializer):
         return ApprovalRequest.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop('created_by', None)
         return super().update(instance, validated_data)
 
 
@@ -696,6 +703,7 @@ class RequestHandlerSerializer(serializers.ModelSerializer):
         return ApprovalRequest.objects.create(**validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop('created_by', None)
         return super().update(instance, validated_data)
 
 
@@ -733,6 +741,7 @@ class ApprovalRequestHandlerSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         desc = validated_data.get("handler_descriptions", None)
+        validated_data.pop('created_by', None)
         if desc is not None:
             instance.handler_descriptions = desc
         # mark handled
