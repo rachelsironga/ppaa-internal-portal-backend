@@ -43,7 +43,14 @@ class UserFactory(factory.django.DjangoModelFactory):
     @classmethod
     def _create(cls, model_class, *args, **kwargs):
         """Override to handle custom UserManager with pf_number requirement"""
-        # Extract password if provided
+        # Check if we should create a new user or use existing one
+        existing_users_count = User.objects.count()
+        
+        # If there are already 5 or more users, use a random existing user
+        if existing_users_count >= 5:
+            return random.choice(User.objects.all())
+        
+        # Otherwise, create a new user
         password = kwargs.pop('password', 'password123')
         
         # Ensure required fields are present
@@ -86,6 +93,18 @@ class UserFactory(factory.django.DjangoModelFactory):
         )
         
         return user
+
+    @classmethod
+    def get_or_create_user(cls, **kwargs):
+        """Helper method to get existing user or create new one based on count"""
+        existing_users_count = User.objects.count()
+        
+        if existing_users_count >= 5:
+            # Return a random existing user
+            return random.choice(User.objects.all())
+        else:
+            # Create a new user
+            return cls(**kwargs)
     
 # SuperUser factory for admin users
 class SuperUserFactory(UserFactory):
@@ -100,6 +119,20 @@ class SuperUserFactory(UserFactory):
     @classmethod
     def _create(cls, model_class, *args, **kwargs):
         """Override to create superuser"""
+        # Check if we should create a new superuser or use existing one
+        existing_superusers_count = User.objects.filter(is_superuser=True).count()
+        existing_users_count = User.objects.count()
+        
+        # If there are already 5 or more users, use an existing superuser if available, otherwise regular user
+        if existing_users_count >= 5:
+            superusers = User.objects.filter(is_superuser=True)
+            if superusers.exists():
+                return random.choice(superusers)
+            else:
+                # Fall back to any existing user
+                return random.choice(User.objects.all())
+        
+        # Otherwise, create a new superuser
         password = kwargs.pop('password', 'admin123')
         
         manager = cls._get_manager(model_class)
@@ -152,7 +185,7 @@ class ManufacturerFactory(factory.django.DjangoModelFactory):
     
     name = factory.Sequence(lambda n: f'Manufacturer {n}')
     contact_email = factory.LazyAttribute(lambda obj: f'contact@{obj.name.lower().replace(" ", "")}.com')
-    support_phone = factory.Faker('phone_number')
+    support_phone = factory.LazyFunction(lambda: fake.numerify(text='+255-###-######'))  # Max 20 chars
     website = factory.LazyAttribute(lambda obj: f'www.{obj.name.lower().replace(" ", "")}.com')
     created_by = factory.SubFactory(UserFactory)
 
@@ -163,7 +196,7 @@ class SupplierFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f'Supplier {n}')
     contact_person = factory.Faker('name')
     email = factory.LazyAttribute(lambda obj: f'info@{obj.name.lower().replace(" ", "")}.com')
-    phone = factory.Faker('phone_number')
+    phone = factory.LazyFunction(lambda: fake.numerify(text='+255-###-######'))  # Max 20 chars
     address = factory.Faker('address')
     created_by = factory.SubFactory(UserFactory)
 
@@ -214,22 +247,49 @@ class SoftwareFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Software
     
-    name = factory.Sequence(lambda n: f'Software {n}')
+    # Basic Information
+    asset_tag = factory.LazyFunction(lambda: f'SW-{fake.unique.random_number(digits=4, fix_len=True)}')
+    software_name = factory.Sequence(lambda n: f'Software {n}')
     version = factory.Faker('numerify', text='#.#.#')
     publisher = factory.Faker('company')
+    software_type = factory.Iterator(['application', 'operating_system', 'utility', 'development_tool', 'database', 'security'])
+    platform = factory.Iterator(['windows', 'linux', 'macos', 'web', 'cross_platform'])
+    
+    # Legacy field
     category = factory.SubFactory(SoftwareCategoryFactory)
-    license_type = factory.Iterator(['Volume', 'Subscription', 'Free', 'Open Source'])
-    cost = factory.Faker('random_number', digits=3, fix_len=True)
+    
+    # Asset Management
+    asset_type = factory.SubFactory(AssetTypeFactory)
+    status = factory.Iterator(['active', 'inactive', 'operational', 'retired'])
+    condition = factory.Iterator(['new', 'excellent', 'good', 'fair'])
+    
+    # License Information
+    license_type = factory.Iterator(['perpetual', 'subscription', 'open_source', 'trial', 'enterprise', 'volume'])
+    total_licenses = factory.LazyFunction(lambda: random.choice([1, 5, 10, 25, 50, 100]))
+    used_licenses = factory.LazyAttribute(lambda obj: random.randint(0, obj.total_licenses))
+    license_expiry = factory.LazyAttribute(lambda obj: fake.date_between(start_date='today', end_date='+2y') if obj.license_type in ['subscription', 'trial'] else None)
+    
+    # Financial Information
+    purchase_cost = factory.Faker('random_number', digits=3, fix_len=True)
     purchase_date = factory.Faker('date_between', start_date='-2y', end_date='today')
-    expiration_date = factory.LazyAttribute(lambda obj: obj.purchase_date + timedelta(days=365))
+    supplier = factory.SubFactory(SupplierFactory)
+    
+    # Assignment & Location
+    custodian = factory.LazyAttribute(lambda obj: UserFactory() if random.random() < 0.6 else None)
+    location = factory.LazyAttribute(lambda obj: LocationFactory() if random.random() < 0.7 else None)
+    
+    # Support & Documentation
+    support_url = factory.LazyAttribute(lambda obj: f'https://support.{obj.publisher.lower().replace(" ", "")}.com' if random.random() < 0.5 else None)
+    documentation_url = factory.LazyAttribute(lambda obj: f'https://docs.{obj.publisher.lower().replace(" ", "")}.com' if random.random() < 0.5 else None)
+    
     created_by = factory.SubFactory(UserFactory)
 
 class AssetFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Asset
     
-    asset_tag = factory.Sequence(lambda n: f'ASSET-{1000 + n:04d}')
-    serial_number = factory.Sequence(lambda n: f'SN-{fake.uuid4()[:8].upper()}')
+    asset_tag = factory.LazyFunction(lambda: f'ASSET-{fake.unique.random_number(digits=4, fix_len=True)}')
+    serial_number = factory.LazyFunction(lambda: f'SN-{fake.unique.uuid4()[:8].upper()}')
     asset_type = factory.SubFactory(AssetTypeFactory)
     manufacturer = factory.SubFactory(ManufacturerFactory)
     model = factory.LazyAttribute(lambda obj: f'{obj.manufacturer.name} Model {random.randint(100, 999)}')
@@ -322,15 +382,42 @@ class SoftwareInstallationFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SoftwareInstallation
     
+    # Core Relationships
     software = factory.SubFactory(SoftwareFactory)
     asset = factory.SubFactory(AssetFactory)
-    installed_date = factory.LazyAttribute(lambda obj: fake.date_between(
+    
+    # Installation Details
+    installation_date = factory.LazyAttribute(lambda obj: fake.date_between(
         start_date=obj.asset.purchase_date,
         end_date='today'
-    ))
-    license_key = factory.LazyFunction(lambda: fake.uuid4() if random.random() > 0.5 else '')
+    ) if obj.asset.purchase_date else fake.date_between(start_date='-2y', end_date='today'))
     installed_by = factory.SubFactory(UserFactory)
+    installation_path = factory.LazyAttribute(lambda obj: f'C:\\Program Files\\{obj.software.software_name}' if random.random() < 0.7 else None)
+    version_installed = factory.LazyAttribute(lambda obj: obj.software.version)
+    
+    # License Information
+    license_key_used = factory.LazyFunction(lambda: fake.uuid4() if random.random() > 0.5 else '')
+    
+    # Status & Verification
+    status = factory.Iterator(['active', 'inactive', 'pending', 'uninstalled'])
+    is_compliant = factory.LazyFunction(lambda: random.choice([True, False]))
+    
+    # Assignment
+    assigned_to = factory.LazyAttribute(lambda obj: obj.asset.custodian if obj.asset.custodian else UserFactory() if random.random() < 0.6 else None)
+    
     created_by = factory.SubFactory(UserFactory)
+    
+    @factory.lazy_attribute
+    def last_verified_date(self):
+        if self.status == 'active' and random.random() < 0.4:
+            return fake.date_between(start_date=self.installation_date, end_date='today')
+        return None
+    
+    @factory.lazy_attribute
+    def verified_by(self):
+        if self.last_verified_date:
+            return UserFactory()
+        return None
 
 class AssetAssignmentFactory(factory.django.DjangoModelFactory):
     class Meta:
@@ -388,19 +475,27 @@ class SupportTicketFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = SupportTicket
     
-    ticket_id = factory.Sequence(lambda n: f'TKT-{timezone.now().year}{n+1:04d}')
+    ticket_id = factory.LazyFunction(lambda: f'TKT-{timezone.now().year}{fake.unique.random_number(digits=4, fix_len=True)}')
     asset = factory.SubFactory(AssetFactory)
     issue_description = factory.Faker('paragraph')
     priority = factory.Iterator(['low', 'medium', 'high', 'critical'])
     status = factory.Iterator(['open', 'in_progress', 'resolved', 'closed'])
-    created_date = factory.Faker('date_between', start_date='-60d', end_date='today')
-    assigned_technician = factory.SubFactory(UserFactory)
     created_by = factory.SubFactory(UserFactory)
+
+    @factory.lazy_attribute
+    def created_date(self):
+        naive_date = fake.date_between(start_date='-60d', end_date='today')
+        return timezone.make_aware(timezone.datetime.combine(naive_date, timezone.datetime.min.time()))
+    
+    @factory.lazy_attribute
+    def assigned_technician(self):
+        return UserFactory()
 
     @factory.lazy_attribute
     def resolved_date(self):
         if self.status in ['resolved', 'closed']:
-            return fake.date_between(start_date=self.created_date, end_date='today')
+            naive_date = fake.date_between(start_date=self.created_date.date(), end_date='today')
+            return timezone.make_aware(timezone.datetime.combine(naive_date, timezone.datetime.min.time()))
         return None
 
 class WarrantyFactory(factory.django.DjangoModelFactory):
@@ -430,8 +525,63 @@ class DisposalRecordFactory(factory.django.DjangoModelFactory):
         start_date=obj.asset.purchase_date,
         end_date='today'
     ))
-    disposal_method = factory.Iterator(['recycled', 'sold', 'donated', 'destroyed', 'trade_in'])
+    disposal_method = factory.Iterator(['recycled', 'sold', 'donated', 'destroyed'])
     disposal_reason = factory.LazyAttribute(lambda obj: f'End of life for {obj.asset.model}')
     disposal_value = factory.LazyAttribute(lambda obj: round(obj.asset.purchase_cost * random.uniform(0.05, 0.2), 2))
     approved_by = factory.SubFactory(UserFactory)
+    created_by = factory.SubFactory(UserFactory)
+
+class AssetCustodianHistoryFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AssetCustodianHistory
+    
+    asset = factory.SubFactory(AssetFactory)
+    custodian = factory.SubFactory(UserFactory)
+    assigned_date = factory.LazyAttribute(lambda obj: fake.date_between(
+        start_date=obj.asset.purchase_date if obj.asset.purchase_date else '-2y',
+        end_date='today'
+    ))
+    notes = factory.LazyAttribute(lambda obj: f'Asset {obj.asset.asset_tag} assigned to {obj.custodian.get_full_name()}')
+    created_by = factory.SubFactory(UserFactory)
+
+class AssetLocationHistoryFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AssetLocationHistory
+    
+    asset = factory.SubFactory(AssetFactory)
+    location = factory.SubFactory(LocationFactory)
+    moved_date = factory.LazyAttribute(lambda obj: fake.date_between(
+        start_date=obj.asset.purchase_date if obj.asset.purchase_date else '-2y',
+        end_date='today'
+    ))
+    notes = factory.LazyAttribute(lambda obj: f'Asset {obj.asset.asset_tag} moved to {obj.location.name}')
+    created_by = factory.SubFactory(UserFactory)
+
+class SoftwareLicenseFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = SoftwareLicense
+    
+    software = factory.SubFactory(SoftwareFactory)
+    license_key = factory.LazyFunction(lambda: fake.uuid4().upper())
+    status = factory.Iterator(['available', 'assigned', 'expired', 'revoked'])
+    
+    # Assignment
+    assigned_to = factory.LazyAttribute(lambda obj: UserFactory() if obj.status == 'assigned' else None)
+    assigned_date = factory.LazyAttribute(lambda obj: fake.date_between(start_date='-1y', end_date='today') if obj.status == 'assigned' else None)
+    
+    # Validity
+    activation_date = factory.LazyAttribute(lambda obj: fake.date_between(start_date='-1y', end_date='today') if obj.status in ['assigned', 'expired'] else None)
+    expiry_date = factory.LazyAttribute(lambda obj: fake.date_between(start_date='today', end_date='+2y') if obj.status in ['assigned', 'available'] else fake.date_between(start_date='-1y', end_date='today') if obj.status == 'expired' else None)
+    
+    notes = factory.LazyAttribute(lambda obj: f'License key for {obj.software.software_name}' if random.random() < 0.3 else '')
+    created_by = factory.SubFactory(UserFactory)
+
+class DepreciationPolicyFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = DepreciationPolicy
+    
+    asset_category = factory.SubFactory(AssetCategoryFactory)
+    useful_life_years = factory.Iterator([3, 5, 7, 10])
+    depreciation_rate = factory.LazyAttribute(lambda obj: round(100 / obj.useful_life_years, 2))
+    method = factory.Iterator(['Straight-line', 'Reducing balance', 'Double declining balance', 'Sum of years digits'])
     created_by = factory.SubFactory(UserFactory)

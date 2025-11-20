@@ -125,7 +125,6 @@ class CustodianSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-
 class TechnicianSerializer(serializers.ModelSerializer):
     """Lightweight serializer for listing/searching technicians."""
     
@@ -1719,84 +1718,43 @@ class PeripheralSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
             if field_name in data and data[field_name] == '':
                 data[field_name] = None
         
-        # Convert UIDs/GUIDs to model instances - store in nested 'asset' dict
-        asset_data = {}
-        
-        # Map input fields to asset fields
-        field_mapping = {
-            'asset_tag': 'asset_tag',
-            'barcode': 'barcode', 
-            'serial_number': 'serial_number',
-            'asset_type': 'asset_type',
-            'manufacturer': 'manufacturer',
-            'model': 'model',
-            'purchase_date': 'purchase_date',
-            'purchase_cost': 'purchase_cost',
-            'supplier': 'supplier',
-            'asset_status': 'status',
-            'asset_condition': 'condition',
-            'location': 'location',
-            'custodian': 'custodian',
-            'warranty_expiry': 'warranty_expiry',
-            'photo': 'photo',
-            'is_active': 'is_active',
-            'last_audit_date': 'last_audit_date',
-            'asset_notes': 'notes',
-        }
-        
-        # Extract asset fields into nested structure
-        for input_field, asset_field in field_mapping.items():
-            if input_field in data:
-                asset_data[asset_field] = data[input_field]
-        
-        # Convert UIDs/GUIDs for foreign keys
-        if 'asset_type' in asset_data and asset_data['asset_type']:
-            try:
-                asset_type = AssetType.objects.get(uid=asset_data['asset_type'])
-                asset_data['asset_type'] = asset_type.id
-            except AssetType.DoesNotExist:
-                raise serializers.ValidationError({'asset_type': 'Invalid UID - AssetType not found'})
-        
-        if 'manufacturer' in asset_data and asset_data['manufacturer']:
-            try:
-                manufacturer = Manufacturer.objects.get(uid=asset_data['manufacturer'])
-                asset_data['manufacturer'] = manufacturer.id
-            except Manufacturer.DoesNotExist:
-                raise serializers.ValidationError({'manufacturer': 'Invalid UID - Manufacturer not found'})
-        elif 'manufacturer' in asset_data and asset_data['manufacturer'] == '':
-            asset_data['manufacturer'] = None
-            
-        if 'supplier' in asset_data and asset_data['supplier']:
-            try:
-                supplier = Supplier.objects.get(uid=asset_data['supplier'])
-                asset_data['supplier'] = supplier.id
-            except Supplier.DoesNotExist:
-                raise serializers.ValidationError({'supplier': 'Invalid UID - Supplier not found'})
-        elif 'supplier' in asset_data and asset_data['supplier'] == '':
-            asset_data['supplier'] = None
-            
-        if 'location' in asset_data and asset_data['location']:
-            try:
-                location = Location.objects.get(uid=asset_data['location'])
-                asset_data['location'] = location.id
-            except Location.DoesNotExist:
-                raise serializers.ValidationError({'location': 'Invalid UID - Location not found'})
-        elif 'location' in asset_data and asset_data['location'] == '':
-            asset_data['location'] = None
-            
-        if 'custodian' in asset_data and asset_data['custodian']:
-            try:
-                custodian = User.objects.get(guid=asset_data['custodian'])
-                asset_data['custodian'] = custodian.id
-            except User.DoesNotExist:
-                raise serializers.ValidationError({'custodian': f"Invalid GUID - User with guid {asset_data['custodian']} not found"})
-        elif 'custodian' in asset_data and asset_data['custodian'] == '':
-            asset_data['custodian'] = None
-        
-        # Add asset data back into data as nested dict
-        data['asset'] = asset_data
+        # Convert empty strings to None for optional FK fields
+        fk_fields = ['manufacturer', 'supplier', 'location', 'custodian']
+        for field_name in fk_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
         
         return super().to_internal_value(data)
+    
+    def _resolve_asset_fk_ids(self, asset_data):
+        """Helper method to resolve FK UIDs/GUIDs to database IDs"""
+        mapping = {
+            'asset_type': (AssetType, 'uid'),
+            'manufacturer': (Manufacturer, 'uid'),
+            'supplier': (Supplier, 'uid'),
+            'location': (Location, 'uid'),
+            'custodian': (User, 'guid'),
+        }
+        
+        for field, (model, slug) in mapping.items():
+            if field not in asset_data:
+                continue
+            
+            value = asset_data.pop(field)
+            
+            # Handle None or empty string - set FK to None
+            if value in (None, ''):
+                asset_data[f'{field}_id'] = None
+                continue
+            
+            # Look up the related object and set the FK ID
+            try:
+                obj = model.objects.only('id').get(**{slug: value})
+                asset_data[f'{field}_id'] = obj.id
+            except model.DoesNotExist:
+                raise serializers.ValidationError({
+                    field: f'Invalid {slug.upper()} - {model.__name__} not found'
+                })
     
     def to_representation(self, instance):
         """
@@ -1834,24 +1792,13 @@ class PeripheralSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     
     @transaction.atomic
     def create(self, validated_data):
-        # Extract asset data (already processed in to_internal_value)
+        # Extract asset data (already processed via source mapping)
         asset_data = validated_data.pop('asset', {})
         
-        # Set asset_type_id if present
-        if 'asset_type' in asset_data:
-            asset_data['asset_type_id'] = asset_data.pop('asset_type')
+        # Resolve FK UIDs/GUIDs to database IDs
+        self._resolve_asset_fk_ids(asset_data)
         
-        # Set foreign key IDs (already converted to IDs in to_internal_value)
-        if 'manufacturer' in asset_data:
-            asset_data['manufacturer_id'] = asset_data.pop('manufacturer')
-        if 'supplier' in asset_data:
-            asset_data['supplier_id'] = asset_data.pop('supplier')
-        if 'location' in asset_data:
-            asset_data['location_id'] = asset_data.pop('location')
-        if 'custodian' in asset_data:
-            asset_data['custodian_id'] = asset_data.pop('custodian')
-        
-        # Set user from request
+        # Set user from request for the Asset
         request = self.context.get('request')
         user = getattr(request, 'user', None) if request else None
         if user and user.is_authenticated:
@@ -1867,24 +1814,13 @@ class PeripheralSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     
     @transaction.atomic
     def update(self, instance, validated_data):
-        # Extract asset data (already processed in to_internal_value)
+        # Extract asset data (already processed via source mapping)
         asset_data = validated_data.pop('asset', {})
         
         # Update asset fields if present
         if asset_data:
-            # Set asset_type_id if present
-            if 'asset_type' in asset_data:
-                asset_data['asset_type_id'] = asset_data.pop('asset_type')
-            
-            # Set foreign key IDs (already converted to IDs in to_internal_value)
-            if 'manufacturer' in asset_data:
-                asset_data['manufacturer_id'] = asset_data.pop('manufacturer')
-            if 'supplier' in asset_data:
-                asset_data['supplier_id'] = asset_data.pop('supplier')
-            if 'location' in asset_data:
-                asset_data['location_id'] = asset_data.pop('location')
-            if 'custodian' in asset_data:
-                asset_data['custodian_id'] = asset_data.pop('custodian')
+            # Resolve FK UIDs/GUIDs to database IDs
+            self._resolve_asset_fk_ids(asset_data)
             
             # Set user from request
             request = self.context.get('request')
@@ -1908,31 +1844,333 @@ class SoftwareCategorySerializer(SaveWithRequestUserMixin, NameDescriptionSerial
         fields = NameDescriptionSerializer.Meta.fields
 
 class SoftwareSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    # Use UUIDs for foreign keys instead of integer IDs
+    category = serializers.UUIDField(required=False, allow_null=True)
+    asset_type = serializers.UUIDField(required=False, allow_null=True)
+    supplier = serializers.UUIDField(required=False, allow_null=True)
+    custodian = serializers.UUIDField(required=False, allow_null=True)
+    location = serializers.UUIDField(required=False, allow_null=True)
+    
+    # Related field names (read-only)
     category_name = RelatedFieldMixin.get_related_name('category')
+    asset_type_name = RelatedFieldMixin.get_related_name('asset_type')
+    supplier_name = RelatedFieldMixin.get_related_name('supplier')
+    location_name = RelatedFieldMixin.get_related_name('location')
+    custodian_name = RelatedFieldMixin.get_user_full_name('custodian')
+    
+    def get_custodian_name(self, obj):
+        if obj.custodian:
+            return f"{obj.custodian.first_name} {obj.custodian.last_name}"
+        return None
     
     class Meta:
         model = Software
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'version', 'publisher', 'category', 'category_name',
-            'license_type', 'cost', 'purchase_date', 'expiration_date', 'notes'
+            # Basic Information
+            'asset_tag', 'software_name', 'version', 'publisher', 'software_type', 'platform',
+            'category', 'category_name',
+            # Asset Management
+            'asset_type', 'asset_type_name', 'status', 'condition', 'photo',
+            # License Information
+            'license_type', 'license_key', 'total_licenses', 'used_licenses', 'license_expiry',
+            # Financial Information
+            'purchase_cost', 'purchase_date', 'supplier', 'supplier_name', 'warranty_expiry',
+            # Assignment & Location
+            'custodian', 'custodian_name', 'location', 'location_name',
+            # Technical Details
+            'system_requirements', 'installation_path',
+            # Support & Documentation
+            'support_url', 'documentation_url',
+            # Additional Information
+            'notes', 'last_audit_date'
         ]
+    
+    def to_internal_value(self, data):
+        # Make a copy to avoid modifying the original
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        
+        # Convert empty strings to None for date fields
+        date_fields = ['purchase_date', 'license_expiry', 'warranty_expiry', 'last_audit_date']
+        for field_name in date_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Convert empty strings to None for optional FK fields
+        fk_fields = ['category', 'asset_type', 'supplier', 'custodian', 'location']
+        for field_name in fk_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        return super().to_internal_value(data)
+    
+    def to_representation(self, instance):
+        """Convert model instances to UIDs/GUIDs for output"""
+        representation = super().to_representation(instance)
+        
+        # Convert FK instances to UIDs
+        if instance.category:
+            representation['category'] = str(instance.category.uid)
+        if instance.asset_type:
+            representation['asset_type'] = str(instance.asset_type.uid)
+        if instance.supplier:
+            representation['supplier'] = str(instance.supplier.uid)
+        if instance.custodian:
+            representation['custodian'] = str(instance.custodian.guid)
+        if instance.location:
+            representation['location'] = str(instance.location.uid)
+        
+        return representation
+    
+    def validate(self, data):
+        """Resolve UIDs/GUIDs to model instances"""
+        # Resolve category
+        if 'category' in data and data['category']:
+            try:
+                data['category'] = SoftwareCategory.objects.get(uid=data['category'], is_deleted=False)
+            except SoftwareCategory.DoesNotExist:
+                raise serializers.ValidationError({'category': 'Invalid category UID'})
+        
+        # Resolve asset_type
+        if 'asset_type' in data and data['asset_type']:
+            try:
+                data['asset_type'] = AssetType.objects.get(uid=data['asset_type'], is_deleted=False)
+            except AssetType.DoesNotExist:
+                raise serializers.ValidationError({'asset_type': 'Invalid asset type UID'})
+        
+        # Resolve supplier
+        if 'supplier' in data and data['supplier']:
+            try:
+                data['supplier'] = Supplier.objects.get(uid=data['supplier'], is_deleted=False)
+            except Supplier.DoesNotExist:
+                raise serializers.ValidationError({'supplier': 'Invalid supplier UID'})
+        
+        # Resolve custodian (User uses guid, not uid)
+        if 'custodian' in data and data['custodian']:
+            try:
+                data['custodian'] = User.objects.get(guid=data['custodian'], is_active=True)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({'custodian': 'Invalid custodian GUID'})
+        
+        # Resolve location
+        if 'location' in data and data['location']:
+            try:
+                data['location'] = Location.objects.get(uid=data['location'], is_deleted=False)
+            except Location.DoesNotExist:
+                raise serializers.ValidationError({'location': 'Invalid location UID'})
+        
+        return data
 
 class SoftwareInstallationSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-    software_name = RelatedFieldMixin.get_related_name('software')
+    # Use UUIDs for foreign keys
+    software = serializers.UUIDField()
+    asset = serializers.UUIDField()
+    installed_by = serializers.UUIDField(required=False, allow_null=True)
+    verified_by = serializers.UUIDField(required=False, allow_null=True)
+    uninstalled_by = serializers.UUIDField(required=False, allow_null=True)
+    assigned_to = serializers.UUIDField(required=False, allow_null=True)
+    license_assigned = serializers.UUIDField(required=False, allow_null=True)
+    
+    # Nested data (read-only)
+    asset_details = serializers.SerializerMethodField()
+    
+    # Related field names (read-only)
+    software_name = RelatedFieldMixin.get_related_name('software', 'software_name')
     asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
     installed_by_name = RelatedFieldMixin.get_user_full_name('installed_by')
+    assigned_to_name = RelatedFieldMixin.get_user_full_name('assigned_to')
+    verified_by_name = RelatedFieldMixin.get_user_full_name('verified_by')
+    uninstalled_by_name = RelatedFieldMixin.get_user_full_name('uninstalled_by')
+    
+    def get_asset_details(self, obj):
+        if obj.asset:
+            from microservices.ict_assets.serializers import AssetSerializer
+            return AssetSerializer(obj.asset).data
+        return None
     
     def get_installed_by_name(self, obj):
         if obj.installed_by:
             return f"{obj.installed_by.first_name} {obj.installed_by.last_name}"
         return None
     
+    def get_assigned_to_name(self, obj):
+        if obj.assigned_to:
+            return f"{obj.assigned_to.first_name} {obj.assigned_to.last_name}"
+        return None
+    
+    def get_verified_by_name(self, obj):
+        if obj.verified_by:
+            return f"{obj.verified_by.first_name} {obj.verified_by.last_name}"
+        return None
+    
+    def get_uninstalled_by_name(self, obj):
+        if obj.uninstalled_by:
+            return f"{obj.uninstalled_by.first_name} {obj.uninstalled_by.last_name}"
+        return None
+    
     class Meta:
         model = SoftwareInstallation
         fields = BaseModelSerializer.Meta.fields + [
-            'software', 'software_name', 'asset', 'asset_tag', 'installed_date',
-            'license_key', 'installed_by', 'installed_by_name'
+            # Core Relationships
+            'software', 'software_name', 'asset', 'asset_tag', 'asset_details',
+            # Installation Details
+            'installation_date', 'installed_by', 'installed_by_name', 'installation_path', 'version_installed',
+            # License Information
+            'license_key_used', 'license_assigned',
+            # Status & Verification
+            'status', 'last_verified_date', 'verified_by', 'verified_by_name',
+            # Uninstallation Details
+            'uninstall_date', 'uninstalled_by', 'uninstalled_by_name', 'uninstall_reason',
+            # Assignment
+            'assigned_to', 'assigned_to_name',
+            # Additional Information
+            'installation_notes', 'configuration_notes',
+            # Compliance & Audit
+            'is_compliant', 'compliance_notes'
         ]
+    
+    def to_internal_value(self, data):
+        # Make a copy to avoid modifying the original
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        
+        # Convert empty strings to None for date fields
+        date_fields = ['installation_date', 'last_verified_date', 'uninstall_date']
+        for field_name in date_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Convert empty strings to None for optional FK fields
+        fk_fields = ['installed_by', 'verified_by', 'uninstalled_by', 'assigned_to', 'license_assigned']
+        for field_name in fk_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        return super().to_internal_value(data)
+    
+    def to_representation(self, instance):
+        """Convert model instances to UIDs/GUIDs for output"""
+        representation = super().to_representation(instance)
+        
+        # Convert FK instances to UIDs
+        if instance.software:
+            representation['software'] = str(instance.software.uid)
+        if instance.asset:
+            representation['asset'] = str(instance.asset.uid)
+        if instance.installed_by:
+            representation['installed_by'] = str(instance.installed_by.guid)
+        if instance.verified_by:
+            representation['verified_by'] = str(instance.verified_by.guid)
+        if instance.uninstalled_by:
+            representation['uninstalled_by'] = str(instance.uninstalled_by.guid)
+        if instance.assigned_to:
+            representation['assigned_to'] = str(instance.assigned_to.guid)
+        if instance.license_assigned:
+            representation['license_assigned'] = str(instance.license_assigned.uid)
+        
+        return representation
+    
+    def validate(self, data):
+        """Resolve UIDs/GUIDs to model instances"""
+        # Resolve software
+        if 'software' in data and data['software']:
+            try:
+                data['software'] = Software.objects.get(uid=data['software'])
+            except Software.DoesNotExist:
+                raise serializers.ValidationError({'software': 'Invalid software UID'})
+        
+        # Resolve asset
+        if 'asset' in data and data['asset']:
+            try:
+                data['asset'] = Asset.objects.get(uid=data['asset'])
+            except Asset.DoesNotExist:
+                raise serializers.ValidationError({'asset': 'Invalid asset UID'})
+        
+        # Resolve User foreign keys (use guid)
+        user_fields = ['installed_by', 'verified_by', 'uninstalled_by', 'assigned_to']
+        for field in user_fields:
+            if field in data and data[field]:
+                try:
+                    data[field] = User.objects.get(guid=data[field], is_active=True)
+                except User.DoesNotExist:
+                    raise serializers.ValidationError({field: f'Invalid {field} GUID'})
+        
+        # Resolve license_assigned
+        if 'license_assigned' in data and data['license_assigned']:
+            try:
+                data['license_assigned'] = SoftwareLicense.objects.get(uid=data['license_assigned'], is_deleted=False)
+            except SoftwareLicense.DoesNotExist:
+                raise serializers.ValidationError({'license_assigned': 'Invalid license UID'})
+        
+        return data
+
+class SoftwareLicenseSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    # Use UUIDs for foreign keys
+    software = serializers.UUIDField()
+    assigned_to = serializers.UUIDField(required=False, allow_null=True)
+    
+    # Related field names (read-only)
+    software_name = RelatedFieldMixin.get_related_name('software', 'software_name')
+    assigned_to_name = RelatedFieldMixin.get_user_full_name('assigned_to')
+    
+    def get_assigned_to_name(self, obj):
+        if obj.assigned_to:
+            return f"{obj.assigned_to.first_name} {obj.assigned_to.last_name}"
+        return None
+    
+    class Meta:
+        model = SoftwareLicense
+        fields = BaseModelSerializer.Meta.fields + [
+            'software', 'software_name', 'license_key', 'status',
+            'assigned_to', 'assigned_to_name', 'assigned_date',
+            'activation_date', 'expiry_date', 'notes'
+        ]
+    
+    def to_internal_value(self, data):
+        # Make a copy to avoid modifying the original
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        
+        # Convert empty strings to None for date fields
+        date_fields = ['assigned_date', 'activation_date', 'expiry_date']
+        for field_name in date_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Convert empty strings to None for optional FK fields
+        fk_fields = ['assigned_to']
+        for field_name in fk_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        return super().to_internal_value(data)
+    
+    def to_representation(self, instance):
+        """Convert model instances to UIDs/GUIDs for output"""
+        representation = super().to_representation(instance)
+        
+        # Convert FK instances to UIDs
+        if instance.software:
+            representation['software'] = str(instance.software.uid)
+        if instance.assigned_to:
+            representation['assigned_to'] = str(instance.assigned_to.guid)
+        
+        return representation
+    
+    def validate(self, data):
+        """Resolve UIDs/GUIDs to model instances"""
+        # Resolve software
+        if 'software' in data and data['software']:
+            try:
+                data['software'] = Software.objects.get(uid=data['software'], is_deleted=False)
+            except Software.DoesNotExist:
+                raise serializers.ValidationError({'software': 'Invalid software UID'})
+        
+        # Resolve assigned_to (User uses guid)
+        if 'assigned_to' in data and data['assigned_to']:
+            try:
+                data['assigned_to'] = User.objects.get(guid=data['assigned_to'], is_active=True)
+            except User.DoesNotExist:
+                raise serializers.ValidationError({'assigned_to': 'Invalid assigned_to GUID'})
+        
+        return data
 
 # Assignment and Maintenance Serializers
 class AssignmentBaseSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
@@ -2608,14 +2846,6 @@ class LocationDetailSerializer(LocationSerializer):
     building = BuildingSerializer(read_only=True)
     floor = FloorSerializer(read_only=True)
     parent = LocationSerializer(read_only=True)
-
-class SoftwareDetailSerializer(SoftwareSerializer):
-    category = SoftwareCategorySerializer(read_only=True)
-
-class SoftwareInstallationDetailSerializer(SoftwareInstallationSerializer):
-    software = SoftwareSerializer(read_only=True)
-    asset = AssetListSerializer(read_only=True)
-    installed_by = UserSerializer(read_only=True)
 
 class AssetAssignmentDetailSerializer(AssetAssignmentSerializer):
     asset = AssetListSerializer(read_only=True)

@@ -1,4 +1,4 @@
-# software_installation.py
+# software_license.py
 from datetime import datetime
 from django.db import transaction
 from django.db.models import Q
@@ -6,85 +6,75 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from microservices.ict_assets.models import SoftwareInstallation
-from microservices.ict_assets.serializers import SoftwareInstallationSerializer
+from microservices.ict_assets.models import SoftwareLicense
+from microservices.ict_assets.serializers import SoftwareLicenseSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from utils.permissions import HasMethodPermission
 
 
-class SoftwareInstallationView(APIView):
+class SoftwareLicenseView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
-    serializer_class = SoftwareInstallationSerializer
-    
+    serializer_class = SoftwareLicenseSerializer
     required_permissions = {
-        "get": ["view_softwareinstallation"],
-        "post": ["add_softwareinstallation", "change_softwareinstallation"],
-        "put": ["change_softwareinstallation"],
-        "patch": ["change_softwareinstallation"],
-        "delete": ["delete_softwareinstallation"],
+        "get": ["view_softwarelicense"],
+        "post": ["add_softwarelicense", "change_softwarelicense"],
+        "put": ["change_softwarelicense"],
+        "patch": ["change_softwarelicense"],
+        "delete": ["delete_softwarelicense"],
     }
 
     def get(self, request, uid=None):
-        software_uid = request.GET.get('software_uid', '').strip() or request.GET.get('software', '').strip()
-        asset_uid = request.GET.get('asset_uid', '').strip() or request.GET.get('asset', '').strip()
         try:
             if uid:
-                installation = SoftwareInstallation.objects.filter(uid=uid, is_deleted=False).first()
-                if not installation:
-                    raise NotFound("Software Installation not found")
-                return CustomResponse.success(data=self.serializer_class(installation).data)
-            
+                license_obj = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
+                if not license_obj:
+                    raise NotFound("Software License not found")
+                return CustomResponse.success(data=self.serializer_class(license_obj).data)
+
             search_query = request.GET.get('search', '').strip()
-          
-            
-            installations = SoftwareInstallation.objects.filter(is_deleted=False)
+            software_uid = request.GET.get('software', '').strip()
+            status = request.GET.get('status', '').strip()
+
+            licenses = SoftwareLicense.objects.filter(is_deleted=False)
 
             if software_uid:
-                installations = installations.filter(software__uid=software_uid)
+                licenses = licenses.filter(software__uid=software_uid)
 
-            if asset_uid:
-                installations = installations.filter(asset__uid=asset_uid)
+            if status:
+                licenses = licenses.filter(status=status)
 
             if search_query:
-                installations = installations.filter(
-                    Q(software__software_name__icontains=search_query) | 
-                    Q(asset__asset_tag__icontains=search_query) |
-                    Q(license_key_used__icontains=search_query)
+                licenses = licenses.filter(
+                    Q(software__software_name__icontains=search_query) |
+                    Q(license_key__icontains=search_query) |
+                    Q(assigned_to__first_name__icontains=search_query) |
+                    Q(assigned_to__last_name__icontains=search_query)
                 )
 
-            if installations.exists():
+            if licenses.exists():
                 return CustomPagination.paginate(
                     view_class=self, 
-                    results=installations, 
+                    results=licenses, 
                     request=request
                 )
 
-            return CustomResponse.errors(message="Software Installations not found", data=[])
+            return CustomResponse.errors(message="Software Licenses not found", data=[])
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Retrieve Software Installations: {str(e)}'
+                message=f'Failed to Retrieve Software Licenses: {str(e)}'
             )
 
     def post(self, request):
         try:
-            print("=" * 80)
-            print("SOFTWARE INSTALLATION CREATE/UPDATE - DEBUG")
-            print("=" * 80)
-            print("Request Method:", request.method)
-            print("Request Data:", request.data)
-            print("Request Headers:", dict(request.headers))
-            print("Query Params:", dict(request.GET))
-            print("=" * 80)
-            
             with transaction.atomic():
                 uid = request.data.get('uid')
-                print(f"UID from request: {uid}")
+
                 if uid:
-                    instance = SoftwareInstallation.objects.filter(uid=uid, is_deleted=False).first()
+                    instance = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
                     if not instance:
-                        return CustomResponse.errors(message="Software Installation not found")
+                        return CustomResponse.errors(message="Software License not found")
 
                     serializer = self.serializer_class(
                         instance,
@@ -110,15 +100,15 @@ class SoftwareInstallationView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Change Software Installation: {str(e)}'
+                message=f'Failed to Change Software License: {str(e)}'
             )
 
     def put(self, request, uid):
         try:
             with transaction.atomic():
-                instance = SoftwareInstallation.objects.filter(uid=uid, is_deleted=False).first()
+                instance = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
                 if not instance:
-                    return CustomResponse.errors(message="Software Installation not found")
+                    return CustomResponse.errors(message="Software License not found")
 
                 serializer = self.serializer_class(
                     instance,
@@ -139,15 +129,15 @@ class SoftwareInstallationView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Update Software Installation: {str(e)}'
+                message=f'Failed to Update Software License: {str(e)}'
             )
 
     def patch(self, request, uid):
         try:
             with transaction.atomic():
-                instance = SoftwareInstallation.objects.filter(uid=uid, is_deleted=False).first()
+                instance = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
                 if not instance:
-                    return CustomResponse.errors(message="Software Installation not found")
+                    return CustomResponse.errors(message="Software License not found")
 
                 serializer = self.serializer_class(
                     instance,
@@ -168,27 +158,24 @@ class SoftwareInstallationView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Partially Update Software Installation: {str(e)}'
+                message=f'Failed to Partially Update Software License: {str(e)}'
             )
 
     def delete(self, request, uid):
         try:
             with transaction.atomic():
-                installation = SoftwareInstallation.objects.filter(uid=uid, is_deleted=False).first()
-                if not installation:
-                    return CustomResponse.errors(message="Software Installation Not Found or Already Deleted")
+                license_obj = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
+                if not license_obj:
+                    return CustomResponse.errors(message="Software License Not Found or Already Deleted")
 
-                installation.is_deleted = True
-                installation.deleted_at = datetime.now()
-                installation.deleted_by = request.user
-                installation.save()
+                license_obj.is_deleted = True
+                license_obj.deleted_at = datetime.now()
+                license_obj.deleted_by = request.user
+                license_obj.save()
 
-                return CustomResponse.success(message='Software Installation deleted successfully')
+                return CustomResponse.success(message='Software License deleted successfully')
 
         except Exception:
             return CustomResponse.server_error(
-                message="Something went wrong While Deleting Software Installation"
+                message="Something went wrong While Deleting Software License"
             )
-
-
-
