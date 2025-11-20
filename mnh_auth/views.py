@@ -2,7 +2,7 @@ from django.db import transaction
 
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer, \
-    NewUserLoginSerializer
+    NewUserLoginSerializer, PasswordResetSerializer
 from django.contrib.auth import authenticate, login, logout
 from rest_framework import status, permissions
 from rest_framework.permissions import IsAuthenticated
@@ -196,6 +196,36 @@ class ChangePasswordView(APIView):
             return CustomResponse.server_error(
                 message=f"Failed to Change Change Password: {str(e)}"
             )
+
+class ResetPasswordView(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission ]
+    serializer_class = PasswordResetSerializer
+    required_permissions = {
+        "post": ["can_change_user_password"],
+    }
+
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(context={'request': request}, data=request.data)
+                # Validate and save
+                if serializer.is_valid():
+                    # request.user.set_password(serializer.validated_data['new_password'])
+                    # request.user.save()
+                    return CustomResponse.success(message="Successfully. an Email sent to User Email Account.")
+
+                # Validation failed
+                return CustomResponse.errors(
+                    message="Incorrect User Details",
+                    data=serializer.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"]
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to Change Change Password: {str(e)}"
+            )
+
+
 
 class CheckUserExistence(APIView):
     def get(self, request):

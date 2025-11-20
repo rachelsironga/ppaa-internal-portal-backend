@@ -471,6 +471,19 @@ class PasswordChangeSerializer(serializers.Serializer):
                 {'status': status.HTTP_400_BAD_REQUEST, 'message': 'Password Does not match'})
         return value
 
+class PasswordResetSerializer(serializers.Serializer):
+    user_guid = serializers.CharField(
+        write_only=True,
+        required=True,
+    )
+
+    def validate(self, data):
+        user_guid = data.pop('user_guid')
+        data['user'] = User.objects.filter(guid=user_guid, is_deleted=False).first()
+        if not data['user']:
+            raise serializers.ValidationError("The user not be verified may be or deleted")
+        return data
+
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
     class Meta:

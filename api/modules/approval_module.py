@@ -2,6 +2,7 @@ from datetime import datetime
 
 from django.db import transaction
 from django.db.models import Q
+from django.views.static import directory_index
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
