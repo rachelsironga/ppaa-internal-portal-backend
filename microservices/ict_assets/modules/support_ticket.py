@@ -60,7 +60,7 @@ class SupportTicketView(APIView):
                 support_tickets = support_tickets.filter(status=status)
 
             if assigned_technician_uid:
-                support_tickets = support_tickets.filter(assigned_technician__uid=assigned_technician_uid)
+                support_tickets = support_tickets.filter(assigned_technician__guid=assigned_technician_uid)
 
             if search_query:
                 support_tickets = support_tickets.filter(

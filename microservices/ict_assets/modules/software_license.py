@@ -1,4 +1,4 @@
-# computer.py
+# software_license.py
 from datetime import datetime
 from django.db import transaction
 from django.db.models import Q
@@ -6,61 +6,64 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from microservices.ict_assets.models import Asset, Computer
-from microservices.ict_assets.serializers import ComputerSerializer
+from microservices.ict_assets.models import SoftwareLicense
+from microservices.ict_assets.serializers import SoftwareLicenseSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from utils.permissions import HasMethodPermission
 
 
-class ComputerView(APIView):
+class SoftwareLicenseView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
-    serializer_class = ComputerSerializer
-
+    serializer_class = SoftwareLicenseSerializer
     required_permissions = {
-        "get": ["view_computer"],
-        "post": ["add_computer", "change_computer"],
-        "put": ["change_computer"],
-        "patch": ["change_computer"],
-        "delete": ["delete_computer"],
+        "get": ["view_softwarelicense"],
+        "post": ["add_softwarelicense", "change_softwarelicense"],
+        "put": ["change_softwarelicense"],
+        "patch": ["change_softwarelicense"],
+        "delete": ["delete_softwarelicense"],
     }
 
     def get(self, request, uid=None):
         try:
             if uid:
-                computer = Computer.objects.filter(uid=uid, is_deleted=False).first()
-                if not computer:
-                    raise NotFound("Computer not found")
-                return CustomResponse.success(data=self.serializer_class(computer).data)
+                license_obj = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
+                if not license_obj:
+                    raise NotFound("Software License not found")
+                return CustomResponse.success(data=self.serializer_class(license_obj).data)
 
             search_query = request.GET.get('search', '').strip()
-            asset_uid = request.GET.get('asset', '').strip()
+            software_uid = request.GET.get('software', '').strip()
+            status = request.GET.get('status', '').strip()
 
-            computers = Computer.objects.filter(is_deleted=False)
+            licenses = SoftwareLicense.objects.filter(is_deleted=False)
 
-            if asset_uid:
-                computers = computers.filter(asset__uid=asset_uid)
+            if software_uid:
+                licenses = licenses.filter(software__uid=software_uid)
+
+            if status:
+                licenses = licenses.filter(status=status)
 
             if search_query:
-                computers = computers.filter(
-                    Q(asset__asset_tag__icontains=search_query) |
-                    Q(hostname__icontains=search_query) |
-                    Q(ip_addresses__icontains=search_query) |
-                    Q(mac_addresses__icontains=search_query)
+                licenses = licenses.filter(
+                    Q(software__software_name__icontains=search_query) |
+                    Q(license_key__icontains=search_query) |
+                    Q(assigned_to__first_name__icontains=search_query) |
+                    Q(assigned_to__last_name__icontains=search_query)
                 )
 
-            if computers.exists():
+            if licenses.exists():
                 return CustomPagination.paginate(
                     view_class=self, 
-                    results=computers, 
+                    results=licenses, 
                     request=request
                 )
 
-            return CustomResponse.errors(message="Computers not found", data=[])
+            return CustomResponse.errors(message="Software Licenses not found", data=[])
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Retrieve Computers: {str(e)}'
+                message=f'Failed to Retrieve Software Licenses: {str(e)}'
             )
 
     def post(self, request):
@@ -69,10 +72,9 @@ class ComputerView(APIView):
                 uid = request.data.get('uid')
 
                 if uid:
-                    # asset = Asset.objects.filter(uid=uid, is_deleted=False).first()
-                    instance = Computer.objects.filter(asset__uid=uid).first()
+                    instance = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
                     if not instance:
-                        return CustomResponse.errors(message="Computer not found")
+                        return CustomResponse.errors(message="Software License not found")
 
                     serializer = self.serializer_class(
                         instance,
@@ -98,15 +100,15 @@ class ComputerView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Change Computer: {str(e)}'
+                message=f'Failed to Change Software License: {str(e)}'
             )
 
     def put(self, request, uid):
         try:
             with transaction.atomic():
-                instance = Computer.objects.filter(uid=uid, is_deleted=False).first()
+                instance = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
                 if not instance:
-                    return CustomResponse.errors(message="Computer not found")
+                    return CustomResponse.errors(message="Software License not found")
 
                 serializer = self.serializer_class(
                     instance,
@@ -127,15 +129,15 @@ class ComputerView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Update Computer: {str(e)}'
+                message=f'Failed to Update Software License: {str(e)}'
             )
 
     def patch(self, request, uid):
         try:
             with transaction.atomic():
-                instance = Computer.objects.filter(uid=uid, is_deleted=False).first()
+                instance = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
                 if not instance:
-                    return CustomResponse.errors(message="Computer not found")
+                    return CustomResponse.errors(message="Software License not found")
 
                 serializer = self.serializer_class(
                     instance,
@@ -156,24 +158,24 @@ class ComputerView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Partially Update Computer: {str(e)}'
+                message=f'Failed to Partially Update Software License: {str(e)}'
             )
 
     def delete(self, request, uid):
         try:
             with transaction.atomic():
-                computer = Computer.objects.filter(uid=uid, is_deleted=False).first()
-                if not computer:
-                    return CustomResponse.errors(message="Computer Not Found or Already Deleted")
+                license_obj = SoftwareLicense.objects.filter(uid=uid, is_deleted=False).first()
+                if not license_obj:
+                    return CustomResponse.errors(message="Software License Not Found or Already Deleted")
 
-                computer.is_deleted = True
-                computer.deleted_at = datetime.now()
-                computer.deleted_by = request.user
-                computer.save()
+                license_obj.is_deleted = True
+                license_obj.deleted_at = datetime.now()
+                license_obj.deleted_by = request.user
+                license_obj.save()
 
-                return CustomResponse.success(message='Computer deleted successfully')
+                return CustomResponse.success(message='Software License deleted successfully')
 
         except Exception:
             return CustomResponse.server_error(
-                message="Something went wrong While Deleting Computer"
+                message="Something went wrong While Deleting Software License"
             )

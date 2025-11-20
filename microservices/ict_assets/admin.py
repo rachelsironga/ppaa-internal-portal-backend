@@ -219,7 +219,7 @@ class PeripheralInline(admin.StackedInline):
 class SoftwareInstallationInline(admin.TabularInline):
     model = SoftwareInstallation
     extra = 0
-    fields = ['software', 'installed_date', 'license_key']
+    fields = ['software', 'installation_date', 'license_key_used']
     readonly_fields = ['uid', 'created_at', 'updated_at']
 
 class MaintenanceRecordInline(admin.TabularInline):
@@ -384,17 +384,17 @@ class SoftwareCategoryAdmin(BaseAdmin, AuditMixinAdmin):
 @admin.register(Software)
 class SoftwareAdmin(BaseAdmin, AuditMixinAdmin):
     list_display = [
-        'name', 'version', 'publisher', 'category', 'license_type', 
+        'asset_tag', 'software_name', 'version', 'publisher', 'category', 'license_type', 
         'installation_count', 'created_at'
     ]
     list_filter = ['category', 'license_type', 'is_deleted', 'created_at']
-    search_fields = ['name', 'version', 'publisher', 'category__name']
+    search_fields = ['asset_tag', 'software_name', 'version', 'publisher', 'category__name']
     fieldsets = [
         ('Software Information', {
-            'fields': ['name', 'version', 'publisher', 'category']
+            'fields': ['asset_tag', 'software_name', 'version', 'publisher', 'category']
         }),
         ('License Information', {
-            'fields': ['license_type', 'cost', 'purchase_date', 'expiration_date']
+            'fields': ['license_type', 'purchase_cost', 'purchase_date', 'license_expiry']
         }),
         ('Additional Information', {
             'fields': ['notes'],
@@ -407,14 +407,14 @@ class SoftwareAdmin(BaseAdmin, AuditMixinAdmin):
     ]
     
     def installation_count(self, obj):
-        return obj.softwareinstallation_set.filter(is_deleted=False).count()
+        return obj.installations.filter(is_deleted=False).count()
     installation_count.short_description = 'Installations'
 
 @admin.register(SoftwareInstallation)
 class SoftwareInstallationAdmin(BaseAdmin, AuditMixinAdmin):
-    list_display = ['software', 'asset', 'installed_date', 'installed_by', 'created_at']
-    list_filter = ['software', 'installed_date', 'is_deleted', 'created_at']
-    search_fields = ['software__name', 'asset__asset_tag', 'license_key']
+    list_display = ['software', 'asset', 'installation_date', 'installed_by', 'created_at']
+    list_filter = ['software', 'installation_date', 'is_deleted', 'created_at']
+    search_fields = ['software__software_name', 'asset__asset_tag', 'license_key_used']
     readonly_fields = ['software_details', 'asset_details']
     
     def software_details(self, obj):
