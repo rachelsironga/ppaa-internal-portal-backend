@@ -70,23 +70,22 @@ class ApproveModuleLevelStepView(APIView):
                 is_acting = False
                 is_approved = False
 
+
                 if action == "FORWARD":
                     # Check if user is authorized to approve
                     expected_level = ApprovalModuleLevel.objects.filter(
                         module=approval_request.module,
-                        order=approval_request.current_state + 1
-                    ).first()
-
+                        order=approval_request.current_state + 1,
+                        is_deleted=False
+                    ).order_by('order').first()
 
 
                     if not expected_level:
-                        expected_level = ApprovalModuleLevel.objects.filter(
-                            module=approval_request.module,
-                        ).query
                         return CustomResponse.errors(
                             message=f"Sorry. Currently Unable to Find Approving Position Please Try Again ",
                             code=STATUS_CODES["VALIDATION_ERROR"],
                         )
+
 
                     # Does user match expected positional level?
                     user_position = user.get_position() if hasattr(user, "get_position") else None
@@ -102,12 +101,14 @@ class ApproveModuleLevelStepView(APIView):
                             department=expected_level.department,
                             is_deleted=False
                         ).exists()
+
                         if not acting:
                             return CustomResponse.errors(
                                 message="You are not allowed to perform this action.",
                                 code=STATUS_CODES["VALIDATION_ERROR"],
                             )
                         is_acting = True
+
 
                     # Mark approved and advance state
                     is_approved = True

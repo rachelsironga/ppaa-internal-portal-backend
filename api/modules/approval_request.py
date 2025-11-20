@@ -73,9 +73,9 @@ class ApprovalRequestView(APIView):
 
             # "MY_REQUEST" filter (only my own created)
             if "RELATED" in filters:
-                # qs = ApprovalRequest.objects.filter(is_deleted=False).exclude(
-                #     created_by=request.user
-                # ).select_related('module', 'department', 'created_by')
+                requests = ApprovalRequest.objects.filter(is_deleted=False).exclude(
+                    created_by=request.user
+                ).select_related('module', 'department', 'created_by')
                 user_profile = request.user.user_profiles.filter(is_active=True).first()
                 if not user_profile:
                     return None
@@ -86,8 +86,12 @@ class ApprovalRequestView(APIView):
                 user_module_levels = ApprovalModuleLevel.objects.filter(
                     level=user_profile.level,
                     department=user_profile.department,
-                    is_active=True
+                    is_active=True,
+                    is_deleted=False,
+                    deleted_at=None
                 ).select_related('module', 'department', 'created_by')
+
+                print(user_module_levels.query)
 
 
                 # Get module IDs and their required order
@@ -96,12 +100,21 @@ class ApprovalRequestView(APIView):
                     for level in user_module_levels
                 }
 
-                print("----------------------module_data---------------->",module_data)
+                module_data = {
+                    level.module_id: level.order
+                    for level in user_module_levels
+                }
+
+                print("----------------------module_data keys---------------->",module_data.keys())
+
+
+                print("----------------------module_data values---------------->",module_data.values())
 
 
                 # Get requests where current_state matches (user's order - 1)
-                requests = ApprovalRequest.objects.filter(
-                    module_id__in=module_data.keys()
+                requests = requests.filter(
+                    module_id__in=module_data.keys(),
+                    current_state__in=module_data.values(),
                 ).exclude(
                     status__in=["APPROVED", "REJECTED"]
                 )
@@ -113,8 +126,10 @@ class ApprovalRequestView(APIView):
                 # Filter in Python for more control (or use database filtering)
                 qs = [
                     request for request in requests
-                    if request.current_state == module_data[request.module_id]
+                    if request.current_state+1 == module_data[request.module_id]
                 ]
+
+
 
 
             # Search by title (case-insensitive)
@@ -184,6 +199,60 @@ class ApprovalRequestView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(message="Something went wrong While Deleting Approval Request")
+
+
+def get_requests_in_my_approval_chain(user, status_filters=None):
+    """
+    Get all approval requests that are currently waiting for the user's approval
+    """
+    # Get user's active position
+    user_profile = user.user_profiles.filter(
+        is_active=True,
+        is_deleted=False
+    ).select_related('level', 'department').first()
+
+    if not user_profile:
+        return ApprovalRequest.objects.none()
+
+    # Find all module levels where this user can approve
+    user_approval_levels = ApprovalModuleLevel.objects.filter(
+        level=user_profile.level,
+        department=user_profile.department,
+        is_active=True,
+        is_deleted=False
+    ).values('module_id', 'order')
+
+    if not user_approval_levels:
+        return ApprovalRequest.objects.none()
+
+    # Build the query using Q objects for better performance
+    from django.db.models import Q
+
+    query = Q()
+    for level in user_approval_levels:
+        # Requests where current_state matches the step before user's order
+        query |= Q(
+            module_id=level['module_id'],
+            current_state=level['order'] - 1,  # user's order is next in line
+            is_deleted=False
+        )
+
+    # Get requests that are pending and at the correct state
+    requests = ApprovalRequest.objects.filter(query).exclude(
+        status__in=["APPROVED", "REJECTED"]
+    ).select_related(
+        'module', 'department', 'created_by'
+    ).prefetch_related(
+        'steps',
+        'steps__approval_module_level',
+        'steps__approved_by'
+    ).order_by('-created_at')
+
+    # Apply status filters
+    if status_filters:
+        requests = requests.filter(status__in=status_filters)
+
+    return requests
 
 
 # ---------- Helper: very fast (EXISTS), no duplicates, minimal queries ----------
