@@ -14,6 +14,8 @@ from datetime import timedelta
 from dotenv import load_dotenv
 import os
 
+from microservices import oxygen_managements
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -123,12 +125,13 @@ INSTALLED_APPS = [
     'mnh_approval',
     'mnh_model',
     'mnh_auth',
-    'microservices.ict_assets',
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
     'rest_framework_simplejwt.token_blacklist',
     'storages',
+    'microservices.ict_assets',
+    'microservices.oxygen_managements'
 ]
 
 MIDDLEWARE = [
