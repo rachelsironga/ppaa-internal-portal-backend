@@ -1,5 +1,10 @@
-from django.db import transaction
+import random
+import string
 
+from django.db import transaction
+from django.utils import timezone
+
+from api.utils import send_custom_email
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer, \
     NewUserLoginSerializer, PasswordResetSerializer
@@ -199,27 +204,43 @@ class ChangePasswordView(APIView):
 
 class ResetPasswordView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission ]
-    serializer_class = PasswordResetSerializer
     required_permissions = {
         "post": ["can_change_user_password"],
     }
 
-    def post(self, request):
+    async def post(self, request):
         try:
             with transaction.atomic():
-                serializer = self.serializer_class(context={'request': request}, data=request.data)
-                # Validate and save
-                if serializer.is_valid():
-                    # request.user.set_password(serializer.validated_data['new_password'])
-                    # request.user.save()
-                    return CustomResponse.success(message="Successfully. an Email sent to User Email Account.")
+                uid = request.data.get('uid', None)
+                if uid is None:
+                    return CustomResponse.errors(
+                        message="Incorrect User Details",
+                        data=None,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                user_data = User.objects.filter(guid=uid, is_deleted=False).first()
+                if user_data is None:
+                    return CustomResponse.errors(
+                        message="Incorrect User",
+                        data=None,
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
 
-                # Validation failed
-                return CustomResponse.errors(
-                    message="Incorrect User Details",
-                    data=serializer.errors,
-                    code=STATUS_CODES["VALIDATION_ERROR"]
-                )
+                password = generate_password()
+                user_data.set_password(password)
+                user_data.save()
+
+                data = {
+                    "fullname": f'{user_data.first_name} {user_data.last_name}',
+                    "username": user_data.username,
+                    "password": password,
+                    "year": timezone.now().year,
+                    "login_link": "http://192.168.10.166:8091/auth/login"
+                }
+
+                await send_custom_email(to_email="nachengapatrick@gmail.com", template_name="emails/reset_email.html",subject="Password Reset Email",context=data)
+                return CustomResponse.success(message="Successfully. an Email sent to User Email Account.")
+
         except Exception as e:
             return CustomResponse.server_error(
                 message=f"Failed to Change Change Password: {str(e)}"
@@ -262,3 +283,15 @@ class UpdateMyProfileView(APIView):
         except Exception as e:
             print(f"Fail to Update Profile {e}")
             return CustomResponse.server_error(message=f'Unable to Update Profile ' )
+
+
+
+
+def generate_password(length=8):
+    characters = (
+        string.ascii_uppercase +
+        string.ascii_lowercase +
+        string.digits +
+        "@#$%&*?"
+    )
+    return ''.join(random.choice(characters) for _ in range(length))

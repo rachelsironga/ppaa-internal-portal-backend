@@ -115,6 +115,15 @@ class ApprovalRequestStep(BaseModel):
     class Meta:
         db_table = 'approval_request_steps'
 
+class ApprovalRequestMailQueue(BaseModel):
+    approval_request = models.ForeignKey(ApprovalRequest, on_delete=models.CASCADE,)
+    approval_module_level = models.ForeignKey(ApprovalModuleLevel, on_delete=models.CASCADE)
+    is_active = models.BooleanField(default=False)
+    sent_mails = models.PositiveIntegerField(default=1)
+    comment = models.TextField(blank=True, null=True)
+    class Meta:
+        db_table = 'approval_request_mail_queues'
+
 class ApprovalRequestHandler(BaseModel):
     CHOICES = [
         ('PENDING', 'PENDING'),
