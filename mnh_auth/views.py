@@ -238,7 +238,7 @@ class ResetPasswordView(APIView):
                     "login_link": "http://192.168.10.166:8091/auth/login"
                 }
 
-                await send_custom_email(to_email="nachengapatrick@gmail.com", template_name="emails/reset_email.html",subject="Password Reset Email",context=data)
+                await send_custom_email(to_email=f"{user_data.email}", template_name="emails/reset_email.html",subject="Password Reset Email",context=data)
                 return CustomResponse.success(message="Successfully. an Email sent to User Email Account.")
 
         except Exception as e:
