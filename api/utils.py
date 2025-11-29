@@ -2,7 +2,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
 
-async def send_custom_email(subject, to_email, template_name, context):
+def send_custom_email(subject, to_email, template_name, context):
     html_content = render_to_string(template_name, context)
     text_content = "This is an HTML email. Please view in an HTML-compatible client."
 
