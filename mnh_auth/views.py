@@ -208,7 +208,7 @@ class ResetPasswordView(APIView):
         "post": ["can_change_user_password"],
     }
 
-    async def post(self, request):
+    def post(self, request):
         try:
             with transaction.atomic():
                 uid = request.data.get('uid', None)
@@ -228,7 +228,7 @@ class ResetPasswordView(APIView):
 
                 password = generate_password()
                 user_data.set_password(password)
-                user_data.save()
+                user_data.save(update_fields=["password"])
 
                 data = {
                     "fullname": f'{user_data.first_name} {user_data.last_name}',
@@ -238,10 +238,14 @@ class ResetPasswordView(APIView):
                     "login_link": "http://192.168.10.166:8091/auth/login"
                 }
 
-                await send_custom_email(to_email=f"{user_data.email}", template_name="emails/reset_email.html",subject="Password Reset Email",context=data)
+                print(f"----------------->{user_data.email}")
+
+                send_custom_email(to_email=f"{user_data.email}", template_name="emails/reset_email.html",subject="Password Reset Email",context=data)
                 return CustomResponse.success(message="Successfully. an Email sent to User Email Account.")
 
         except Exception as e:
+
+            print(f"{e}")
             return CustomResponse.server_error(
                 message=f"Failed to Change Change Password: {str(e)}"
             )
