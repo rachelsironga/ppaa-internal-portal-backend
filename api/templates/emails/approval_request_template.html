@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Password Reset Notification</title>
+    <title>Approval Request Notification</title>
 </head>
 
 <body style="margin:0; padding:0; background:#f4f4f7; font-family:Arial, sans-serif;">
+
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7; padding:40px 0;">
         <tr>
             <td align="center">
 
-                <!-- Container Card -->
+                <!-- Card Container -->
                 <table width="600" cellpadding="0" cellspacing="0"
-                       style="background:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+                       style="background:#ffffff; border-radius:10px; overflow:hidden;
+                              box-shadow:0 4px 12px rgba(0,0,0,0.1);">
 
-
+                    <!-- Header -->
                     <tr>
                         <td style="
                             padding:25px;
@@ -30,7 +32,7 @@
                                 MUHIMBILI NATIONAL HOSPITAL (MNH)
                             </h2>
                                      <h3 style="color:#ffffff; margin:5px; font-size:16px;">
-                                MNH-Connect Password Reset
+                                MNH-CONNECT - Awaiting Approval Request
                             </h3>
                                  </div>
                             </div>
@@ -42,61 +44,72 @@
                     <!-- Body -->
                     <tr>
                         <td style="padding:30px;">
-                            <p style="font-size:16px; color:#333;">Hello <strong>{{ fullname }}</strong>,</p>
 
-                            <p style="font-size:15px; color:#555; line-height:1.6;">
-                                You requested a password reset for your account.
-                                Your new login details are provided below:
+                            <p style="font-size:16px; color:#333;">
+                                Dear <strong>{{ approver_name }}</strong>,
                             </p>
 
-                            <!-- Credential Box -->
+                            <p style="font-size:15px; color:#555; line-height:1.6;">
+                                You have a new request waiting for your review and action within the
+                                <strong>{{ department_name }}</strong> department.
+                                Please review the request details below.
+                            </p>
+
+                            <!-- Summary Box -->
                             <div style="
                                 background:#f1f5fb;
                                 border-left:6px solid #ffd700;
                                 padding:15px;
                                 margin:20px 0;
-                                box-shadow:0 6px 24px 0 rgba(229, 57, 53, 0.08),
-                                           0 1.5px 8px 0 rgba(25, 118, 210, 0.08);
+                                box-shadow:0 4px 14px rgba(25,118,210,0.10),
+                                           0 1px 6px rgba(229,57,53,0.08);
                             ">
-                                <p style="margin:0; font-size:15px; color:#333;">
-                                    <strong>Username:</strong> {{ username }} <br>
-                                    <strong>Password:</strong>
-                                    <span style="color:#e53935; font-weight:bold;">{{ password }}</span>
+                                <p style="margin:0; font-size:15px; color:#333; line-height:1.6;">
+                                    <strong>Requested By:</strong> {{ requester_name }}<br>
+                                    <strong>Request Type:</strong> {{ request_type }}<br>
+                                    <strong>Submitted On:</strong> {{ request_date }}<br>
                                 </p>
                             </div>
 
                             <p style="font-size:15px; color:#555; line-height:1.6;">
-                                For your security, please log in and change this password immediately.
+                                Your timely response is required to ensure smooth workflow and efficient service delivery.
                             </p>
 
-                            <!-- Premium Gradient Button -->
+                            <!-- Action Button -->
                             <div style="text-align:center; margin:30px 0;">
-                                <a href="{{ login_link }}" target="_blank"
+                                <a href="{{ approval_link }}"
                                    style="
                                        padding:12px 25px;
                                        font-size:16px;
+                                       font-weight:bold;
                                        text-decoration:none;
                                        border-radius:6px;
+                                       color:#ffffff;
                                        background: linear-gradient(135deg, #1976d2 0%, #e53935 60%, #ffd700 100%);
-                                       border-color:#ffd700;
-                                       color:#fff;
                                        box-shadow:0 6px 24px rgba(229,57,53,0.18),
                                                   0 1.5px 8px rgba(25,118,210,0.18);
                                    ">
-                                    Login to Your Account
+                                    Review & Take Action
                                 </a>
                             </div>
 
-                            <p style="font-size:14px; color:#999;">
-                                If you did not request this change, please contact support immediately.
+                            <p style="font-size:14px; color:#777; line-height:1.6;">
+                                If you believe you received this email by mistake, please notify the ICT Department.
                             </p>
+
                         </td>
                     </tr>
 
                     <!-- Footer -->
                     <tr>
-                        <td style="background:#f4f4f7; padding:20px; text-align:center; font-size:13px; color:#777;">
-                            © {{ year }} MNH System. All rights reserved.
+                        <td style="
+                            background:#f4f4f7;
+                            padding:20px;
+                            text-align:center;
+                            font-size:13px;
+                            color:#777;
+                        ">
+                            © {{ year }} MNH System • ICT Department • All rights reserved.
                         </td>
                     </tr>
 
@@ -104,5 +117,6 @@
             </td>
         </tr>
     </table>
+
 </body>
 </html>

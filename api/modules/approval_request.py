@@ -101,7 +101,7 @@ class ApprovalRequestView(APIView):
                 }
 
                 module_data = {
-                    level.module_id: level.order
+                    level.module_id: level.order-1
                     for level in user_module_levels
                 }
 
@@ -119,14 +119,16 @@ class ApprovalRequestView(APIView):
                     status__in=["APPROVED", "REJECTED"]
                 )
 
-                # keep any status filters the user selected
+                print(requests)
+
+                # # keep any status filters the user selected
                 if selected_statuses:
                     requests = requests.filter(status__in=selected_statuses)
 
                 # Filter in Python for more control (or use database filtering)
                 qs = [
                     request for request in requests
-                    if request.current_state+1 == module_data[request.module_id]
+                    if request.current_state == module_data[request.module_id]
                 ]
 
 
