@@ -585,7 +585,18 @@ class Floor(BaseModel):
     description = models.TextField(blank=True)
 
     class Meta:
-        unique_together = ("building", "number")
+        constraints = [
+            models.UniqueConstraint(
+                fields=['building', 'number'],
+                name='unique_building_number',
+                condition=models.Q(number__isnull=False)
+            ),
+            models.UniqueConstraint(
+                fields=['building', 'floor_number'],
+                name='unique_building_floor_number',
+                condition=models.Q(floor_number__isnull=False) & ~models.Q(floor_number='')
+            )
+        ]
 
     def __str__(self):
         floor_display = self.name or f"Floor {self.number}" if self.number else self.floor_number

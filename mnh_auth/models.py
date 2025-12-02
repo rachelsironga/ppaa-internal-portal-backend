@@ -195,11 +195,11 @@ class User(AbstractUser, PermissionsMixin):
 
         return active_position or None
 
-    def save(self, *args, **kwargs):
-        if self.is_superuser:
-            self.account_type = 'SUPER_USER'
-            self.email = f"{self.username}@gmail.com"
-        super().save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     if self.is_superuser:
+    #         self.account_type = 'SUPER_USER'
+    #         self.email = f"{self.username}"
+    #     super().save(*args, **kwargs)
 
     class Meta:
         db_table = 'auth_user'

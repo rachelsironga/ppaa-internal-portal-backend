@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/', include('api.urls')),
     path('api/oxygen/', include('microservices.oxygen_managements.urls')),
     path('api/', include('microservices.ict_assets.urls')),
+    path('api/analytical/', include('microservices.mnh_analytical.urls')),
     path('token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
