@@ -103,55 +103,76 @@ class UserView(APIView):
 
     def post(self, request):
         try:
-            with (transaction.atomic()):
-                uid = request.data.get('uid')
+            with transaction.atomic():
+                user_guid = request.data.get("user_guid")
                 instance = None
                 is_update = False
 
-                if uid:
+                # ----------- Determine Update or Create -----------
+                if user_guid:
+                    print("-------------user_guid------------", user_guid)
                     try:
-                        instance = User.objects.get(uid=uid)
+                        instance = User.objects.get(guid=user_guid)
                     except User.DoesNotExist:
                         return CustomResponse.errors(message="User not found")
 
                     if instance.is_deleted:
-                        return CustomResponse.errors(message="You can't update. User is already deleted")
+                        return CustomResponse.errors(message="User already deleted")
+
                     if not instance.is_active:
-                        return CustomResponse.errors(message="You can't update a disabled user")
+                        return CustomResponse.errors(message="Cannot update disabled user")
+
                     is_update = True
 
-                # Initialize serializer
-                serializer = self.serializer_class(
+                # ----------- Prepare Data Before Validation -----------
+                data = request.data.copy()
+
+                # Uppercase formatting
+                if "first_name" in data:
+                    data["first_name"] = data["first_name"].strip().upper()
+
+                if "middle_name" in data:
+                    m = data.get("middle_name")
+                    data["middle_name"] = m.strip().upper() if m else ""
+
+                if "last_name" in data:
+                    data["last_name"] = data["last_name"].strip().upper()
+
+                # Set username for creation
+                if not is_update:
+                    if "first_name" in data and "last_name" in data:
+                        data["username"] = f"{data['first_name']}.{data['last_name']}".lower()
+
+                    data["status"] = "NEW"
+                    data["created_by"] = request.user.id
+
+                data["updated_by"] = request.user.id
+
+                # ----------- Serializer -----------
+                serializer = UserSerializer(
                     instance=instance,
-                    data=request.data,
-                    partial=is_update
+                    data=data,
+                    partial=is_update,
+                    context={"request": request}
                 )
 
                 if not serializer.is_valid():
                     return CustomResponse.errors(
-                        message="Validation failed, please try again",
-                        data=serializer.errors,
-                        code=STATUS_CODES["VALIDATION_ERROR"],
+                        message="Validation failed",
+                        data=serializer.errors
                     )
-
-                # Save with appropriate creator/updater
-                user = serializer.save(
-                    updated_by=request.user.id,
-                    **({'created_by': request.user.id} if not is_update else {})
-                )
-
-                # Set password only on creation
+                user = serializer.save()
+                # ----------- Set password on creation -----------
+                print(is_update)
                 if not is_update:
-                    last_name = serializer.validated_data.get('last_name') or 'password'
-                    pf_number = serializer.validated_data.get('pf_number', '')
-                    password = f"{last_name.upper()}@{pf_number}"
+                    password = data.get("pf_number", "")
                     user.set_password(password)
                     user.save(update_fields=["password"])
 
                 return CustomResponse.success(data=serializer.data)
 
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Change User: {str(e)}', )
+            return CustomResponse.server_error(message=f"Failed to Change User: {str(e)}")
 
     def delete(self, request, uid):
         try:

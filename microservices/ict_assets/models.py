@@ -54,11 +54,13 @@ class Asset(BaseModel):
     ]
 
     asset_tag = models.CharField(max_length=50, unique=True)
-    barcode = models.CharField(max_length=128, blank=True)  # optional barcode string
+    barcode = models.CharField(max_length=128, blank=True)  # optional barcode string (nullable true)
     serial_number = models.CharField(max_length=100, null=True, blank=True, unique=True)
+
     asset_type = models.ForeignKey(AssetType, on_delete=models.CASCADE)
     manufacturer = models.ForeignKey(Manufacturer, on_delete=models.SET_NULL, null=True, blank=True)
     model = models.CharField(max_length=100, blank=True)
+    
     purchase_date = models.DateField(null=True, blank=True)
     purchase_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True)
@@ -120,7 +122,7 @@ class AssetLocationHistory(BaseModel):
 class Computer(BaseModel):
     STORAGE_TYPES = [
         ('hdd', 'HDD'),
-        ('SSD', 'SSD'),
+        ('ssd', 'SSD'),
         ('nvme', 'NVMe'),
         ('hybrid', 'Hybrid (SSHD)'),
         ('external', 'External'),
@@ -184,6 +186,12 @@ class NetworkDevice(BaseModel):
         ('switch', 'Switch'),
         ('firewall', 'Firewall'),
         ('access_point', 'Access Point'),
+        ('load_balancer', 'Load Balancer'),
+        ('gateway', 'Gateway'),
+        ('modem', 'Modem'),
+        ('hub', 'Hub'),
+        ('bridge', 'Bridge'),
+        ('other', 'Other'),
     ]
 
     asset = models.OneToOneField(Asset, on_delete=models.CASCADE)
@@ -194,24 +202,42 @@ class NetworkDevice(BaseModel):
 
 
 class Peripheral(BaseModel):
+
     PERIPHERAL_TYPES = [
         ('printer', 'Printer'),
         ('scanner', 'Scanner'),
-        ('monitor', 'Monitor'),
         ('keyboard', 'Keyboard'),
         ('mouse', 'Mouse'),
+        ('monitor', 'Monitor'),
+        ('speaker', 'Speaker'),
+        ('webcam', 'Webcam'),
+        ('headset', 'Headset'),
+        ('microphone', 'Microphone'),
+        ('other', 'Other'),
     ]
 
     CONNECTION_TYPES = [
         ('usb', 'USB'),
-        ('utp', 'UTP'),
-        ('bluetooth', 'BLUETOOTH'),
-        ('wi-fi', 'Wi-FI'),
+        ('bluetooth', 'Bluetooth'),
+        ('wireless', 'Wireless'),
+        ('hdmi', 'HDMI'),
+        ('vga', 'VGA'),
+        ('ps2', 'PS/2'),
+        ('ethernet', 'Ethernet'),
+        ('other', 'Other'),
     ]
 
     asset = models.OneToOneField(Asset, on_delete=models.CASCADE)
     peripheral_type = models.CharField(max_length=20, choices=PERIPHERAL_TYPES)
     connection_type = models.CharField(max_length=20, choices=CONNECTION_TYPES)
+
+    def save(self, *args, **kwargs):
+        # Normalize fields before saving
+        if self.peripheral_type:
+            self.peripheral_type = self.peripheral_type.strip().lower()
+        if self.connection_type:
+            self.connection_type = self.connection_type.strip().lower()
+        super().save(*args, **kwargs)
 
 
 # software models
@@ -232,25 +258,312 @@ class Software(BaseModel):
         ('perpetual', 'Perpetual'),
         ('subscription', 'Subscription'),
         ('open_source', 'Open Source'),
+        ('trial', 'Trial'),
+        ('enterprise', 'Enterprise'),
+        ('volume', 'Volume License'),
+        ('freeware', 'Freeware'),
+        ('site_license', 'Site License'),
+        ('oem', 'OEM'),
+        ('concurrent', 'Concurrent'),
+        ('other', 'Other'),
     ]
 
-    name = models.CharField(max_length=100)
-    version = models.CharField(max_length=50)
-    publisher = models.CharField(max_length=100)
-    category = models.ForeignKey(SoftwareCategory, on_delete=models.CASCADE)
+    SOFTWARE_TYPES = [
+        ('application', 'Application'),
+        ('operating_system', 'Operating System'),
+        ('utility', 'Utility'),
+        ('development_tool', 'Development Tool'),
+        ('database', 'Database'),
+        ('security', 'Security'),
+        ('office_suite', 'Office Suite'),
+        ('graphics_design', 'Graphics/Design'),
+        ('server_software', 'Server Software'),
+        ('virtualization', 'Virtualization'),
+        ('backup', 'Backup Software'),
+        ('antivirus', 'Antivirus'),
+        ('productivity', 'Productivity'),
+        ('other', 'Other'),
+    ]
+
+    PLATFORM_CHOICES = [
+        ('windows', 'Windows'),
+        ('linux', 'Linux'),
+        ('macos', 'macOS'),
+        ('web', 'Web-based'),
+        ('cross_platform', 'Cross-platform'),
+        ('android', 'Android'),
+        ('ios', 'iOS'),
+        ('other', 'Other'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('trial', 'Trial'),
+        ('expired', 'Expired'),
+        ('deprecated', 'Deprecated'),
+        ('operational', 'Operational'),
+        ('retired', 'Retired'),
+        ('disposed', 'Disposed'),
+        ('other', 'Other'),
+    ]
+
+    CONDITION_CHOICES = [
+        ('new', 'New'),
+        ('excellent', 'Excellent'),
+        ('good', 'Good'),
+        ('fair', 'Fair'),
+        ('poor', 'Poor'),
+    ]
+
+    # Basic Information
+    asset_tag = models.CharField(max_length=50, unique=True, default='AUTO')
+    software_name = models.CharField(max_length=100, default='Unknown')
+    version = models.CharField(max_length=50, default='1.0')
+    publisher = models.CharField(max_length=100, default='Unknown')
+    software_type = models.CharField(max_length=50, choices=SOFTWARE_TYPES, null=True, blank=True)
+    platform = models.CharField(max_length=50, choices=PLATFORM_CHOICES, null=True, blank=True)
+    
+    # Legacy field - consider mapping to software_type
+    category = models.ForeignKey('SoftwareCategory', on_delete=models.CASCADE, null=True, blank=True)
+    
+    # Asset Management
+    asset_type = models.ForeignKey('AssetType', on_delete=models.SET_NULL, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    condition = models.CharField(max_length=20, choices=CONDITION_CHOICES, null=True, blank=True)
+    photo = models.TextField(max_length=200, null=True, blank=True)  # a file path
+    
+    # License Information
     license_type = models.CharField(max_length=20, choices=LICENSE_TYPES)
-    cost = models.DecimalField(max_digits=10, decimal_places=2)
-    purchase_date = models.DateField()
-    expiration_date = models.DateField(null=True, blank=True)
+    license_key = models.CharField(max_length=255, null=True, blank=True)
+    total_licenses = models.IntegerField(default=1)
+    used_licenses = models.IntegerField(default=0)
+    license_expiry = models.DateField(null=True, blank=True)  # Renamed from expiration_date
+    
+    # Financial Information
+    purchase_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # Renamed from cost
+    purchase_date = models.DateField(null=True, blank=True)
+    supplier = models.ForeignKey('Supplier', on_delete=models.SET_NULL, null=True, blank=True)
+    warranty_expiry = models.DateField(null=True, blank=True)
+    
+    # Assignment & Location
+    custodian = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='software_assets')
+    location = models.ForeignKey('Location', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Technical Details
+    system_requirements = models.TextField(null=True, blank=True)
+    installation_path = models.CharField(max_length=255, null=True, blank=True)
+    
+    # Support & Documentation
+    support_url = models.URLField(max_length=500, null=True, blank=True)
+    documentation_url = models.URLField(max_length=500, null=True, blank=True)
+    
+    # Additional Information
     notes = models.TextField(blank=True)
+    last_audit_date = models.DateField(null=True, blank=True)
+    
+    # Timestamps (inherited from BaseModel if it exists, otherwise add these)
+    # created_at = models.DateTimeField(auto_now_add=True)
+    # updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'software_assets'
+        verbose_name = 'Software Asset'
+        verbose_name_plural = 'Software Assets'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.asset_tag} - {self.software_name} v{self.version}"
+    
+    @property
+    def available_licenses(self):
+        """Calculate available licenses dynamically"""
+        return max(0, self.total_licenses - self.used_licenses)
+    
+    @property
+    def custodian_name(self):
+        """Get custodian full name"""
+        return self.custodian.get_full_name() if self.custodian else None
+    
+    @property
+    def location_name(self):
+        """Get location name"""
+        return self.location.name if self.location else None
+    
+    @property
+    def supplier_name(self):
+        """Get supplier name"""
+        return self.supplier.name if self.supplier else None
+    
+    @property
+    def asset_type_name(self):
+        """Get asset type name"""
+        return self.asset_type.name if self.asset_type else None
 
 
 class SoftwareInstallation(BaseModel):
-    software = models.ForeignKey(Software, on_delete=models.CASCADE)
-    asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
-    installed_date = models.DateField()
-    license_key = models.CharField(max_length=255, blank=True)
-    installed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('pending', 'Pending Installation'),
+        ('failed', 'Installation Failed'),
+        ('uninstalled', 'Uninstalled'),
+    ]
+
+    # Core Relationships
+    software = models.ForeignKey(Software, on_delete=models.CASCADE, related_name='installations')
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='software_installations')
+    
+    # Installation Details
+    installation_date = models.DateField(null=True, blank=True)  # Renamed from installed_date
+    installed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='software_installations')
+    installation_path = models.CharField(max_length=500, null=True, blank=True)
+    version_installed = models.CharField(max_length=50, null=True, blank=True)  # Track version at installation
+    
+    # License Information
+    license_key_used = models.CharField(max_length=255, blank=True)  # Renamed from license_key
+    license_assigned = models.ForeignKey('SoftwareLicense', on_delete=models.SET_NULL, null=True, blank=True)  # Optional: track specific license
+    
+    # Status & Verification
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    last_verified_date = models.DateField(null=True, blank=True)
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_installations')
+    
+    # Uninstallation Details
+    uninstall_date = models.DateField(null=True, blank=True)
+    uninstalled_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='uninstalled_software')
+    uninstall_reason = models.TextField(null=True, blank=True)
+    
+    # Assignment
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_software')
+    # department = models.ForeignKey('Department', on_delete=models.SET_NULL, null=True, blank=True)  # Commented out - Department model doesn't exist
+    
+    # Additional Information
+    installation_notes = models.TextField(blank=True)
+    configuration_notes = models.TextField(blank=True)
+    
+    # Compliance & Audit
+    is_compliant = models.BooleanField(default=True)
+    compliance_notes = models.TextField(blank=True)
+    
+    # Timestamps (inherited from BaseModel if it exists)
+    # created_at = models.DateTimeField(auto_now_add=True)
+    # updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'software_installations'
+        verbose_name = 'Software Installation'
+        verbose_name_plural = 'Software Installations'
+        ordering = ['-installation_date']
+        unique_together = [['software', 'asset']]  # Prevent duplicate installations on same asset
+    
+    def __str__(self):
+        return f"{self.software.software_name} on {self.asset.asset_tag}"
+    
+    @property
+    def software_name(self):
+        """Get software name"""
+        return self.software.software_name if self.software else None
+    
+    @property
+    def asset_tag(self):
+        """Get asset tag"""
+        return self.asset.asset_tag if self.asset else None
+    
+    @property
+    def asset_name(self):
+        """Get asset name/description"""
+        return self.asset.name if hasattr(self.asset, 'name') else self.asset.asset_tag
+    
+    @property
+    def installed_by_name(self):
+        """Get installer name"""
+        return self.installed_by.get_full_name() if self.installed_by else None
+    
+    @property
+    def assigned_to_name(self):
+        """Get assigned user name"""
+        return self.assigned_to.get_full_name() if self.assigned_to else None
+    
+    @property
+    def is_active(self):
+        """Check if installation is currently active"""
+        return self.status == 'active'
+    
+    def save(self, *args, **kwargs):
+        """Override save to update software license usage"""
+        is_new = self.pk is None
+        old_status = None
+        
+        if not is_new:
+            old_instance = SoftwareInstallation.objects.get(pk=self.pk)
+            old_status = old_instance.status
+        
+        super().save(*args, **kwargs)
+        
+        # Update software used_licenses count
+        if is_new and self.status == 'active':
+            self.software.used_licenses += 1
+            self.software.save()
+        elif old_status and old_status != self.status:
+            if old_status == 'active' and self.status != 'active':
+                # Deactivated - decrease used licenses
+                self.software.used_licenses = max(0, self.software.used_licenses - 1)
+                self.software.save()
+            elif old_status != 'active' and self.status == 'active':
+                # Activated - increase used licenses
+                self.software.used_licenses += 1
+                self.software.save()
+    
+    def delete(self, *args, **kwargs):
+        """Override delete to update software license usage"""
+        if self.status == 'active':
+            self.software.used_licenses = max(0, self.software.used_licenses - 1)
+            self.software.save()
+        super().delete(*args, **kwargs)
+
+class SoftwareLicense(BaseModel):
+    """Individual license keys for software with multiple licenses"""
+    
+    STATUS_CHOICES = [
+        ('available', 'Available'),
+        ('assigned', 'Assigned'),
+        ('expired', 'Expired'),
+        ('revoked', 'Revoked'),
+    ]
+    
+    software = models.ForeignKey(Software, on_delete=models.CASCADE, related_name='licenses')
+    license_key = models.CharField(max_length=255, unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='available')
+    
+    # Assignment
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    assigned_date = models.DateField(null=True, blank=True)
+    
+    # Validity
+    activation_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+    
+    # Tracking
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'software_licenses'
+        verbose_name = 'Software License'
+        verbose_name_plural = 'Software Licenses'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.software.software_name} - {self.license_key[:10]}..."
+    
+    @property
+    def is_available(self):
+        return self.status == 'available'
+    
+    @property
+    def is_expired(self):
+        from datetime import date
+        return self.expiry_date and self.expiry_date < date.today()
 
 
 # locations models
@@ -258,6 +571,7 @@ class Building(BaseModel):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20, blank=True)  # block code if needed
     address = models.TextField(blank=True)
+    description = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.name} ({self.code})" if self.code else self.name
@@ -265,19 +579,35 @@ class Building(BaseModel):
 
 class Floor(BaseModel):
     building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="floors")
-    number = models.IntegerField()  # use integer for floor level
+    number = models.IntegerField(null=True, blank=True)  # use integer for floor level
     name = models.CharField(max_length=50, blank=True)
+    floor_number = models.CharField(max_length=20, blank=True)  # flexible floor number like "G", "B1", etc.
+    description = models.TextField(blank=True)
 
     class Meta:
-        unique_together = ("building", "number")
+        constraints = [
+            models.UniqueConstraint(
+                fields=['building', 'number'],
+                name='unique_building_number',
+                condition=models.Q(number__isnull=False)
+            ),
+            models.UniqueConstraint(
+                fields=['building', 'floor_number'],
+                name='unique_building_floor_number',
+                condition=models.Q(floor_number__isnull=False) & ~models.Q(floor_number='')
+            )
+        ]
 
     def __str__(self):
-        return f"{self.building.name} - Floor {self.number}"
+        floor_display = self.name or f"Floor {self.number}" if self.number else self.floor_number
+        return f"{self.building.name} - {floor_display}"
 
 
 class Location(BaseModel):
     name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, blank=True)  # location code
     address = models.TextField(blank=True)
+    description = models.TextField(blank=True)
     building = models.ForeignKey(Building, on_delete=models.SET_NULL, null=True, blank=True)
     floor = models.ForeignKey(Floor, on_delete=models.SET_NULL, null=True, blank=True)
     room = models.CharField(max_length=50, blank=True)
@@ -395,7 +725,7 @@ class DepreciationPolicy(BaseModel):
     asset_category = models.ForeignKey(AssetCategory, on_delete=models.CASCADE)
     useful_life_years = models.IntegerField()
     depreciation_rate = models.DecimalField(max_digits=5, decimal_places=2)
-    method = models.CharField(max_length=50)  # Straight-line, Reducing balance, etc.
+    method = models.CharField(max_length=50)
 
 
 class Warranty(BaseModel):

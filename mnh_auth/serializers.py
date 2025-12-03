@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 
@@ -10,8 +11,8 @@ from rest_framework import status
 from rest_framework.serializers import ModelSerializer
 
 
-
 class UserSerializer(serializers.ModelSerializer):
+    user_guid = serializers.CharField(write_only=True, required=False)
     groups = serializers.SerializerMethodField(read_only=True)
     user_permissions = serializers.SerializerMethodField(read_only=True)
     photo = serializers.SerializerMethodField()
@@ -25,13 +26,14 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'guid','username','email','pf_number','check_number','first_name', 'middle_name','last_name','status',
-            'account_type','dob','sex','is_active','is_staff','photo','signature','phone_number','alternative_contact',
-            'account_number','created_at','updated_at','created_by','groups', 'user_permissions','position',
-            'current_level_name', 'current_department_name', 'current_directory_name'
+            'guid', 'user_guid','username', 'email', 'pf_number', 'check_number', 'first_name',
+            'middle_name', 'last_name', 'status', 'account_type', 'dob', 'sex', 'is_active', 'is_staff', 'photo',
+            'signature', 'phone_number', 'alternative_contact', 'account_number', 'created_at', 'updated_at',
+            'created_by','updated_by', 'groups', 'user_permissions', 'position', 'current_level_name',
+            'current_department_name', 'current_directory_name'
         ]
         read_only_fields = [
-            'guid', 'username', 'status', 'updated_at','account_type', 'created_at', 'updated_at',
+            'guid', 'username', 'status', 'updated_at', 'account_type', 'created_at', 'updated_at',
         ]
 
     def get_groups(self, obj):
@@ -57,20 +59,60 @@ class UserSerializer(serializers.ModelSerializer):
             return get_presigned_url(str(obj.signature))
         return None
 
+
+    def validate(self, attrs):
+        instance = self.instance
+
+        if 'user_guid' not in attrs:
+            attrs['status'] = "NEW"
+            #create username
+            attrs['username'] = f"{attrs['first_name'].lower()}.{attrs['last_name'].lower()}"
+            users = User.objects.filter(username=attrs["username"])
+            if users:
+                attrs['username'] = f"{attrs['username']}.{users.count()}"
+
+        # Check email unique
+        if "email" in attrs:
+            qs = User.objects.filter(email=attrs["email"])
+            if instance:
+                qs = qs.exclude(id=instance.id)
+            if qs.exists():
+                raise serializers.ValidationError({"email": "Email already exists."})
+
+        # Check PF number unique
+        if "pf_number" in attrs:
+            qs = User.objects.filter(pf_number=attrs["pf_number"])
+            if instance:
+                qs = qs.exclude(id=instance.id)
+            if qs.exists():
+                raise serializers.ValidationError({"pf_number": "PF number already exists."})
+
+        # Check phone number unique
+        if "phone_number" in attrs:
+            qs = User.objects.filter(phone_number=attrs["phone_number"])
+            if instance:
+                qs = qs.exclude(id=instance.id)
+            if qs.exists():
+                raise serializers.ValidationError({"phone_number": "Phone number already exists."})
+
+        return attrs
+
+
     def create(self, validated_data):
-        validated_data['first_name'] = validated_data['first_name'].strip().upper()
-        middle_name = validated_data.get('middle_name')
-        validated_data['middle_name'] = middle_name.strip().upper() if middle_name else ""
-        validated_data['last_name'] = validated_data['last_name'].strip().upper()
-        validated_data['username'] = f"{validated_data.get('first_name')}.{validated_data.get('last_name')}".lower()
-        validated_data['status'] = 'NEW'
-        return super().create(validated_data)
+        return User.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        instance = User.objects.filter(guid=validated_data["user_guid"]).first()
+        validated_data.pop("user_guid", None)
+        return super().update(instance, validated_data)
+
 
 class ActingUserSerializer(serializers.Serializer):
     delegated_user = serializers.UUIDField(
         write_only=True,
         required=True,
     )
+
 
 class AssignUserRoleSerializer(serializers.Serializer):
     permitted_user = serializers.CharField(
@@ -86,16 +128,16 @@ class AssignUserRoleSerializer(serializers.Serializer):
         permitted_user = data.pop('permitted_user')
         selected_role = data.pop('selected_role')
 
-        data['user'] =User.objects.filter(guid=permitted_user,is_deleted=False).first()
+        data['user'] = User.objects.filter(guid=permitted_user, is_deleted=False).first()
         if not data['user']:
-                raise serializers.ValidationError("The user not be verified may be or deleted")
+            raise serializers.ValidationError("The user not be verified may be or deleted")
 
-        data['role'] =Group.objects.filter(id=int(selected_role)).first()
+        data['role'] = Group.objects.filter(id=int(selected_role)).first()
         if not data['role']:
-                raise serializers.ValidationError("The role not be verified may be or deleted")
+            raise serializers.ValidationError("The role not be verified may be or deleted")
 
         if data['user'] in data['role'].user_set.all():
-                raise serializers.ValidationError("The user already have the role")
+            raise serializers.ValidationError("The user already have the role")
 
         return data
 
@@ -119,6 +161,7 @@ class AssignUserRoleSerializer(serializers.Serializer):
         user.groups.remove(role)
         user.save()
         return user
+
 
 class AssignUserRolesListSerializer(serializers.Serializer):
     permitted_user = serializers.CharField(
@@ -187,6 +230,7 @@ class AssignUserRolesListSerializer(serializers.Serializer):
         user.save()
         return user
 
+
 class GroupListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Permission
@@ -204,9 +248,9 @@ class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = [
-            "id", "name","permissions", "users", "last_update_at", "last_updated_by", "update_count",
+            "id", "name", "permissions", "users", "last_update_at", "last_updated_by", "update_count",
         ]
-        read_only_fields = ["id", "users","last_update_at", "last_updated_by", "update_count",]
+        read_only_fields = ["id", "users", "last_update_at", "last_updated_by", "update_count", ]
 
     def get_permissions(self, obj):
         # List all permissions assigned to the group
@@ -226,7 +270,8 @@ class GroupSerializer(serializers.ModelSerializer):
         return obj.group_profile.update_count if hasattr(obj, "group_profile") else 0
 
     def get_last_updated_by(self, obj):
-        return f'{obj.group_profile.updated_by.first_name} {obj.group_profile.updated_by.last_name}' if hasattr(obj, "group_profile") and obj.group_profile.updated_by else None
+        return f'{obj.group_profile.updated_by.first_name} {obj.group_profile.updated_by.last_name}' if hasattr(obj,
+                                                                                                                "group_profile") and obj.group_profile.updated_by else None
 
     def create(self, validated_data):
         user = self.context['request'].user
@@ -267,10 +312,11 @@ class FileUploadSerializer(serializers.Serializer):
     based64_file = serializers.CharField(
         required=True,
         error_messages={
-             'blank': 'You must provide a  File',
-             'required': 'Uploaded File is required.',
+            'blank': 'You must provide a  File',
+            'required': 'Uploaded File is required.',
         }
     )
+
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(
@@ -291,6 +337,7 @@ class LoginSerializer(serializers.Serializer):
         }
     )
 
+
 class NewUserLoginSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=True, allow_blank=False, write_only=True)
     password = serializers.CharField(required=True, allow_blank=False, write_only=True)
@@ -299,20 +346,19 @@ class NewUserLoginSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "username", "password","phone_number", "email",
+            "username", "password", "phone_number", "email",
         ]
 
     def validate(self, data):
         permitted_user = data.pop('username')
         email = data.get('email')
 
-
-        data['user'] = User.objects.filter(username=permitted_user,is_deleted=False).first()
+        data['user'] = User.objects.filter(username=permitted_user, is_deleted=False).first()
         if not data['user']:
-                raise serializers.ValidationError("The user is not verified or may be removed")
+            raise serializers.ValidationError("The user is not verified or may be removed")
 
-        if User.objects.filter(email=email,is_deleted=False).exclude(guid=data['user'].guid).first():
-                raise serializers.ValidationError("The email Already Exists")
+        if User.objects.filter(email=email, is_deleted=False).exclude(guid=data['user'].guid).first():
+            raise serializers.ValidationError("The email Already Exists")
 
         return data
 
@@ -331,6 +377,7 @@ class NewUserLoginSerializer(serializers.ModelSerializer):
 
 class CheckUserNameSerializer(serializers.ModelSerializer):
     username = serializers.CharField(required=True, max_length=100)
+
     class Meta:
         model = User
         fields = '__all__'
@@ -341,10 +388,11 @@ class CheckUserNameSerializer(serializers.ModelSerializer):
             'email': {'required': False}
         }
 
+
 class RegistrationSerializer(serializers.ModelSerializer):
     groups = serializers.SerializerMethodField()
     user_permissions = serializers.SerializerMethodField()
-    check_number = serializers.CharField(required=False,)
+    check_number = serializers.CharField(required=False, )
 
     class Meta:
         username = None
@@ -420,11 +468,11 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     def save_staff(self):
         user = User(
-                      first_name=self.validated_data['first_name'],
-                      email=self.validated_data['email'],
-                      phone_number=self.validated_data['phone_number'],
-                      last_name=self.validated_data['last_name'],
-                      is_admin=self.validated_data['is_admin'],
+            first_name=self.validated_data['first_name'],
+            email=self.validated_data['email'],
+            phone_number=self.validated_data['phone_number'],
+            last_name=self.validated_data['last_name'],
+            is_admin=self.validated_data['is_admin'],
         )
         password = self.validated_data['password']
         password2 = self.validated_data['password2']
@@ -471,6 +519,7 @@ class PasswordChangeSerializer(serializers.Serializer):
                 {'status': status.HTTP_400_BAD_REQUEST, 'message': 'Password Does not match'})
         return value
 
+
 class PasswordResetSerializer(serializers.Serializer):
     user_guid = serializers.CharField(
         write_only=True,
@@ -493,7 +542,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
             'alternative_contact', 'account_number', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
-        extra_kwargs = { }
+        extra_kwargs = {}
 
 
 class UserIdentitySerializer(ModelSerializer):
@@ -502,10 +551,9 @@ class UserIdentitySerializer(ModelSerializer):
         fields = ['id', 'guid']
 
 
-
 class UserImportSerializer(serializers.Serializer):
     file = serializers.CharField(required=True)
 
+
 class DesignationImportSerializer(serializers.Serializer):
     file = serializers.CharField(required=True)
-

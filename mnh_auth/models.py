@@ -198,7 +198,7 @@ class User(AbstractUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         if self.is_superuser:
             self.account_type = 'SUPER_USER'
-            self.email = f"{self.username}@gmail.com"
+            self.email =self.email if self.email else f"{self.username}@gmail.com"
         super().save(*args, **kwargs)
 
     class Meta:

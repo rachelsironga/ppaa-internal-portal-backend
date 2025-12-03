@@ -144,7 +144,8 @@ class Command(BaseCommand):
         else:
             self.stdout.write("Group exists: admin")
 
-        admin_group.permissions.set(Permission.objects.all())
+        admin_group.permissions.clear()
+        admin_group.permissions.add(*Permission.objects.all())
         self.stdout.write(self.style.SUCCESS("Assigned ALL available permissions to admin group"))
 
         self.stdout.write(self.style.SUCCESS("Custom permissions and groups synchronized."))
