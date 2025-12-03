@@ -571,6 +571,7 @@ class Building(BaseModel):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20, blank=True)  # block code if needed
     address = models.TextField(blank=True)
+    description = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.name} ({self.code})" if self.code else self.name
@@ -578,19 +579,35 @@ class Building(BaseModel):
 
 class Floor(BaseModel):
     building = models.ForeignKey(Building, on_delete=models.CASCADE, related_name="floors")
-    number = models.IntegerField()  # use integer for floor level
+    number = models.IntegerField(null=True, blank=True)  # use integer for floor level
     name = models.CharField(max_length=50, blank=True)
+    floor_number = models.CharField(max_length=20, blank=True)  # flexible floor number like "G", "B1", etc.
+    description = models.TextField(blank=True)
 
     class Meta:
-        unique_together = ("building", "number")
+        constraints = [
+            models.UniqueConstraint(
+                fields=['building', 'number'],
+                name='unique_building_number',
+                condition=models.Q(number__isnull=False)
+            ),
+            models.UniqueConstraint(
+                fields=['building', 'floor_number'],
+                name='unique_building_floor_number',
+                condition=models.Q(floor_number__isnull=False) & ~models.Q(floor_number='')
+            )
+        ]
 
     def __str__(self):
-        return f"{self.building.name} - Floor {self.number}"
+        floor_display = self.name or f"Floor {self.number}" if self.number else self.floor_number
+        return f"{self.building.name} - {floor_display}"
 
 
 class Location(BaseModel):
     name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, blank=True)  # location code
     address = models.TextField(blank=True)
+    description = models.TextField(blank=True)
     building = models.ForeignKey(Building, on_delete=models.SET_NULL, null=True, blank=True)
     floor = models.ForeignKey(Floor, on_delete=models.SET_NULL, null=True, blank=True)
     room = models.CharField(max_length=50, blank=True)

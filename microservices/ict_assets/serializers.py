@@ -214,28 +214,153 @@ class SupplierSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
 class BuildingSerializer(SaveWithRequestUserMixin, NameCodeSerializer):
     class Meta:
         model = Building
-        fields = NameCodeSerializer.Meta.fields + ['address']
+        fields = NameCodeSerializer.Meta.fields + ['address', 'description']
 
 class FloorSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     building_name = RelatedFieldMixin.get_related_name('building')
+    building_details = serializers.SerializerMethodField()
+    number = serializers.IntegerField(required=False, allow_null=True)
     
     class Meta:
         model = Floor
         fields = BaseModelSerializer.Meta.fields + [
-            'building', 'building_name', 'number', 'name'
+            'building', 'building_name', 'building_details', 'number', 'name', 'floor_number', 'description'
         ]
+        extra_kwargs = {
+            'number': {'required': False, 'allow_null': True},
+        }
+    
+    def get_building_details(self, obj):
+        if obj.building:
+            return {
+                'uid': str(obj.building.uid),
+                'name': obj.building.name,
+                'code': obj.building.code
+            }
+        return None
+    
+    def to_internal_value(self, data):
+        # Set number to None if not provided
+        if 'number' not in data:
+            data['number'] = None
+            
+        # Handle building UID conversion
+        if 'building' in data and data['building']:
+            try:
+                building = Building.objects.get(uid=data['building'])
+                data['building'] = building.id
+            except Building.DoesNotExist:
+                raise serializers.ValidationError({
+                    'building': 'Building not found with the provided UID'
+                })
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'building': f'Error processing building: {str(e)}'
+                })
+        elif 'building' in data and data['building'] == '':
+            data['building'] = None
+            
+        return super().to_internal_value(data)
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.building:
+            representation['building'] = str(instance.building.uid)
+        return representation
 
 class LocationSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     building_name = RelatedFieldMixin.get_related_name('building')
     floor_number = serializers.IntegerField(source='floor.number', read_only=True)
+    floor_name = serializers.CharField(source='floor.name', read_only=True)
     parent_name = RelatedFieldMixin.get_related_name('parent')
+    building_details = serializers.SerializerMethodField()
+    floor_details = serializers.SerializerMethodField()
     
     class Meta:
         model = Location
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'address', 'building', 'building_name', 'floor', 
-            'floor_number', 'room', 'parent', 'parent_name'
+            'name', 'code', 'address', 'description', 'building', 'building_name', 'building_details',
+            'floor', 'floor_name', 'floor_number', 'floor_details', 'room', 'parent', 'parent_name'
         ]
+    
+    def get_building_details(self, obj):
+        if obj.building:
+            return {
+                'uid': str(obj.building.uid),
+                'name': obj.building.name,
+                'code': obj.building.code
+            }
+        return None
+    
+    def get_floor_details(self, obj):
+        if obj.floor:
+            return {
+                'uid': str(obj.floor.uid),
+                'name': obj.floor.name,
+                'number': obj.floor.number
+            }
+        return None
+    
+    def to_internal_value(self, data):
+        # Handle building UID conversion
+        if 'building' in data and data['building']:
+            try:
+                building = Building.objects.get(uid=data['building'])
+                data['building'] = building.id
+            except Building.DoesNotExist:
+                raise serializers.ValidationError({
+                    'building': 'Building not found with the provided UID'
+                })
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'building': f'Error processing building: {str(e)}'
+                })
+        elif 'building' in data and data['building'] == '':
+            data['building'] = None
+        
+        # Handle floor UID conversion
+        if 'floor' in data and data['floor']:
+            try:
+                floor = Floor.objects.get(uid=data['floor'])
+                data['floor'] = floor.id
+            except Floor.DoesNotExist:
+                raise serializers.ValidationError({
+                    'floor': 'Floor not found with the provided UID'
+                })
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'floor': f'Error processing floor: {str(e)}'
+                })
+        elif 'floor' in data and data['floor'] == '':
+            data['floor'] = None
+        
+        # Handle parent UID conversion
+        if 'parent' in data and data['parent']:
+            try:
+                parent = Location.objects.get(uid=data['parent'])
+                data['parent'] = parent.id
+            except Location.DoesNotExist:
+                raise serializers.ValidationError({
+                    'parent': 'Parent location not found with the provided UID'
+                })
+            except Exception as e:
+                raise serializers.ValidationError({
+                    'parent': f'Error processing parent: {str(e)}'
+                })
+        elif 'parent' in data and data['parent'] == '':
+            data['parent'] = None
+            
+        return super().to_internal_value(data)
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.building:
+            representation['building'] = str(instance.building.uid)
+        if instance.floor:
+            representation['floor'] = str(instance.floor.uid)
+        if instance.parent:
+            representation['parent'] = str(instance.parent.uid)
+        return representation
 
 # Core Asset Serializers
 class AssetSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
