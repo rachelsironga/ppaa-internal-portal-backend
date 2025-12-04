@@ -131,7 +131,10 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'storages',
     'microservices.ict_assets',
-    'microservices.oxygen_managements'
+    'microservices.oxygen_managements',
+
+    'microservices.mnh_training',
+    'microservices.mnh_analytical',
 ]
 
 MIDDLEWARE = [
@@ -199,8 +202,24 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_DB_PWD"),
         "HOST": os.getenv("POSTGRES_DB_HOST"),
         "PORT": os.getenv("POSTGRES_DB_PORT"),
+    },
+    "analytical": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "trcmis",
+        "USER": "trcmis",
+        "PASSWORD": "Mombo@123",
+        "HOST": "192.168.10.165",
+        "PORT": "3306",
+        "CONN_MAX_AGE": 3600,
+        "OPTIONS": {
+            "charset": "utf8mb4",
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
     }
 }
+
+
+DATABASE_ROUTERS = ['microservices.mnh_analytical.db_router.AnalyticalRouter']
 
 
 # Password validation

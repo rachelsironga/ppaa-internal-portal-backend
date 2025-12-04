@@ -219,12 +219,16 @@ class BuildingSerializer(SaveWithRequestUserMixin, NameCodeSerializer):
 class FloorSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     building_name = RelatedFieldMixin.get_related_name('building')
     building_details = serializers.SerializerMethodField()
+    number = serializers.IntegerField(required=False, allow_null=True)
     
     class Meta:
         model = Floor
         fields = BaseModelSerializer.Meta.fields + [
             'building', 'building_name', 'building_details', 'number', 'name', 'floor_number', 'description'
         ]
+        extra_kwargs = {
+            'number': {'required': False, 'allow_null': True},
+        }
     
     def get_building_details(self, obj):
         if obj.building:
@@ -236,6 +240,10 @@ class FloorSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         return None
     
     def to_internal_value(self, data):
+        # Set number to None if not provided
+        if 'number' not in data:
+            data['number'] = None
+            
         # Handle building UID conversion
         if 'building' in data and data['building']:
             try:
