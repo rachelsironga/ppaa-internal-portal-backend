@@ -153,7 +153,7 @@ class AssetCategorySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = AssetCategory
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'description', 'parent_category', 'parent_category_name'
+            'name', 'description', 'parent_category', 'parent_category_name','is_active'
         ]
 
     def validate(self, data):
@@ -191,7 +191,7 @@ class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = AssetType
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'category', 'category_name', 'specifications_template'
+            'name', 'category', 'category_name', 'specifications_template', 'is_active'
         ]
 
 # Manufacturer and Supplier Serializers
@@ -199,7 +199,7 @@ class ManufacturerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = Manufacturer
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'contact_email', 'support_phone', 'website'
+            'name', 'contact_email', 'support_phone', 'website','is_active'
         ]
         
 class SupplierSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
