@@ -37,11 +37,8 @@ from microservices.ict_assets.modules.warranty import WarrantyView
 urlpatterns = [
     # Asset Category URLs
     path('asset-categories', AssetCategoryView.as_view(), name='asset-category-list'),
-    path('asset-categories/create', AssetCategoryView.as_view(), name='asset-category-create'),
-    path('asset-categories/<uuid:uid>', AssetCategoryView.as_view(), name='asset-category-detail'),
-    path('asset-categories/<uuid:uid>/update', AssetCategoryView.as_view(), name='asset-category-update'),
-    path('asset-categories/<uuid:uid>/delete', AssetCategoryView.as_view(), name='asset-category-delete'),
-    
+    path('asset-categories/<str:uid>', AssetCategoryView.as_view(), name='asset-category-detail'),
+
     # Asset Type URLs
     path('asset-types', AssetTypeView.as_view(), name='asset-type-list'),
     path('asset-types/create', AssetTypeView.as_view(), name='asset-type-create'),
