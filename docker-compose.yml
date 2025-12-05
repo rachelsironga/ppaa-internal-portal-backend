@@ -7,6 +7,12 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: P@ssw0rd
       POSTGRES_DB: mnh_approval_db
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: smtp.gmail.com
+      EMAIL_PORT: 465
+      EMAIL_HOST_USER: mnhconnect@gmail.com
+      EMAIL_HOST_PASSWORD: 'fzlf psfi zpmf uiyw'
+      DEFAULT_FROM_EMAIL: mnhconnect@gmail.com
     ports:
       - "5433:5432"
     volumes:
