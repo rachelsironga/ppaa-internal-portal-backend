@@ -185,14 +185,84 @@ class AssetCategorySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
 
         return data
 
-class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-    category_name = RelatedFieldMixin.get_related_name('category')
+# class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+#         # Use UUIDs for foreign keys instead of integer IDs
+#     category = serializers.UUIDField(required=False, allow_null=True)
+
+#         # Related field names (read-only)
+#     category_name = RelatedFieldMixin.get_related_name('category')
+
     
+#     class Meta:
+#         model = AssetType
+#         fields = BaseModelSerializer.Meta.fields + [
+#             'name', 'category', 'category_name', 'specifications_template', 'is_active'
+#         ]
+
+class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    category_uid = serializers.UUIDField(write_only=True, required=True)
+
+    # Returned category object (read-only)
+    category = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = AssetType
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'category', 'category_name', 'specifications_template', 'is_active'
+            'name',
+            'category_uid',     # incoming UID from frontend
+            'category',         # outgoing category info
+            'specifications_template',
+            'is_active'
         ]
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+
+    # What we return for "category"
+    def get_category(self, obj):
+        if obj.category:
+            return {
+                "uid": str(obj.category.uid),
+                "name": obj.category.name
+            }
+        return None
+
+    def validate(self, data):
+        """
+        Convert category_uid → actual AssetCategory instance.
+        Also validate uniqueness of name.
+        """
+        category_uid = data.get('category_uid')
+
+        # Validate category exists and not deleted
+        try:
+            category_obj = AssetCategory.objects.get(uid=category_uid, is_deleted=False)
+        except AssetCategory.DoesNotExist:
+            raise serializers.ValidationError({
+                "category_uid": "Invalid Asset Category, not found or deleted."
+            })
+
+        # Replace UID with actual FK object
+        data['category'] = category_obj
+        data.pop('category_uid', None)
+
+        # Unique name validation (respecting uid during update)
+        name = data.get('name')
+        if self.instance:
+            # Updating
+            if AssetType.objects.filter(name=name, deleted_at=None).exclude(uid=self.instance.uid).exists():
+                raise serializers.ValidationError({"name": "This name already exists."})
+        else:
+            # Creating
+            if AssetType.objects.filter(name=name, deleted_at=None).exists():
+                raise serializers.ValidationError({"name": "This name already exists."})
+
+        return data
+
+    def create(self, validated_data):
+        return AssetType.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop('created_by', None)
+        return super().update(instance, validated_data)
 
 # Manufacturer and Supplier Serializers
 class ManufacturerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
@@ -2332,7 +2402,7 @@ class AssetAssignmentSerializer(AssignmentBaseSerializer):
         ]
 
 # class MaintenanceRecordSerializer(AssignmentBaseSerializer):
-#     asset_type_name = RelatedFieldMixin.get_related_name('asset.asset_type')
+#     _name = RelatedFieldMixin.get_related_name('asset.asset_type')
 #     technician_name = RelatedFieldMixin.get_user_full_name('technician')
 
 #     # Computer UID field for updates

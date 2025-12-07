@@ -56,7 +56,6 @@ class AssetCategoryView(APIView):
         try:
             with transaction.atomic():
                 uid = request.data.get('uid', None)
-                print("----------------------->", uid)
                 if uid:
                     try:
                         instance = AssetCategory.objects.get(uid=uid, is_deleted=False)
