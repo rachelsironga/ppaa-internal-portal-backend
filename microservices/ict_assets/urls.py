@@ -33,7 +33,6 @@ from microservices.ict_assets.modules.support_ticket import SupportTicketView
 from microservices.ict_assets.modules.warranty import WarrantyView
 
 
-
 urlpatterns = [
     # Asset Category URLs
     path('asset-categories', AssetCategoryView.as_view(), name='asset-category-list'),
@@ -41,10 +40,7 @@ urlpatterns = [
 
     # Asset Type URLs
     path('asset-types', AssetTypeView.as_view(), name='asset-type-list'),
-    path('asset-types/create', AssetTypeView.as_view(), name='asset-type-create'),
-    path('asset-types/<uuid:uid>', AssetTypeView.as_view(), name='asset-type-detail'),
-    path('asset-types/<uuid:uid>/update', AssetTypeView.as_view(), name='asset-type-update'),
-    path('asset-types/<uuid:uid>/delete', AssetTypeView.as_view(), name='asset-type-delete'),
+    path('asset-types/<str:uid>', AssetTypeView.as_view(), name='asset-type-create-update'),
     
     # Manufacturer URLs
    path('asset-manufacturers', ManufacturerView.as_view(), name='manufacturer-list'),
