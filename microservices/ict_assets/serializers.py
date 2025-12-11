@@ -185,20 +185,6 @@ class AssetCategorySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
 
         return data
 
-# class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-#         # Use UUIDs for foreign keys instead of integer IDs
-#     category = serializers.UUIDField(required=False, allow_null=True)
-
-#         # Related field names (read-only)
-#     category_name = RelatedFieldMixin.get_related_name('category')
-
-    
-#     class Meta:
-#         model = AssetType
-#         fields = BaseModelSerializer.Meta.fields + [
-#             'name', 'category', 'category_name', 'specifications_template', 'is_active'
-#         ]
-
 class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     category_uid = serializers.UUIDField(write_only=True, required=True)
 
@@ -230,19 +216,16 @@ class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         Convert category_uid → actual AssetCategory instance.
         Also validate uniqueness of name.
         """
-        category_uid = data.get('category_uid')
+        category_uid = data.pop('category_uid')
 
         # Validate category exists and not deleted
         try:
-            category_obj = AssetCategory.objects.get(uid=category_uid, is_deleted=False)
+            data['category'] = AssetCategory.objects.get(uid=category_uid, is_deleted=False)
         except AssetCategory.DoesNotExist:
             raise serializers.ValidationError({
                 "category_uid": "Invalid Asset Category, not found or deleted."
             })
 
-        # Replace UID with actual FK object
-        data['category'] = category_obj
-        data.pop('category_uid', None)
 
         # Unique name validation (respecting uid during update)
         name = data.get('name')
@@ -265,13 +248,51 @@ class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         return super().update(instance, validated_data)
 
 # Manufacturer and Supplier Serializers
+# class ManufacturerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+#     class Meta:
+#         model = Manufacturer
+#         fields = BaseModelSerializer.Meta.fields + [
+#             'name', 'contact_email', 'support_phone', 'website','is_active'
+#         ]
+
+
 class ManufacturerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+
     class Meta:
         model = Manufacturer
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'contact_email', 'support_phone', 'website','is_active'
+            'name', 'contact_email', 'support_phone', 'website', 'is_active'
         ]
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+
+    def validate(self, data):
+        instance = self.instance
+        unique_fields = {
+            'name': "A manufacturer with this name already exists.",
+            'contact_email': "This email is already registered.",
+            'support_phone': "This phone number is already registered."
+        }
+
+        for field, error_msg in unique_fields.items():
+            value = data.get(field)
+            if value:
+                # Case-insensitive lookup
+                qs = Manufacturer.objects.filter(**{f"{field}__iexact": value}, is_deleted=False)
+                if instance:
+                    qs = qs.exclude(uid=instance.uid)
+                if qs.exists():
+                    raise serializers.ValidationError({field: error_msg})
+
+        return data
+
+    def create(self, validated_data):
+        return Manufacturer.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("created_by", None)
+        return super().update(instance, validated_data)
         
+
 class SupplierSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = Supplier
