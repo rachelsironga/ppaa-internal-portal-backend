@@ -247,14 +247,6 @@ class AssetTypeSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         validated_data.pop('created_by', None)
         return super().update(instance, validated_data)
 
-# Manufacturer and Supplier Serializers
-# class ManufacturerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-#     class Meta:
-#         model = Manufacturer
-#         fields = BaseModelSerializer.Meta.fields + [
-#             'name', 'contact_email', 'support_phone', 'website','is_active'
-#         ]
-
 
 class ManufacturerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
 
@@ -293,12 +285,50 @@ class ManufacturerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         return super().update(instance, validated_data)
         
 
+#Supplier Serializer
+
 class SupplierSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+
     class Meta:
         model = Supplier
         fields = BaseModelSerializer.Meta.fields + [
             'name', 'contact_person', 'email', 'phone', 'address'
         ]
+        read_only_fields = ['uid', 'created_at', 'updated_at']
+
+    def validate(self, data):
+        instance = self.instance
+
+        # Fields to enforce uniqueness
+        unique_fields = {
+            'name': "A supplier with this name already exists.",
+            'email': "This email is already registered for another supplier.",
+            'phone': "This phone number is already registered for another supplier.",
+        }
+
+        for field, error_msg in unique_fields.items():
+            value = data.get(field)
+            if value:
+                qs = Supplier.objects.filter(
+                    **{f"{field}__iexact": value},
+                    is_deleted=False
+                )
+
+                # Exclude the current supplier when updating
+                if instance:
+                    qs = qs.exclude(uid=instance.uid)
+
+                if qs.exists():
+                    raise serializers.ValidationError({field: error_msg})
+
+        return data
+
+    def create(self, validated_data):
+        return Supplier.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("created_by", None)
+        return super().update(instance, validated_data)
 
 
 # Location Serializers
