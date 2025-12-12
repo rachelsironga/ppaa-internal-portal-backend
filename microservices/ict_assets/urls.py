@@ -44,11 +44,8 @@ urlpatterns = [
     
     # Manufacturer URLs
    path('asset-manufacturers', ManufacturerView.as_view(), name='manufacturer-list'),
-   path('asset-manufacturers/create', ManufacturerView.as_view(), name='manufacturer-create'),
-   path('asset-manufacturers/<uuid:uid>', ManufacturerView.as_view(), name='manufacturer-detail'),
-   path('asset-manufacturers/<uuid:uid>/update', ManufacturerView.as_view(), name='manufacturer-update'),
-   path('asset-manufacturers/<uuid:uid>/delete', ManufacturerView.as_view(), name='manufacturer-delete'),
-    
+   path('asset-manufacturers/<str:uid>', ManufacturerView.as_view(), name='manufacturer-create-update'),
+ 
     # Supplier URLs assets-suppliers?
    path('asset-suppliers', SupplierView.as_view(), name='supplier-list'),
    path('asset-suppliers/create', SupplierView.as_view(), name='supplier-create'),
