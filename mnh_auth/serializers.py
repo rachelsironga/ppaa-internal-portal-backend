@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 
 from mnh_approval.services.minio.minio_helpers import get_presigned_url
-from .models import User, GroupProfile
+from .models import User, GroupProfile, Country, Currency
 from rest_framework import status
 from rest_framework.serializers import ModelSerializer
 
@@ -557,3 +557,17 @@ class UserImportSerializer(serializers.Serializer):
 
 class DesignationImportSerializer(serializers.Serializer):
     file = serializers.CharField(required=True)
+
+
+class CountrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Country
+        fields = ['uid', 'name', 'iso_code', 'slug']
+        read_only_fields = ['uid', 'slug']
+
+
+class CurrencySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Currency
+        fields = ['uid', 'name', 'code']
+        read_only_fields = ['uid']

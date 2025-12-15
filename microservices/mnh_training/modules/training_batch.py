@@ -58,12 +58,15 @@ class TrainingBatchView(APIView):
                 )
 
             if batches.exists():
-                return CustomPagination.paginate(
-                    view_class=self,
-                    results=batches,
-                    request=request,
-                    serializer=self.list_serializer_class
-                )
+               serializer = self.list_serializer_class(
+                   batches,
+                   many=True,
+                   context={'request': request}
+               )
+               return CustomResponse.success(
+                   data=serializer.data,
+                   message="Success"
+               )
 
             return CustomResponse.errors(message="Training Batches not found", data=[])
 

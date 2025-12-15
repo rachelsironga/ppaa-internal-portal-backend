@@ -47,11 +47,15 @@ class AffiliationView(APIView):
                 )
 
             if affiliations.exists():
-                return CustomPagination.paginate(
-                    view_class=self,
-                    results=affiliations,
-                    request=request
-                )
+               serializer = self.list_serializer_class(
+                   affiliations,
+                   many=True,
+                   context={'request': request}
+               )
+               return CustomResponse.success(
+                   data=serializer.data,
+                   message="Success"
+               )
 
             return CustomResponse.errors(message="Affiliations not found", data=[])
 

@@ -7,14 +7,14 @@ from django.utils import timezone
 from api.utils import send_custom_email
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer, \
-    NewUserLoginSerializer, PasswordResetSerializer
+    NewUserLoginSerializer, PasswordResetSerializer, CountrySerializer, CurrencySerializer
 from django.contrib.auth import authenticate, login, logout
 from rest_framework import status, permissions
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from mnh_auth.models import User
+from mnh_auth.models import User, Country, Currency
 from mnh_auth.serializers import RegistrationSerializer, PasswordChangeSerializer
 from mnh_auth.utils import MyTokenObtainPairSerializer
 from utils.permissions import HasMethodPermission
@@ -299,3 +299,41 @@ def generate_password(length=8):
         "@#$%&*?"
     )
     return ''.join(random.choice(characters) for _ in range(length))
+
+
+class CountriesView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CountrySerializer
+
+    def get(self, request):
+        """Get all countries"""
+        try:
+            countries = Country.objects.filter(is_deleted=False).order_by('name')
+            serializer = self.serializer_class(countries, many=True)
+            return CustomResponse.success(
+                message="Countries retrieved successfully",
+                data=serializer.data
+            )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to retrieve countries: {str(e)}"
+            )
+
+
+class CurrenciesView(APIView):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = CurrencySerializer
+
+    def get(self, request):
+        """Get all currencies"""
+        try:
+            currencies = Currency.objects.filter(is_deleted=False).order_by('name')
+            serializer = self.serializer_class(currencies, many=True)
+            return CustomResponse.success(
+                message="Currencies retrieved successfully",
+                data=serializer.data
+            )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to retrieve currencies: {str(e)}"
+            )

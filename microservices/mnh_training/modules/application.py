@@ -63,12 +63,15 @@ class ApplicationView(APIView):
                 )
 
             if applications.exists():
-                return CustomPagination.paginate(
-                    view_class=self,
-                    results=applications,
-                    request=request,
-                    serializer=self.list_serializer_class
-                )
+               serializer = self.list_serializer_class(
+                   applications,
+                   many=True,
+                   context={'request': request}
+               )
+               return CustomResponse.success(
+                   data=serializer.data,
+                   message="Success"
+               )
 
             return CustomResponse.errors(message="Applications not found", data=[])
 

@@ -61,12 +61,15 @@ class MOUView(APIView):
                 mous = MOU.objects.filter(id__in=mou_ids, is_deleted=False)
 
             if mous.exists() if hasattr(mous, 'exists') else mous:
-                return CustomPagination.paginate(
-                    view_class=self,
-                    results=mous,
-                    request=request,
-                    serializer=self.list_serializer_class
-                )
+               serializer = self.list_serializer_class(
+                   mous,
+                   many=True,
+                   context={'request': request}
+               )
+               return CustomResponse.success(
+                   data=serializer.data,
+                   message="Success"
+               )
 
             return CustomResponse.errors(message="MOUs not found", data=[])
 

@@ -51,11 +51,15 @@ class InstitutionView(APIView):
                 )
 
             if institutions.exists():
-                return CustomPagination.paginate(
-                    view_class=self,
-                    results=institutions,
-                    request=request,
-                    serializer=self.list_serializer_class
+                # Use list serializer for list view
+                serializer = self.list_serializer_class(
+                    institutions,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success"
                 )
 
             return CustomResponse.errors(message="Institutions not found", data=[])

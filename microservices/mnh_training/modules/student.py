@@ -52,11 +52,15 @@ class StudentView(APIView):
                 )
 
             if students.exists():
-                return CustomPagination.paginate(
-                    view_class=self,
-                    results=students,
-                    request=request,
-                    serializer=self.list_serializer_class
+                # Use list serializer for pagination
+                serializer = self.list_serializer_class(
+                    students,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success"
                 )
 
             return CustomResponse.errors(message="Students not found", data=[])

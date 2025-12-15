@@ -78,6 +78,34 @@ class BaseModelSerializer(AuditMixin, DynamicFieldsModelSerializer):
         ]
 
 
+class UUIDRelatedField(serializers.PrimaryKeyRelatedField):
+    """Custom related field that handles UUID strings and converts them to model instance"""
+    
+    def to_internal_value(self, data):
+        """Convert UUID string to model instance"""
+        try:
+            # If data is a UUID string, find the object by uid and return it
+            if isinstance(data, str):
+                obj = self.get_queryset().filter(uid=data).first()
+                if obj:
+                    return obj
+            # Otherwise, treat it as pk directly (fallback to parent behavior)
+            return super().to_internal_value(data)
+        except Exception as e:
+            self.fail(f'Invalid value: {str(e)}')
+    
+    def to_representation(self, value):
+        """Convert pk to UUID string in response"""
+        try:
+            if value:
+                obj = self.get_queryset().filter(pk=value).first()
+                if obj:
+                    return str(obj.uid)
+            return None
+        except Exception:
+            return super().to_representation(value)
+
+
 class RelatedFieldMixin:
     """Mixin for common related field patterns"""
     
@@ -124,6 +152,60 @@ class DateValidationMixin:
         return data
 
 
+# Minimal Serializers for nested relationships (read-only)
+class CountryMinimalSerializer(serializers.ModelSerializer):
+    """Minimal country serializer for nested display"""
+    class Meta:
+        model = Country
+        fields = ['uid', 'name', 'iso_code']
+
+
+class AffiliationMinimalSerializer(serializers.ModelSerializer):
+    """Minimal affiliation serializer for nested display"""
+    class Meta:
+        model = Affiliation
+        fields = ['uid', 'name', 'type', 'level', 'course']
+
+
+class StudentMinimalSerializer(serializers.ModelSerializer):
+    """Minimal student serializer for nested display"""
+    full_name = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = Student
+        fields = ['uid', 'first_name', 'last_name', 'full_name', 'email', 'student_id']
+
+
+class ApplicationMinimalSerializer(serializers.ModelSerializer):
+    """Minimal application serializer for nested display"""
+    class Meta:
+        model = Application
+        fields = ['uid', 'application_number', 'placement_type', 'from_date', 'to_date']
+
+
+class SupervisorMinimalSerializer(serializers.ModelSerializer):
+    """Minimal supervisor serializer for nested display"""
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    
+    class Meta:
+        model = Supervisor
+        fields = ['uid', 'user_name']
+
+
+class InstitutionMinimalSerializer(serializers.ModelSerializer):
+    """Minimal institution serializer for nested display"""
+    class Meta:
+        model = Institution
+        fields = ['uid', 'name', 'institution_code', 'institution_type']
+
+
+class MOUMinimalSerializer(serializers.ModelSerializer):
+    """Minimal MOU serializer for nested display"""
+    class Meta:
+        model = MOU
+        fields = ['uid', 'mou_number', 'start_date', 'end_date']
+
+
 # Country Serializer
 class CountrySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
@@ -133,14 +215,30 @@ class CountrySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
 
 # Affiliation Serializer
 class AffiliationSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-    country_name = RelatedFieldMixin.get_related_name('country')
-    application_number = serializers.CharField(source='application.application_number', read_only=True)
+    # For write operations - accept UUID strings
+    country_uid = UUIDRelatedField(
+        queryset=Country.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='country'
+    )
+    application_uid = UUIDRelatedField(
+        queryset=Application.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='application'
+    )
+    # For read operations - return nested objects
+    country = CountryMinimalSerializer(read_only=True)
+    application = ApplicationMinimalSerializer(read_only=True)
     
     class Meta:
         model = Affiliation
         fields = BaseModelSerializer.Meta.fields + [
-            'application', 'application_number', 'type', 'name', 'level', 'year',
-            'course', 'address', 'country', 'country_name', 'is_active'
+            'application', 'application_uid', 'type', 'name', 'level', 'year',
+            'course', 'address', 'country', 'country_uid', 'is_active'
         ]
     
     def validate(self, data):
@@ -159,28 +257,42 @@ class AffiliationSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
 
 # Student Serializer
 class StudentSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-    full_name = serializers.CharField(source='full_name', read_only=True)
-    nationality_name = RelatedFieldMixin.get_related_name('nationality')
-    country_of_birth_name = RelatedFieldMixin.get_related_name('country_of_birth')
-    affiliation_details = serializers.SerializerMethodField()
-    
-    def get_affiliation_details(self, obj):
-        if obj.affiliation:
-            return {
-                'uid': str(obj.affiliation.uid),
-                'name': obj.affiliation.name,
-                'type': obj.affiliation.get_type_display()
-            }
-        return None
+    full_name = serializers.CharField(read_only=True)
+    # For write operations - accept UUID strings
+    nationality_uid = UUIDRelatedField(
+        queryset=Country.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='nationality'
+    )
+    country_of_birth_uid = UUIDRelatedField(
+        queryset=Country.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='country_of_birth'
+    )
+    affiliation_uid = UUIDRelatedField(
+        queryset=Affiliation.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='affiliation'
+    )
+    # For read operations - return nested objects
+    nationality = CountryMinimalSerializer(read_only=True)
+    country_of_birth = CountryMinimalSerializer(read_only=True)
+    affiliation = AffiliationMinimalSerializer(read_only=True)
     
     class Meta:
         model = Student
         fields = BaseModelSerializer.Meta.fields + [
             'profile_picture', 'first_name', 'middle_name', 'last_name', 'full_name',
             'sex', 'primary_phone', 'secondary_phone', 'email', 'id_type', 'copy_of_id',
-            'student_id', 'nationality', 'nationality_name', 'country_of_birth',
-            'country_of_birth_name', 'bio', 'are_you_currently_studying',
-            'type', 'supporting_letter', 'affiliation', 'affiliation_details', 'is_active'
+            'student_id', 'nationality', 'nationality_uid', 'country_of_birth',
+            'country_of_birth_uid', 'affiliation', 'affiliation_uid', 'bio', 'are_you_currently_studying',
+            'type', 'supporting_letter', 'is_active'
         ]
         read_only_fields = ['type', 'full_name']
     
@@ -212,24 +324,52 @@ class StudentListSerializer(StudentSerializer):
     class Meta:
         model = Student
         fields = BaseModelSerializer.Meta.fields + [
-            'first_name', 'last_name', 'full_name', 'email', 'student_id',
-            'sex', 'primary_phone', 'type', 'is_active'
+            'first_name', 'last_name', 'full_name', 'middle_name', 'email', 'student_id',
+            'sex', 'primary_phone', 'secondary_phone', 'id_type', 'copy_of_id', 'bio',
+            'type', 'is_active', 'nationality', 'country_of_birth', 'affiliation',
+            'are_you_currently_studying', 'supporting_letter'
         ]
 
 
 # Application Serializer
 class ApplicationSerializer(SaveWithRequestUserMixin, BaseModelSerializer, DateValidationMixin):
-    student_name = serializers.CharField(source='student.full_name', read_only=True)
-    department_names = serializers.CharField(read_only=True)
+    # For write operations - accept UUID strings
+    student_uid = UUIDRelatedField(
+        queryset=Student.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='student'
+    )
+    user_uid = UUIDRelatedField(
+        queryset=User.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='user'
+    )
+    # For read operations - return nested objects
+    student = StudentMinimalSerializer(read_only=True)
+    user = serializers.SerializerMethodField(read_only=True)
+    
     placement_type_display = serializers.CharField(source='get_placement_type_display', read_only=True)
     category_display = serializers.CharField(source='get_category_display', read_only=True)
     campus_display = serializers.CharField(source='get_campus_display', read_only=True)
     
+    def get_user(self, obj):
+        if obj.user:
+            return {
+                'uid': str(obj.user.guid),
+                'full_name': obj.user.get_full_name(),
+                'email': obj.user.email
+            }
+        return None
+    
     class Meta:
         model = Application
         fields = BaseModelSerializer.Meta.fields + [
-            'user', 'student', 'student_name', 'application_number',
-            'departments', 'department_names', 'duration', 'from_date', 'to_date',
+            'user', 'user_uid', 'student', 'student_uid', 'application_number',
+            'departments', 'duration', 'from_date', 'to_date',
             'category', 'category_display', 'placement_type', 'placement_type_display',
             'expected_amount', 'currency', 'campus', 'campus_display',
             'supporting_letter', 'is_active'
@@ -261,21 +401,32 @@ class ApplicationListSerializer(ApplicationSerializer):
 
 # Department Allocation Serializer
 class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializer, DateValidationMixin):
-    department_name = RelatedFieldMixin.get_related_name('department')
-    application_number = serializers.CharField(source='application.application_number', read_only=True)
-    supervisor_name = serializers.SerializerMethodField()
-    duration_days = serializers.IntegerField(read_only=True)
+    # For write operations - accept UUID strings
+    application_uid = UUIDRelatedField(
+        queryset=Application.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='application'
+    )
+    supervisor_uid = UUIDRelatedField(
+        queryset=Supervisor.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='supervisor'
+    )
+    # For read operations - return nested objects
+    application = ApplicationMinimalSerializer(read_only=True)
+    supervisor = SupervisorMinimalSerializer(read_only=True)
     
-    def get_supervisor_name(self, obj):
-        if obj.supervisor:
-            return str(obj.supervisor.user)
-        return None
+    duration_days = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = DepartmentAllocation
         fields = BaseModelSerializer.Meta.fields + [
-            'application', 'application_number', 'department', 'department_name',
-            'supervisor', 'supervisor_name', 'start_date', 'end_date',
+            'application', 'application_uid', 'department',
+            'supervisor', 'supervisor_uid', 'start_date', 'end_date',
             'duration_days', 'description', 'is_active'
         ]
     
@@ -286,20 +437,46 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
 
 # Supervisor Serializer
 class SupervisorSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
-    department_name = RelatedFieldMixin.get_related_name('department')
+    # For write operations - accept UUID strings
+    user_uid = UUIDRelatedField(
+        queryset=User.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='user'
+    )
+    # For read operations - return nested object
+    user = serializers.SerializerMethodField(read_only=True)
+    
+    def get_user(self, obj):
+        if obj.user:
+            return {
+                'uid': str(obj.user.guid),
+                'full_name': obj.user.get_full_name(),
+                'email': obj.user.email
+            }
+        return None
     
     class Meta:
         model = Supervisor
         fields = BaseModelSerializer.Meta.fields + [
-            'user', 'user_name', 'department', 'department_name',
+            'user', 'user_uid', 'department',
             'description', 'is_active'
         ]
 
 
 # Institution Serializer
 class InstitutionSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-    country_name = RelatedFieldMixin.get_related_name('country')
+    # For write operations - accept UUID strings
+    country_uid = UUIDRelatedField(
+        queryset=Country.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='country'
+    )
+    # For read operations - return nested object
+    country = CountryMinimalSerializer(read_only=True)
     mou_count = serializers.SerializerMethodField()
     
     def get_mou_count(self, obj):
@@ -308,7 +485,7 @@ class InstitutionSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = Institution
         fields = BaseModelSerializer.Meta.fields + [
-            'institution_code', 'name', 'address', 'country', 'country_name',
+            'institution_code', 'name', 'address', 'country', 'country_uid',
             'contact_person', 'contact_email', 'contact_phone', 'website',
             'institution_type', 'established_date', 'mou_count', 'is_active'
         ]
@@ -344,7 +521,16 @@ class InstitutionListSerializer(InstitutionSerializer):
 
 # MOU Serializer
 class MOUSerializer(SaveWithRequestUserMixin, BaseModelSerializer, DateValidationMixin):
-    institution_name = RelatedFieldMixin.get_related_name('institution')
+    # For write operations - accept UUID strings
+    institution_uid = UUIDRelatedField(
+        queryset=Institution.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='institution'
+    )
+    # For read operations - return nested object
+    institution = InstitutionMinimalSerializer(read_only=True)
     duration_display = serializers.CharField(read_only=True)
     expiration_status = serializers.SerializerMethodField()
     
@@ -354,7 +540,7 @@ class MOUSerializer(SaveWithRequestUserMixin, BaseModelSerializer, DateValidatio
     class Meta:
         model = MOU
         fields = BaseModelSerializer.Meta.fields + [
-            'institution', 'institution_name', 'mou_number', 'start_date', 'end_date',
+            'institution', 'institution_uid', 'mou_number', 'start_date', 'end_date',
             'purpose', 'terms_and_conditions', 'signed_by', 'signed_date',
             'document', 'duration_display', 'expiration_status', 'is_active'
         ]
@@ -376,8 +562,17 @@ class MOUListSerializer(MOUSerializer):
 
 # Training Batch Serializer
 class TrainingBatchSerializer(SaveWithRequestUserMixin, BaseModelSerializer, DateValidationMixin):
-    mou_number = serializers.CharField(source='mou.mou_number', read_only=True)
-    institution_name = serializers.CharField(source='mou.institution.name', read_only=True)
+    # For write operations - accept UUID strings
+    mou_uid = UUIDRelatedField(
+        queryset=MOU.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='mou'
+    )
+    # For read operations - return nested object
+    mou = MOUMinimalSerializer(read_only=True)
+    
     department_names = serializers.SerializerMethodField()
     duration_display = serializers.CharField(read_only=True)
     cancelled_by_name = serializers.SerializerMethodField()
@@ -394,7 +589,7 @@ class TrainingBatchSerializer(SaveWithRequestUserMixin, BaseModelSerializer, Dat
     class Meta:
         model = TrainingBatch
         fields = BaseModelSerializer.Meta.fields + [
-            'batch_number', 'mou', 'mou_number', 'institution_name',
+            'batch_number', 'mou', 'mou_uid',
             'number_of_students', 'departments', 'department_names',
             'invoiced_amount', 'currency', 'training_start_date', 'training_end_date',
             'duration_display', 'application_letter', 'status', 'status_display',

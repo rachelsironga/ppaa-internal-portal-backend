@@ -50,11 +50,15 @@ class SupervisorView(APIView):
                 )
 
             if supervisors.exists():
-                return CustomPagination.paginate(
-                    view_class=self,
-                    results=supervisors,
-                    request=request
-                )
+               serializer = self.list_serializer_class(
+                   supervisors,
+                   many=True,
+                   context={'request': request}
+               )
+               return CustomResponse.success(
+                   data=serializer.data,
+                   message="Success"
+               )
 
             return CustomResponse.errors(message="Supervisors not found", data=[])
 
