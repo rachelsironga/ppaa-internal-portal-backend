@@ -33,29 +33,19 @@ from microservices.ict_assets.modules.support_ticket import SupportTicketView
 from microservices.ict_assets.modules.warranty import WarrantyView
 
 
-
 urlpatterns = [
     # Asset Category URLs
     path('asset-categories', AssetCategoryView.as_view(), name='asset-category-list'),
-    path('asset-categories/create', AssetCategoryView.as_view(), name='asset-category-create'),
-    path('asset-categories/<uuid:uid>', AssetCategoryView.as_view(), name='asset-category-detail'),
-    path('asset-categories/<uuid:uid>/update', AssetCategoryView.as_view(), name='asset-category-update'),
-    path('asset-categories/<uuid:uid>/delete', AssetCategoryView.as_view(), name='asset-category-delete'),
-    
+    path('asset-categories/<str:uid>', AssetCategoryView.as_view(), name='asset-category-detail'),
+
     # Asset Type URLs
     path('asset-types', AssetTypeView.as_view(), name='asset-type-list'),
-    path('asset-types/create', AssetTypeView.as_view(), name='asset-type-create'),
-    path('asset-types/<uuid:uid>', AssetTypeView.as_view(), name='asset-type-detail'),
-    path('asset-types/<uuid:uid>/update', AssetTypeView.as_view(), name='asset-type-update'),
-    path('asset-types/<uuid:uid>/delete', AssetTypeView.as_view(), name='asset-type-delete'),
+    path('asset-types/<str:uid>', AssetTypeView.as_view(), name='asset-type-create-update'),
     
     # Manufacturer URLs
    path('asset-manufacturers', ManufacturerView.as_view(), name='manufacturer-list'),
-   path('asset-manufacturers/create', ManufacturerView.as_view(), name='manufacturer-create'),
-   path('asset-manufacturers/<uuid:uid>', ManufacturerView.as_view(), name='manufacturer-detail'),
-   path('asset-manufacturers/<uuid:uid>/update', ManufacturerView.as_view(), name='manufacturer-update'),
-   path('asset-manufacturers/<uuid:uid>/delete', ManufacturerView.as_view(), name='manufacturer-delete'),
-    
+   path('asset-manufacturers/<str:uid>', ManufacturerView.as_view(), name='manufacturer-create-update'),
+ 
     # Supplier URLs assets-suppliers?
    path('asset-suppliers', SupplierView.as_view(), name='supplier-list'),
    path('asset-suppliers/create', SupplierView.as_view(), name='supplier-create'),
