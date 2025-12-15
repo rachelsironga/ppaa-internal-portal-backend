@@ -213,7 +213,8 @@ class BaseModel(models.Model):
     deleted_at = models.DateTimeField(blank=True, null=True)
     is_deleted = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(User, related_name='created_%(class)s', on_delete=models.SET_NULL, null=True,
+    created_by = models.ForeignKey(User, related_name='created_%(class)s', 
+                                   on_delete=models.SET_NULL, null=True,
                                    blank=True)
     updated_by = models.ForeignKey(User, related_name='updated_%(class)s', on_delete=models.SET_NULL, null=True,
                                    blank=True)
