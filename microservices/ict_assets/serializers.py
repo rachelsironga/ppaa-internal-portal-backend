@@ -1582,7 +1582,6 @@ class AssetAssignmentSerializer(AssignmentBaseSerializer):
         ]
 
 
-
 class MaintenanceRecordSerializer(AssignmentBaseSerializer):
     asset_type_name = RelatedFieldMixin.get_related_name('asset.asset_type')
     technician_name = RelatedFieldMixin.get_user_full_name('technician')
