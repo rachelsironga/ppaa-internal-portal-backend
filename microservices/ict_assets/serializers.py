@@ -153,7 +153,7 @@ class AssetCategorySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = AssetCategory
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'description', 'parent_category', 'parent_category_name', 'is_active'
+            'name', 'description', 'parent_category', 'parent_category_name','is_active'
         ]
 
     def validate(self, data):
@@ -292,7 +292,7 @@ class SupplierSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
         model = Supplier
         fields = BaseModelSerializer.Meta.fields + [
-            'name', 'contact_person', 'email', 'phone', 'address', 'is_active'
+            'name', 'contact_person', 'email', 'phone', 'address'
         ]
         read_only_fields = ['uid', 'created_at', 'updated_at']
 
@@ -640,6 +640,403 @@ class HardwareBaseSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
                 if field not in item:
                     raise serializers.ValidationError(f"Each item must have '{field}'.")
         return value
+
+
+class ComputerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    # Asset fields integrated directly - use source for reading from nested asset
+    asset_tag = serializers.CharField(source='asset.asset_tag')
+    barcode = serializers.CharField(source='asset.barcode', required=False, allow_blank=True)
+    serial_number = serializers.CharField(source='asset.serial_number', required=False, allow_blank=True)
+    asset_type = serializers.UUIDField(source='asset.asset_type')
+    manufacturer = serializers.UUIDField(source='asset.manufacturer', required=False, allow_null=True)
+    model = serializers.CharField(source='asset.model', required=False, allow_blank=True)
+    purchase_date = serializers.DateField(source='asset.purchase_date', required=False, allow_null=True)
+    purchase_cost = serializers.DecimalField(source='asset.purchase_cost', max_digits=10, decimal_places=2, required=False, allow_null=True)
+    supplier = serializers.UUIDField(source='asset.supplier', required=False, allow_null=True)
+    asset_status = serializers.ChoiceField(source='asset.status', choices=Asset.ASSET_STATUS, default='operational')
+    asset_condition = serializers.ChoiceField(source='asset.condition', choices=Asset.CONDITION_CHOICES, required=False, allow_blank=True)
+    location = serializers.UUIDField(source='asset.location', required=False, allow_null=True)
+    custodian = serializers.UUIDField(source='asset.custodian', required=False, allow_null=True)
+    warranty_expiry = serializers.DateField(source='asset.warranty_expiry', required=False, allow_null=True)
+    photo = serializers.CharField(source='asset.photo', max_length=200, required=False, allow_blank=True, allow_null=True)
+    is_active = serializers.BooleanField(source='asset.is_active', default=True)
+    last_audit_date = serializers.DateField(source='asset.last_audit_date', required=False, allow_null=True)
+    asset_notes = serializers.CharField(source='asset.notes', required=False, allow_blank=True)
+    
+    # Read-only related fields
+    asset_type_name = RelatedFieldMixin.get_related_name('asset.asset_type')
+    manufacturer_name = RelatedFieldMixin.get_related_name('asset.manufacturer')
+    location_name = RelatedFieldMixin.get_related_name('asset.location')
+    custodian_name = RelatedFieldMixin.get_user_full_name('asset.custodian')
+    
+    def get_custodian_name(self, obj):
+        if obj.asset and obj.asset.custodian:
+            return f"{obj.asset.custodian.first_name} {obj.asset.custodian.last_name}"
+        return None
+    
+    class Meta:
+        model = Computer
+        fields = BaseModelSerializer.Meta.fields + [
+            # Asset fields
+            'asset_tag', 'barcode', 'serial_number', 'asset_type', 'asset_type_name',
+            'manufacturer', 'manufacturer_name', 'model', 'purchase_date', 'purchase_cost',
+            'supplier', 'asset_status', 'asset_condition', 'location', 'location_name',
+            'custodian', 'custodian_name', 'warranty_expiry', 'photo', 'is_active',
+            'last_audit_date', 'asset_notes',
+            # Computer-specific fields
+            'hostname', 'fqdn', 'processor', 'cpu_cores', 'cpu_speed_ghz', 'cpu_architecture',
+            'ram_gb', 'storage_type', 'storage_gb', 'disks', 'operating_system', 'os_version',
+            'mac_addresses', 'ip_addresses', 'management_ip', 'gpu', 'virtual',
+            'virtualization_host', 'bios_version', 'firmware_version', 'asset_tag_backup', 'notes'
+        ]
+    
+    def validate_storage_type(self, value):
+        """
+        Normalize storage_type to lowercase to handle case sensitivity issues
+        between frontend and backend.
+        """
+        if value:
+            # Convert to lowercase for consistency
+            normalized_value = value.lower()
+            
+            # Check if the normalized value is a valid choice
+            valid_choices = [choice[0] for choice in Computer.STORAGE_TYPES]
+            if normalized_value not in valid_choices:
+                raise serializers.ValidationError(
+                    f"'{value}' is not a valid choice. Valid choices are: {', '.join(valid_choices)}"
+                )
+            
+            return normalized_value
+        return value
+    
+    def validate_disks(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Must be a list of objects.")
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError("Each item must be an object.")
+            if 'type' not in item or 'size_gb' not in item:
+                raise serializers.ValidationError("Each item must have 'type' and 'size_gb'.")
+            
+            # Also normalize disk type if present
+            if 'type' in item and item['type']:
+                disk_type = item['type'].lower()
+                valid_disk_types = [choice[0] for choice in Computer.STORAGE_TYPES]
+                if disk_type not in valid_disk_types:
+                    raise serializers.ValidationError(
+                        f"Disk type '{item['type']}' is not valid. Valid types: {', '.join(valid_disk_types)}"
+                    )
+                item['type'] = disk_type
+                
+        return value
+    
+    def to_internal_value(self, data):
+        # Make a copy to avoid modifying the original
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        
+        # Convert empty strings to None for date fields
+        date_fields = ['purchase_date', 'warranty_expiry', 'last_audit_date']
+        for field_name in date_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Convert empty strings to None for optional FK fields
+        fk_fields = ['manufacturer', 'supplier', 'location', 'custodian']
+        for field_name in fk_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Normalize storage_type to lowercase if present
+        if 'storage_type' in data and data['storage_type']:
+            data['storage_type'] = str(data['storage_type']).lower()
+        
+        return super().to_internal_value(data)
+    
+    def _resolve_asset_fk_ids(self, asset_data):
+        """Helper method to resolve FK UIDs/GUIDs to database IDs"""
+        mapping = {
+            'asset_type': (AssetType, 'uid'),
+            'manufacturer': (Manufacturer, 'uid'),
+            'supplier': (Supplier, 'uid'),
+            'location': (Location, 'uid'),
+            'custodian': (User, 'guid'),
+        }
+        
+        for field, (model, slug) in mapping.items():
+            if field not in asset_data:
+                continue
+            
+            value = asset_data.pop(field)
+            
+            # Handle None or empty string - set FK to None
+            if value in (None, ''):
+                asset_data[f'{field}_id'] = None
+                continue
+            
+            # Look up the related object and set the FK ID
+            try:
+                obj = model.objects.only('id').get(**{slug: value})
+                asset_data[f'{field}_id'] = obj.id
+            except model.DoesNotExist:
+                raise serializers.ValidationError({
+                    field: f'Invalid {slug.upper()} - {model.__name__} not found'
+                })
+    
+    def to_representation(self, instance):
+        """
+        Convert IDs back to UIDs/GUIDs for response and include asset UID
+        for frontend operations (maintenance records, support tickets, etc.)
+        """
+        representation = super().to_representation(instance)
+        
+        # CRITICAL: Add the asset UID so frontend can reference it
+        if instance.asset:
+            representation['asset_uid'] = str(instance.asset.uid)
+            representation['asset'] = str(instance.asset.uid)  # For backward compatibility
+            
+            # Ensure all source-mapped fields are properly populated
+            if not representation.get('asset_tag') and instance.asset.asset_tag:
+                representation['asset_tag'] = instance.asset.asset_tag
+            if not representation.get('serial_number') and instance.asset.serial_number:
+                representation['serial_number'] = instance.asset.serial_number
+            if not representation.get('barcode') and instance.asset.barcode:
+                representation['barcode'] = instance.asset.barcode
+        
+        # Convert FK IDs to UIDs/GUIDs
+        if instance.asset.asset_type:
+            representation['asset_type'] = str(instance.asset.asset_type.uid)
+        if instance.asset.manufacturer:
+            representation['manufacturer'] = str(instance.asset.manufacturer.uid)
+        if instance.asset.supplier:
+            representation['supplier'] = str(instance.asset.supplier.uid)
+        if instance.asset.location:
+            representation['location'] = str(instance.asset.location.uid)
+        if instance.asset.custodian:
+            representation['custodian'] = str(instance.asset.custodian.guid)
+        
+        return representation
+    
+    @transaction.atomic
+    def create(self, validated_data):
+        # Extract asset data (already processed in to_internal_value)
+        asset_data = validated_data.pop('asset', {})
+        
+        # Resolve FK UIDs/GUIDs to database IDs
+        self._resolve_asset_fk_ids(asset_data)
+        
+        # Set user from request
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user and user.is_authenticated:
+            asset_data['created_by'] = user
+            asset_data['updated_by'] = user
+        
+        # Create asset first
+        asset = Asset.objects.create(**asset_data)
+        
+        # Create computer with the asset
+        validated_data['asset'] = asset
+        return super().create(validated_data)
+    
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        # Extract asset data (already processed in to_internal_value)
+        asset_data = validated_data.pop('asset', {})
+        
+        # Update asset fields if present
+        if asset_data:
+            # Resolve FK UIDs/GUIDs to database IDs
+            self._resolve_asset_fk_ids(asset_data)
+            
+            # Set user from request
+            request = self.context.get('request')
+            user = getattr(request, 'user', None) if request else None
+            if user and user.is_authenticated:
+                asset_data['updated_by'] = user
+            
+            # Update the asset
+            for attr, value in asset_data.items():
+                setattr(instance.asset, attr, value)
+            instance.asset.save()
+        
+        # Update computer-specific fields
+        return super().update(instance, validated_data)
+    
+
+class NetworkDeviceSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    # Asset fields integrated directly - use source for reading from nested asset
+    asset_tag = serializers.CharField(source='asset.asset_tag')
+    barcode = serializers.CharField(source='asset.barcode', required=False, allow_blank=True)
+    serial_number = serializers.CharField(source='asset.serial_number', required=False, allow_blank=True, allow_null=True)
+    asset_type = serializers.UUIDField(source='asset.asset_type')
+    manufacturer = serializers.UUIDField(source='asset.manufacturer', required=False, allow_null=True)
+    model = serializers.CharField(source='asset.model', required=False, allow_blank=True)
+    purchase_date = serializers.DateField(source='asset.purchase_date', required=False, allow_null=True)
+    purchase_cost = serializers.DecimalField(source='asset.purchase_cost', max_digits=10, decimal_places=2, required=False, allow_null=True)
+    supplier = serializers.UUIDField(source='asset.supplier', required=False, allow_null=True)
+    asset_status = serializers.ChoiceField(source='asset.status', choices=Asset.ASSET_STATUS, default='operational')
+    asset_condition = serializers.ChoiceField(source='asset.condition', choices=Asset.CONDITION_CHOICES, required=False, allow_blank=True)
+    location = serializers.UUIDField(source='asset.location', required=False, allow_null=True)
+    custodian = serializers.UUIDField(source='asset.custodian', required=False, allow_null=True)
+    warranty_expiry = serializers.DateField(source='asset.warranty_expiry', required=False, allow_null=True)
+    photo = serializers.CharField(source='asset.photo', max_length=200, required=False, allow_blank=True, allow_null=True)
+    is_active = serializers.BooleanField(source='asset.is_active', default=True)
+    last_audit_date = serializers.DateField(source='asset.last_audit_date', required=False, allow_null=True)
+    asset_notes = serializers.CharField(source='asset.notes', required=False, allow_blank=True)
+    
+    # Read-only related fields
+    asset_type_name = RelatedFieldMixin.get_related_name('asset.asset_type')
+    manufacturer_name = RelatedFieldMixin.get_related_name('asset.manufacturer')
+    location_name = RelatedFieldMixin.get_related_name('asset.location')
+    custodian_name = RelatedFieldMixin.get_user_full_name('asset.custodian')
+    
+    def get_custodian_name(self, obj):
+        if obj.asset and obj.asset.custodian:
+            return f"{obj.asset.custodian.first_name} {obj.asset.custodian.last_name}"
+        return None
+    
+    class Meta:
+        model = NetworkDevice
+        fields = BaseModelSerializer.Meta.fields + [
+            # Asset fields
+            'asset_tag', 'barcode', 'serial_number', 'asset_type', 'asset_type_name',
+            'manufacturer', 'manufacturer_name', 'model', 'purchase_date', 'purchase_cost',
+            'supplier', 'asset_status', 'asset_condition', 'location', 'location_name',
+            'custodian', 'custodian_name', 'warranty_expiry', 'photo', 'is_active',
+            'last_audit_date', 'asset_notes',
+            # NetworkDevice-specific fields
+            'device_type', 'ip_address', 'mac_address', 'ports'
+        ]
+    
+    def to_internal_value(self, data):
+        # Make a copy to avoid modifying the original
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        
+        # Convert empty strings to None for date fields
+        date_fields = ['purchase_date', 'warranty_expiry', 'last_audit_date']
+        for field_name in date_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Convert empty strings to None for optional FK fields
+        fk_fields = ['manufacturer', 'supplier', 'location', 'custodian']
+        for field_name in fk_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        return super().to_internal_value(data)
+    
+    def _resolve_asset_fk_ids(self, asset_data):
+        """Helper method to resolve FK UIDs/GUIDs to database IDs"""
+        mapping = {
+            'asset_type': (AssetType, 'uid'),
+            'manufacturer': (Manufacturer, 'uid'),
+            'supplier': (Supplier, 'uid'),
+            'location': (Location, 'uid'),
+            'custodian': (User, 'guid'),
+        }
+        
+        for field, (model, slug) in mapping.items():
+            if field not in asset_data:
+                continue
+            
+            value = asset_data.pop(field)
+            
+            # Handle None or empty string - set FK to None
+            if value in (None, ''):
+                asset_data[f'{field}_id'] = None
+                continue
+            
+            # Look up the related object and set the FK ID
+            try:
+                obj = model.objects.only('id').get(**{slug: value})
+                asset_data[f'{field}_id'] = obj.id
+            except model.DoesNotExist:
+                raise serializers.ValidationError({
+                    field: f'Invalid {slug.upper()} - {model.__name__} not found'
+                })
+    
+    def to_representation(self, instance):
+        """
+        Convert IDs back to UIDs/GUIDs for response and include asset UID
+        for frontend operations (maintenance records, support tickets, etc.)
+        """
+        representation = super().to_representation(instance)
+        
+        # CRITICAL: Add the asset UID so frontend can reference it
+        if instance.asset:
+            representation['asset_uid'] = str(instance.asset.uid)
+            representation['asset'] = str(instance.asset.uid)  # For backward compatibility
+            
+            # Ensure all source-mapped fields are properly populated
+            if not representation.get('asset_tag') and instance.asset.asset_tag:
+                representation['asset_tag'] = instance.asset.asset_tag
+            if not representation.get('serial_number') and instance.asset.serial_number:
+                representation['serial_number'] = instance.asset.serial_number
+            if not representation.get('barcode') and instance.asset.barcode:
+                representation['barcode'] = instance.asset.barcode
+        
+        # Convert FK IDs to UIDs/GUIDs
+        if instance.asset.asset_type:
+            representation['asset_type'] = str(instance.asset.asset_type.uid)
+        if instance.asset.manufacturer:
+            representation['manufacturer'] = str(instance.asset.manufacturer.uid)
+        if instance.asset.supplier:
+            representation['supplier'] = str(instance.asset.supplier.uid)
+        if instance.asset.location:
+            representation['location'] = str(instance.asset.location.uid)
+        if instance.asset.custodian:
+            representation['custodian'] = str(instance.asset.custodian.guid)
+        
+        return representation
+    
+    @transaction.atomic
+    def create(self, validated_data):
+        # Extract asset data (already processed via source mapping)
+        asset_data = validated_data.pop('asset', {})
+        
+        # Resolve FK UIDs/GUIDs to database IDs
+        self._resolve_asset_fk_ids(asset_data)
+        
+        # Set user from request for the Asset
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+        if user and user.is_authenticated:
+            asset_data['created_by'] = user
+            asset_data['updated_by'] = user
+        
+        # Create asset first
+        asset = Asset.objects.create(**asset_data)
+        
+        # Create network device with the asset
+        validated_data['asset'] = asset
+        return super().create(validated_data)
+    
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        # Extract asset data (already processed via source mapping)
+        asset_data = validated_data.pop('asset', {})
+        
+        # Update asset fields if present
+        if asset_data:
+            # Resolve FK UIDs/GUIDs to database IDs
+            self._resolve_asset_fk_ids(asset_data)
+            
+            # Set user from request
+            request = self.context.get('request')
+            user = getattr(request, 'user', None) if request else None
+            if user and user.is_authenticated:
+                asset_data['updated_by'] = user
+            
+            # Update the asset
+            for attr, value in asset_data.items():
+                setattr(instance.asset, attr, value)
+            instance.asset.save()
+        
+        # Update network device-specific fields
+        return super().update(instance, validated_data)
+    
+
 
 
 class PeripheralSerializer(SaveWithRequestUserMixin, BaseModelSerializer): 
@@ -1184,6 +1581,7 @@ class AssetAssignmentSerializer(AssignmentBaseSerializer):
             'asset', 'asset_tag', 'assigned_to', 'assigned_to_name',
             'assigned_date', 'return_date', 'condition_on_assignment', 'notes'
         ]
+
 
 
 class MaintenanceRecordSerializer(AssignmentBaseSerializer):
