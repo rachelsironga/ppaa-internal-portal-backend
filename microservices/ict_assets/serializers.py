@@ -1038,7 +1038,6 @@ class NetworkDeviceSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     
 
 
-
 class PeripheralSerializer(SaveWithRequestUserMixin, BaseModelSerializer): 
     # Asset fields integrated directly - use source for reading from nested asset
     asset_tag = serializers.CharField(source='asset.asset_tag')
