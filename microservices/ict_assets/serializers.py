@@ -623,6 +623,24 @@ class AssetDetailSerializer(AssetSerializer):
     def get_has_peripheral(self, obj):
         return hasattr(obj, 'peripheral')
 
+# Hardware Specific Serializers
+class HardwareBaseSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    """Base serializer for hardware models"""
+    asset_details = AssetSerializer(source='asset', read_only=True)
+    
+    def validate_json_field(self, value, required_fields):
+        """Validate JSON field structure"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Must be a list of objects.")
+        
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError("Each item must be an object.")
+            for field in required_fields:
+                if field not in item:
+                    raise serializers.ValidationError(f"Each item must have '{field}'.")
+        return value
+
 
 class ComputerSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     # Asset fields integrated directly - use source for reading from nested asset
