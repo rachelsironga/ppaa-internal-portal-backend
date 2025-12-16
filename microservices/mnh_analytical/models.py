@@ -81,7 +81,7 @@ class Block(AnalyticalBaseModel):
         return f"{self.name} ({self.code})"
 
 
-class Department(models.Model):
+class AnalyticalDepartment(models.Model):
     """Represents a department in the facility (from remote DB)"""
     uid = models.UUIDField(default=None, editable=False, unique=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
@@ -134,7 +134,7 @@ class Clinic(AnalyticalBaseModel):
         help_text=_('The physical block where this clinic is located')
     )
     department = models.ForeignKey(
-        'Department',
+        'microservices.mnh_analytical.models.AnalyticalDepartment',
         related_name='clinics',
         on_delete=models.SET_NULL,
         null=True,
@@ -279,6 +279,13 @@ class PaymentMode(AnalyticalBaseModel):
         return f"{self.name} ({self.code})"
 
 
+# Method 2: Manager with default database
+class AnalyticsManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().using('analytical')
+
+
+
 class Attendance(AnalyticalBaseModel):
     """Tracks daily attendance records for clinics"""
     def clinic_attendance_upload_path(instance, filename):
@@ -351,6 +358,8 @@ class Attendance(AnalyticalBaseModel):
         default=0,
         verbose_name=_('total failed colum')
     )
+
+    objects = AnalyticsManager()
 
     class Meta:
         db_table = 'analyticsApp_attendance'

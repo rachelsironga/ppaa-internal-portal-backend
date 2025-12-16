@@ -18,8 +18,12 @@ RUN apt-get update && apt-get install -y \
     libmagic1 \
     gcc \
     python3-dev \
+    default-libmysqlclient-dev \
+    build-essential \
+    pkg-config \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+
 
 # Environment settings
 ENV PYTHONDONTWRITEBYTECODE=1
