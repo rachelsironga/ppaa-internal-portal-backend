@@ -60,7 +60,7 @@ class BaseModelSerializer(AuditMixin, DynamicFieldsModelSerializer):
     
     class Meta:
         fields = [
-            'uid', 'created_at', 'updated_at', 'deleted_at', 'is_deleted', 
+            'uid', 'created_at', 'updated_at', 'deleted_at', 'is_deleted', ''
             'created_by', 'updated_by', 'deleted_by',
             'created_by_details', 'updated_by_details'
         ]

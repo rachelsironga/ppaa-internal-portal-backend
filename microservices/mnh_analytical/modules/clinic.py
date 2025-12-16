@@ -59,7 +59,7 @@ class ClinicView(APIView):
                 clinics = clinics.filter(block__uid=block_uid)
 
             if department_uid:
-                clinics = clinics.filter(department__uid=department_uid)
+                clinics = clinics.filter(department_uid=department_uid)
 
             if clinics.exists():
                 return CustomPagination.paginate(view_class=self, results=clinics, request=request)
