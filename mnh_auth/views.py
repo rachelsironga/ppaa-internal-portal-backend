@@ -20,7 +20,6 @@ from mnh_auth.utils import MyTokenObtainPairSerializer
 from utils.permissions import HasMethodPermission
 
 
-
 class RegistrationView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = RegistrationSerializer
@@ -63,6 +62,7 @@ class RegistrationView(APIView):
             return Response({'status': status.HTTP_400_BAD_REQUEST, 'message': "mnh_auth failed", 'error': str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
 
+
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = LoginSerializer
@@ -100,11 +100,11 @@ class LoginView(APIView):
                     message="First-time login. Please change your password.",
                     code=STATUS_CODES['NEW_USER'],
                     data={
-                        "username" : user.username,
-                        "first_name" : user.first_name,
-                        "last_name" : user.last_name,
-                        "email" : user.email,
-                        "status" : user.status,
+                        "username": user.username,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "email": user.email,
+                        "status": user.status,
                     }
                 )
 
@@ -133,6 +133,7 @@ class LoginView(APIView):
                 message=f"Login failed: {str(e)}"
             )
 
+
 class LoginNewUser(APIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = NewUserLoginSerializer
@@ -144,7 +145,8 @@ class LoginNewUser(APIView):
 
                 if serializer.is_valid():
                     new_user = serializer.save()
-                    user = authenticate(request, username=new_user.username, password=serializer.validated_data['password'])
+                    user = authenticate(request, username=new_user.username,
+                                        password=serializer.validated_data['password'])
                     if user is not None:
                         login(request, user)
                         auth_data = MyTokenObtainPairSerializer.get_tokens_for_user(request)
@@ -174,6 +176,7 @@ class LogoutView(APIView):
         logout(request)
         return Response({'msg': 'Successfully Logged out'}, status=status.HTTP_200_OK)
 
+
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission, ]
     serializer_class = PasswordChangeSerializer
@@ -202,8 +205,9 @@ class ChangePasswordView(APIView):
                 message=f"Failed to Change Change Password: {str(e)}"
             )
 
+
 class ResetPasswordView(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission ]
+    permission_classes = [IsAuthenticated, HasMethodPermission]
     required_permissions = {
         "post": ["can_change_user_password"],
     }
@@ -240,7 +244,8 @@ class ResetPasswordView(APIView):
 
                 print(f"----------------->{user_data.email}")
 
-                send_custom_email(to_email=f"{user_data.email}", template_name="emails/reset_email.html",subject="Password Reset Email",context=data)
+                send_custom_email(to_email=f"{user_data.email}", template_name="emails/reset_email.html",
+                                  subject="Password Reset Email", context=data)
                 return CustomResponse.success(message="Successfully. an Email sent to User Email Account.")
 
         except Exception as e:
@@ -249,7 +254,6 @@ class ResetPasswordView(APIView):
             return CustomResponse.server_error(
                 message=f"Failed to Change Change Password: {str(e)}"
             )
-
 
 
 class CheckUserExistence(APIView):
@@ -264,8 +268,9 @@ class CheckUserExistence(APIView):
             return Response({'status': status.HTTP_404_NOT_FOUND, 'message': 'User Not Exist'},
                             status=status.HTTP_404_NOT_FOUND)
 
+
 class UpdateMyProfileView(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
     serializer_class = UpdateProfileSerializer
 
     def put(self, request):
@@ -286,16 +291,14 @@ class UpdateMyProfileView(APIView):
 
         except Exception as e:
             print(f"Fail to Update Profile {e}")
-            return CustomResponse.server_error(message=f'Unable to Update Profile ' )
-
-
+            return CustomResponse.server_error(message=f'Unable to Update Profile ')
 
 
 def generate_password(length=8):
     characters = (
-        string.ascii_uppercase +
-        string.ascii_lowercase +
-        string.digits +
-        "@#$%&*?"
+            string.ascii_uppercase +
+            string.ascii_lowercase +
+            string.digits +
+            "@#$%&*?"
     )
     return ''.join(random.choice(characters) for _ in range(length))
