@@ -134,7 +134,7 @@ class Clinic(AnalyticalBaseModel):
         help_text=_('The physical block where this clinic is located')
     )
     department = models.ForeignKey(
-        'microservices.mnh_analytical.models.AnalyticalDepartment',
+        'AnalyticalDepartment',
         related_name='clinics',
         on_delete=models.SET_NULL,
         null=True,
