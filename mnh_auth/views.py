@@ -14,8 +14,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from mnh_auth.models import User, Country, Currency
-from mnh_auth.serializers import RegistrationSerializer, PasswordChangeSerializer
+from mnh_auth.models import User, Country, Currency, Department, Directory
+from mnh_auth.serializers import RegistrationSerializer, PasswordChangeSerializer, DepartmentSerializer, DirectorySerializer
 from mnh_auth.utils import MyTokenObtainPairSerializer
 from utils.permissions import HasMethodPermission
 
@@ -337,3 +337,286 @@ class CurrenciesView(APIView):
             return CustomResponse.server_error(
                 message=f"Failed to retrieve currencies: {str(e)}"
             )
+
+
+class DirectoryView(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission]
+    serializer_class = DirectorySerializer
+    required_permissions = {
+        "get": ["view_directory"],
+        "post": ["add_directory"],
+        "put": ["change_directory"],
+        "delete": ["delete_directory"],
+    }
+
+    def get(self, request, uid=None):
+        """Get all directories or a specific directory by uid"""
+        try:
+            if uid:
+                directory = Directory.objects.filter(uid=uid, is_deleted=False).first()
+                if not directory:
+                    return CustomResponse.errors(
+                        message="Directory not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                serializer = self.serializer_class(directory)
+                return CustomResponse.success(
+                    message="Directory retrieved successfully",
+                    data=serializer.data
+                )
+            else:
+                directories = Directory.objects.filter(is_deleted=False).order_by('name')
+                serializer = self.serializer_class(directories, many=True)
+                return CustomResponse.success(
+                    message="Directories retrieved successfully",
+                    data=serializer.data
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to retrieve directories: {str(e)}"
+            )
+
+    def post(self, request):
+        """Create a new directory"""
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(data=request.data)
+                if serializer.is_valid():
+                    directory = serializer.save(
+                        created_by=request.user,
+                        updated_by=request.user
+                    )
+                    return CustomResponse.success(
+                        message="Directory created successfully",
+                        data=DirectorySerializer(directory).data,
+                        code=STATUS_CODES.get("CREATED", 201)
+                    )
+                else:
+                    return CustomResponse.errors(
+                        message="Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to create directory: {str(e)}"
+            )
+
+    def put(self, request, uid=None):
+        """Update an existing directory"""
+        try:
+            with transaction.atomic():
+                if not uid:
+                    return CustomResponse.errors(
+                        message="Directory uid is required",
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                
+                directory = Directory.objects.filter(uid=uid, is_deleted=False).first()
+                if not directory:
+                    return CustomResponse.errors(
+                        message="Directory not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                
+                serializer = self.serializer_class(directory, data=request.data, partial=True)
+                if serializer.is_valid():
+                    directory = serializer.save(updated_by=request.user)
+                    return CustomResponse.success(
+                        message="Directory updated successfully",
+                        data=DirectorySerializer(directory).data
+                    )
+                else:
+                    return CustomResponse.errors(
+                        message="Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to update directory: {str(e)}"
+            )
+
+    def delete(self, request, uid=None):
+        """Soft delete a directory"""
+        try:
+            with transaction.atomic():
+                if not uid:
+                    return CustomResponse.errors(
+                        message="Directory uid is required",
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                
+                directory = Directory.objects.filter(uid=uid, is_deleted=False).first()
+                if not directory:
+                    return CustomResponse.errors(
+                        message="Directory not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                
+                # Soft delete
+                directory.is_deleted = True
+                directory.deleted_by = request.user
+                directory.deleted_at = timezone.now()
+                directory.save()
+                
+                return CustomResponse.success(
+                    message="Directory deleted successfully"
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to delete directory: {str(e)}"
+            )
+
+
+class DepartmentView(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission]
+    serializer_class = DepartmentSerializer
+    required_permissions = {
+        "get": ["view_department"],
+        "post": ["add_department"],
+        "put": ["change_department"],
+        "delete": ["delete_department"],
+    }
+
+    def get(self, request, uid=None):
+        """Get all departments or a specific department by uid"""
+        try:
+            if uid:
+                department = Department.objects.filter(uid=uid, is_deleted=False).first()
+                if not department:
+                    return CustomResponse.errors(
+                        message="Department not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                serializer = self.serializer_class(department)
+                return CustomResponse.success(
+                    message="Department retrieved successfully",
+                    data=serializer.data
+                )
+            else:
+                # Optional: filter by directory if provided
+                directory_uid = request.query_params.get('directory_uid')
+                query = Department.objects.filter(is_deleted=False).select_related('directory')
+                
+                if directory_uid:
+                    query = query.filter(directory__uid=directory_uid)
+                
+                departments = query.order_by('name')
+                serializer = self.serializer_class(departments, many=True)
+                return CustomResponse.success(
+                    message="Departments retrieved successfully",
+                    data=serializer.data
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to retrieve departments: {str(e)}"
+            )
+
+    def post(self, request):
+        """Create a new department"""
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(data=request.data)
+                if serializer.is_valid():
+                    # Validate directory exists
+                    directory_uid = request.data.get('directory')
+                    if not directory_uid:
+                        return CustomResponse.errors(
+                            message="Directory is required",
+                            code=STATUS_CODES["VALIDATION_ERROR"]
+                        )
+                    
+                    directory = Directory.objects.filter(uid=directory_uid, is_deleted=False).first()
+                    if not directory:
+                        return CustomResponse.errors(
+                            message="Directory not found",
+                            code=STATUS_CODES["DATA_NOT_FOUND"]
+                        )
+                    
+                    department = serializer.save(
+                        created_by=request.user,
+                        updated_by=request.user
+                    )
+                    return CustomResponse.success(
+                        message="Department created successfully",
+                        data=DepartmentSerializer(department).data,
+                        code=STATUS_CODES.get("CREATED", 201)
+                    )
+                else:
+                    return CustomResponse.errors(
+                        message="Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to create department: {str(e)}"
+            )
+
+    def put(self, request, uid=None):
+        """Update an existing department"""
+        try:
+            with transaction.atomic():
+                if not uid:
+                    return CustomResponse.errors(
+                        message="Department uid is required",
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                
+                department = Department.objects.filter(uid=uid, is_deleted=False).first()
+                if not department:
+                    return CustomResponse.errors(
+                        message="Department not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                
+                serializer = self.serializer_class(department, data=request.data, partial=True)
+                if serializer.is_valid():
+                    department = serializer.save(updated_by=request.user)
+                    return CustomResponse.success(
+                        message="Department updated successfully",
+                        data=DepartmentSerializer(department).data
+                    )
+                else:
+                    return CustomResponse.errors(
+                        message="Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to update department: {str(e)}"
+            )
+
+    def delete(self, request, uid=None):
+        """Soft delete a department"""
+        try:
+            with transaction.atomic():
+                if not uid:
+                    return CustomResponse.errors(
+                        message="Department uid is required",
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                
+                department = Department.objects.filter(uid=uid, is_deleted=False).first()
+                if not department:
+                    return CustomResponse.errors(
+                        message="Department not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                
+                # Soft delete
+                department.is_deleted = True
+                department.deleted_by = request.user
+                department.deleted_at = timezone.now()
+                department.save()
+                
+                return CustomResponse.success(
+                    message="Department deleted successfully"
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to delete department: {str(e)}"
+            )
+

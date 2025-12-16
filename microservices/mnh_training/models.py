@@ -317,16 +317,7 @@ class Application(BaseModel):
     class Category(models.TextChoices):
         CLINICAL = 'CL', 'Clinical'  # Shortened for efficiency
         NON_CLINICAL = 'NL', 'Non-clinical'
-    
-    
-    user = models.ForeignKey(
-        User,
-        on_delete=models.PROTECT,  
-        related_name='training_application',
-        null=True,
-        blank=True,
-        db_index=True
-    )  
+     
     student = models.ForeignKey(
         'Student',
         on_delete=models.PROTECT,  
