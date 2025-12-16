@@ -48,10 +48,8 @@ urlpatterns = [
  
     # Supplier URLs assets-suppliers?
    path('asset-suppliers', SupplierView.as_view(), name='supplier-list'),
-   path('asset-suppliers/create', SupplierView.as_view(), name='supplier-create'),
-   path('asset-suppliers/<uuid:uid>', SupplierView.as_view(), name='supplier-detail'),
-   path('asset-suppliers/<uuid:uid>/update', SupplierView.as_view(), name='supplier-update'),
-   path('asset-suppliers/<uuid:uid>/delete', SupplierView.as_view(), name='supplier-delete'),
+   path('asset-suppliers/<str:uid>', SupplierView.as_view(), name='supplier-create-update'),
+ 
     
     # Building URLs
    path('asset-buildings', BuildingView.as_view(), name='building-list'),
@@ -163,7 +161,7 @@ urlpatterns = [
    path('asset-maintenance-records/<uuid:uid>/update', MaintenanceRecordView.as_view(), name='maintenance-record-update'),
    path('asset-maintenance-records/<uuid:uid>/delete', MaintenanceRecordView.as_view(), name='maintenance-record-delete'),
     
-    # Support Ticket URLs
+    # Support Ticket URLsa
    path('asset-support-tickets', SupportTicketView.as_view(), name='support-ticket-list'),
    path('asset-support-tickets/create', SupportTicketView.as_view(), name='support-ticket-create'),
    path('asset-support-tickets/<uuid:uid>', SupportTicketView.as_view(), name='support-ticket-detail'),
@@ -172,10 +170,8 @@ urlpatterns = [
     
     # Disposal Record URLs
    path('asset-disposal-records', DisposalRecordView.as_view(), name='disposal-record-list'),
-   path('asset-disposal-records/create', DisposalRecordView.as_view(), name='disposal-record-create'),
-   path('asset-disposal-records/<uuid:uid>', DisposalRecordView.as_view(), name='disposal-record-detail'),
-   path('asset-disposal-records/<uuid:uid>/update', DisposalRecordView.as_view(), name='disposal-record-update'),
-   path('asset-disposal-records/<uuid:uid>/delete', DisposalRecordView.as_view(), name='disposal-record-delete'),
+   path('asset-disposal-records/<str:uid>', DisposalRecordView.as_view(), name='disposal-record-create'),
+
     
     # Warranty URLs
    path('asset-warranties', WarrantyView.as_view(), name='warranty-list'),
