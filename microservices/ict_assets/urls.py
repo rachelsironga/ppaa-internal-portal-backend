@@ -38,6 +38,12 @@ from microservices.ict_assets.modules.software_license import SoftwareLicenseVie
 from microservices.ict_assets.modules.supplier import SupplierView
 from microservices.ict_assets.modules.support_ticket import SupportTicketView
 from microservices.ict_assets.modules.warranty import WarrantyView
+from microservices.ict_assets.modules.reports import (
+    AssetReportsAPIView,
+    MaintenanceReportsAPIView,
+    SoftwareReportsAPIView,
+    ExportDataAPIView,
+)
 
 
 urlpatterns = [
@@ -206,6 +212,12 @@ urlpatterns = [
     path('asset-dashboard/asset-type-breakdown', AssetTypeBreakdownAPIView.as_view(), name='asset-type-breakdown'),
     path('asset-dashboard/warranty-alerts', WarrantyAlertsAPIView.as_view(), name='warranty-alerts'),
     path('asset-dashboard/filtered', FilteredDashboardAPIView.as_view(), name='filtered-dashboard'),
+
+    # Reports URLs
+    path('asset-reports', AssetReportsAPIView.as_view(), name='asset-reports'),
+    path('maintenance-reports', MaintenanceReportsAPIView.as_view(), name='maintenance-reports'),
+    path('software-reports', SoftwareReportsAPIView.as_view(), name='software-reports'),
+    path('export-data', ExportDataAPIView.as_view(), name='export-data'),
 
 ]
 
