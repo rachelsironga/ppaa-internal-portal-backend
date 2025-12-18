@@ -1,19 +1,25 @@
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from mnh_approval.tasks import send_email_task
 
 
 def send_custom_email(subject, to_email, template_name, context):
-    html_content = render_to_string(template_name, context)
-    text_content = "This is an HTML email. Please view in an HTML-compatible client."
-
-    email = EmailMultiAlternatives(
-        subject=subject,
-        body=text_content,
-        from_email=None,
-        to=[to_email],
-    )
-    email.attach_alternative(html_content, "text/html")
-    email.send()
+    """
+        Fire-and-forget: enqueue email send task.
+        """
+    # returns AsyncResult; we don't wait
+    return send_email_task.delay(subject, to_email, template_name, context)
+    # html_content = render_to_string(template_name, context)
+    # text_content = "This is an HTML email. Please view in an HTML-compatible client."
+    #
+    # email = EmailMultiAlternatives(
+    #     subject=subject,
+    #     body=text_content,
+    #     from_email=None,
+    #     to=[to_email],
+    # )
+    # email.attach_alternative(html_content, "text/html")
+    # email.send()
 
 
 import base64

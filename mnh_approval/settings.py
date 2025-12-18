@@ -202,12 +202,15 @@ DATABASES = {
         "PORT": os.getenv("POSTGRES_DB_PORT"),
     },
     "analytical": {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": "django.db.backends.mysql",
         "NAME": os.getenv("ANALYTICS_DB_NAME"),
         "USER": os.getenv("ANALYTICS_DB_USER"),
         "PASSWORD": os.getenv("ANALYTICS_DB_PWD"),
         "HOST": os.getenv("ANALYTICS_DB_HOST"),
         "PORT": os.getenv("ANALYTICS_DB_PORT"),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+        },
     },
 }
 
@@ -259,12 +262,19 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_USE_TLS=True
-EMAIL_USE_SSL=True
-EMAIL_HOST = os.getenv("EMAIL_HOST")
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-EMAIL_PORT = os.getenv("EMAIL_PORT")
-APPEND_SLASH=False
-DEFAULT_FROM_EMAIL=os.getenv("DEFAULT_FROM_EMAIL")
+
+# ---------- EMAIL (read from env) ----------
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+# Accept "True"/"False" or 1/0
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() in ("true", "1", "yes")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+
+# ---------- CELERY / REDIS ----------
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")

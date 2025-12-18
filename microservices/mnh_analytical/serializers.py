@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from .models import Block, Department, Clinic, PaymentMode, Attendance, PatientAttendance
+from .models import Block, AnalyticalDepartment, Clinic, PaymentMode, Attendance, PatientAttendance
 
 User = get_user_model()
 
@@ -154,7 +154,7 @@ class ClinicSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         try:
             if obj.department:
                 return obj.department.name
-        except Department.DoesNotExist:
+        except AnalyticalDepartment.DoesNotExist:
             pass
         return None
     
@@ -178,7 +178,7 @@ class ClinicSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
                     'name': obj.department.name,
                     'code': obj.department.code
                 }
-        except Department.DoesNotExist:
+        except AnalyticalDepartment.DoesNotExist:
             return {'id': obj.department_id} if obj.department_id else None
         return None
     
@@ -196,9 +196,9 @@ class ClinicSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         
         if 'department' in data and data['department']:
             try:
-                department = Department.objects.using('default').get(uid=data['department'])
+                department = AnalyticalDepartment.objects.using('default').get(uid=data['department'])
                 data['department'] = department.id
-            except Department.DoesNotExist:
+            except AnalyticalDepartment.DoesNotExist:
                 raise serializers.ValidationError({'department': 'Department not found with the provided UID'})
         elif 'department' in data and data['department'] == '':
             data['department'] = None
@@ -226,7 +226,7 @@ class ClinicListSerializer(BaseModelSerializer):
         try:
             if obj.department:
                 return obj.department.name
-        except Department.DoesNotExist:
+        except AnalyticalDepartment.DoesNotExist:
             pass
         return None
 

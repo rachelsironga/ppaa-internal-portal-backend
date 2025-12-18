@@ -35,7 +35,7 @@ class AttendanceView(APIView):
     def get(self, request, uid=None):
         try:
             if uid:
-                attendance = Attendance.objects.filter(uid=uid, is_deleted=False).first()
+                attendance = Attendance.objects.using('analytical').filter(uid=uid, is_deleted=False).first()
                 if not attendance:
                     raise NotFound("Attendance not found")
                 return CustomResponse.success(data=AttendanceDetailSerializer(attendance).data)
