@@ -622,6 +622,12 @@ class AssetDetailSerializer(AssetSerializer):
     
     def get_has_peripheral(self, obj):
         return hasattr(obj, 'peripheral')
+    
+    class Meta:
+        model = Asset
+        fields = AssetSerializer.Meta.fields + [
+            'has_computer', 'has_network_device', 'has_peripheral'
+        ]
 
 # Hardware Specific Serializers
 class HardwareBaseSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
@@ -1898,21 +1904,168 @@ class SupportTicketSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
         ]
 
 # Procurement and Configuration Serializers
+#         ]
 class DisposalRecordSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    # Accept asset_uid for input (will be converted to FK in validate)
+    asset_uid = serializers.UUIDField(write_only=True, required=True)
+    
+    # Returned asset object (read-only)
+    asset = serializers.SerializerMethodField(read_only=True)
+    
     asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
     approved_by_name = RelatedFieldMixin.get_user_full_name('approved_by')
+    rejected_by_name = RelatedFieldMixin.get_user_full_name('rejected_by')
+    
+    def get_asset(self, obj):
+        """Return asset details similar to get_category in AssetTypeSerializer"""
+        if obj.asset:
+            return {
+                "uid": str(obj.asset.uid),
+                "asset_tag": obj.asset.asset_tag,
+                "serial_number": obj.asset.serial_number,
+            }
+        return None
     
     def get_approved_by_name(self, obj):
         if obj.approved_by:
             return f"{obj.approved_by.first_name} {obj.approved_by.last_name}"
         return None
+
+    def get_rejected_by_name(self, obj):
+        if obj.rejected_by:
+            return f"{obj.rejected_by.first_name} {obj.rejected_by.last_name}"
+        return None
+    
+    def to_internal_value(self, data):
+        # Make a copy to avoid modifying QueryDict
+        data = data.copy() if hasattr(data, 'copy') else dict(data)
+        
+        # Convert empty strings to None for date fields
+        date_fields = ['disposal_date', 'decision_date']
+        for field_name in date_fields:
+            if field_name in data and data[field_name] == '':
+                data[field_name] = None
+        
+        # Handle approved_by and rejected_by - convert GUID to User instance
+        user_fields = ['approved_by', 'rejected_by']
+        for field_name in user_fields:
+            if field_name in data:
+                user_value = data[field_name]
+                
+                # Handle empty/None values
+                if user_value is None or user_value == '' or user_value == 'None':
+                    data[field_name] = None
+                else:
+                    # Strip whitespace if it's a string
+                    if isinstance(user_value, str):
+                        user_value = user_value.strip()
+                    
+                    if not user_value or user_value == 'None':
+                        data[field_name] = None
+                    else:
+                        try:
+                            user = User.objects.only('id').get(guid=user_value, is_active=True)
+                            data[field_name] = user.id
+                        except User.DoesNotExist:
+                            raise serializers.ValidationError({
+                                field_name: f'Invalid GUID - User not found'
+                            })
+                        except Exception as e:
+                            raise serializers.ValidationError({
+                                field_name: f'Error processing {field_name}: {str(e)}'
+                            })
+        
+        return super().to_internal_value(data)
+    
+    def validate(self, data):
+        """
+        Convert asset_uid → actual Asset instance (FK).
+        Similar to how AssetTypeSerializer converts category_uid → category.
+        """
+        asset_uid = data.pop('asset_uid', None)
+        
+        if asset_uid:
+            # Validate asset exists and not deleted
+            try:
+                data['asset'] = Asset.objects.get(uid=asset_uid, is_deleted=False)
+            except Asset.DoesNotExist:
+                raise serializers.ValidationError({
+                    "asset_uid": "Invalid Asset, not found or deleted."
+                })
+        else:
+            # If updating and asset_uid not provided, keep existing asset
+            if not self.instance:
+                raise serializers.ValidationError({
+                    "asset_uid": "This field is required."
+                })
+        
+        return data
+    
+    def to_representation(self, instance):
+        """Convert IDs back to UIDs/GUIDs for response"""
+        representation = super().to_representation(instance)
+        
+        # Convert approved_by and rejected_by IDs to GUIDs
+        if instance.approved_by:
+            representation['approved_by'] = str(instance.approved_by.guid)
+        else:
+            representation['approved_by'] = None
+            
+        if instance.rejected_by:
+            representation['rejected_by'] = str(instance.rejected_by.guid)
+        else:
+            representation['rejected_by'] = None
+        
+        return representation
     
     class Meta:
         model = DisposalRecord
         fields = BaseModelSerializer.Meta.fields + [
-            'asset', 'asset_tag', 'disposal_date', 'disposal_method',
-            'disposal_reason', 'disposal_value', 'approved_by', 'approved_by_name', 'notes'
+            'asset_uid',      # incoming UID from frontend (write-only)
+            'asset',          # outgoing asset info (read-only)
+            'asset_tag', 'disposal_date', 'disposal_method',
+            'disposal_reason', 'disposal_value', 'status',
+            'rejected_by', 'rejected_by_name', 'rejection_reason',
+            'decision_date', 'approved_by', 'approved_by_name', 'notes'
         ]
+
+
+
+class DisposalAuditTrailSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    disposal_record_uid = serializers.UUIDField(source='disposal_record.uid', read_only=True)
+    performed_by_name = RelatedFieldMixin.get_user_full_name('performed_by')
+
+    def get_performed_by_name(self, obj):
+        if obj.performed_by:
+            return f"{obj.performed_by.first_name} {obj.performed_by.last_name}"
+        return None
+
+    class Meta:
+        model = DisposalAuditTrail
+        fields = BaseModelSerializer.Meta.fields + [
+            'disposal_record', 'disposal_record_uid',
+            'action', 'performed_by', 'performed_by_name',
+            'action_date', 'comments'
+        ]
+
+
+class DisposalConversationSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    disposal_record_uid = serializers.UUIDField(source='disposal_record.uid', read_only=True)
+    sender_name = RelatedFieldMixin.get_user_full_name('sender')
+
+    def get_sender_name(self, obj):
+        if obj.sender:
+            return f"{obj.sender.first_name} {obj.sender.last_name}"
+        return None
+
+    class Meta:
+        model = DisposalConversation
+        fields = BaseModelSerializer.Meta.fields + [
+            'disposal_record', 'disposal_record_uid',
+            'sender', 'sender_name',
+            'message', 'message_type', 'is_internal'
+        ]
+
 
 class WarrantySerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     asset_tag = RelatedFieldMixin.get_related_name('asset', 'asset_tag')
@@ -1976,8 +2129,9 @@ class SupportTicketDetailSerializer(SupportTicketSerializer):
     assigned_technician = UserSerializer(read_only=True)
 
 class DisposalRecordDetailSerializer(DisposalRecordSerializer):
-    asset = AssetListSerializer(read_only=True)
+    asset = AssetDetailSerializer(read_only=True)
     approved_by = UserSerializer(read_only=True)
+    rejected_by = UserSerializer(read_only=True)
 
 class WarrantyDetailSerializer(WarrantySerializer):
     asset = AssetListSerializer(read_only=True)
