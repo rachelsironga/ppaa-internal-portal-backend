@@ -710,14 +710,101 @@ class DisposalRecord(BaseModel):
         ('donated', 'Donated'),
         ('destroyed', 'Destroyed'),
     ]
+    STATUS = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
 
     asset = models.OneToOneField(Asset, on_delete=models.CASCADE)
     disposal_date = models.DateField()
     disposal_method = models.CharField(max_length=20, choices=DISPOSAL_METHODS)
     disposal_reason = models.TextField()
     disposal_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    approved_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS, default='pending')
     notes = models.TextField(blank=True)
+    approved_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='approved_disposals')
+    rejected_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='rejected_disposals')
+    rejection_reason = models.TextField(blank=True, null=True)
+    decision_date = models.DateField(null=True, blank=True)  # date when decision was made
+
+# Disposal Audit trail
+
+class DisposalAuditTrail(BaseModel):
+    disposal_record = models.ForeignKey(
+        DisposalRecord, 
+        on_delete=models.CASCADE, 
+        related_name='audit_trail'
+    )
+
+    action = models.CharField(
+        max_length=100
+    )  # e.g., "Created", "Approved", "Rejected", "Resubmitted"
+
+    performed_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
+        related_name='disposal_actions'
+    )
+
+    action_date = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Timestamp of when the action was performed"
+    )
+
+    comments = models.TextField(
+        blank=True,
+        help_text="Optional remarks or notes about the action"
+    )
+
+    class Meta:
+        verbose_name = "Disposal Audit Trail"
+        verbose_name_plural = "Disposal Audit Trails"
+        ordering = ['-action_date']
+
+
+class DisposalConversation(BaseModel):
+
+    MESSAGE_TYPE = [
+        ('comment', 'Comment'),
+        ('clarification', 'Clarification'),
+        ('decision', 'Decision Note'),
+    ]
+
+    disposal_record = models.ForeignKey(
+        DisposalRecord,
+        on_delete=models.CASCADE,
+        related_name='conversations'
+    )
+
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True
+    )
+
+    message = models.TextField()
+
+    message_type = models.CharField(
+        max_length=20,
+        choices=MESSAGE_TYPE,
+        default='comment'
+    )
+
+    is_internal = models.BooleanField(
+        default=False,
+        help_text="If true, only approvers can see this"
+    )
+
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.sender} ({self.message_type}) - {self.message[:50]}"
 
 
 # configuration models

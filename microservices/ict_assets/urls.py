@@ -17,7 +17,14 @@ from microservices.ict_assets.modules.dashboard_summary import (
     StatusDistributionAPIView,
     WarrantyAlertsAPIView,
 )
-from microservices.ict_assets.modules.disposal_record import DisposalRecordView
+from microservices.ict_assets.modules.disposal_record import (
+    DisposalRecordView,
+    DisposalAuditTrailView,
+    DisposalConversationView,
+    DisposalApprovalView,
+    DisposalResubmitView,
+    DisposalCancelView,
+)
 from microservices.ict_assets.modules.floor import FloorView
 from microservices.ict_assets.modules.location import LocationView
 from microservices.ict_assets.modules.maintenance_record import MaintenanceRecordView
@@ -48,10 +55,8 @@ urlpatterns = [
  
     # Supplier URLs assets-suppliers?
    path('asset-suppliers', SupplierView.as_view(), name='supplier-list'),
-   path('asset-suppliers/create', SupplierView.as_view(), name='supplier-create'),
-   path('asset-suppliers/<uuid:uid>', SupplierView.as_view(), name='supplier-detail'),
-   path('asset-suppliers/<uuid:uid>/update', SupplierView.as_view(), name='supplier-update'),
-   path('asset-suppliers/<uuid:uid>/delete', SupplierView.as_view(), name='supplier-delete'),
+   path('asset-suppliers/<str:uid>', SupplierView.as_view(), name='supplier-create-update'),
+ 
     
     # Building URLs
    path('asset-buildings', BuildingView.as_view(), name='building-list'),
@@ -163,7 +168,7 @@ urlpatterns = [
    path('asset-maintenance-records/<uuid:uid>/update', MaintenanceRecordView.as_view(), name='maintenance-record-update'),
    path('asset-maintenance-records/<uuid:uid>/delete', MaintenanceRecordView.as_view(), name='maintenance-record-delete'),
     
-    # Support Ticket URLs
+    # Support Ticket URLsa
    path('asset-support-tickets', SupportTicketView.as_view(), name='support-ticket-list'),
    path('asset-support-tickets/create', SupportTicketView.as_view(), name='support-ticket-create'),
    path('asset-support-tickets/<uuid:uid>', SupportTicketView.as_view(), name='support-ticket-detail'),
@@ -172,10 +177,17 @@ urlpatterns = [
     
     # Disposal Record URLs
    path('asset-disposal-records', DisposalRecordView.as_view(), name='disposal-record-list'),
-   path('asset-disposal-records/create', DisposalRecordView.as_view(), name='disposal-record-create'),
-   path('asset-disposal-records/<uuid:uid>', DisposalRecordView.as_view(), name='disposal-record-detail'),
-   path('asset-disposal-records/<uuid:uid>/update', DisposalRecordView.as_view(), name='disposal-record-update'),
-   path('asset-disposal-records/<uuid:uid>/delete', DisposalRecordView.as_view(), name='disposal-record-delete'),
+   path('asset-disposal-records/<str:uid>', DisposalRecordView.as_view(), name='disposal-record-detail'),
+   
+   # Disposal Record Approval/Rejection URLs
+   path('asset-disposal-records/<str:uid>/approve', DisposalApprovalView.as_view(), {'action': 'approve'}, name='disposal-record-approve'),
+   path('asset-disposal-records/<str:uid>/reject', DisposalApprovalView.as_view(), {'action': 'reject'}, name='disposal-record-reject'),
+   path('asset-disposal-records/<str:uid>/resubmit', DisposalResubmitView.as_view(), name='disposal-record-resubmit'),
+   path('asset-disposal-records/<str:uid>/cancel', DisposalCancelView.as_view(), name='disposal-record-cancel'),
+   
+   path('asset-disposal-records/<str:uid>/audit-trail', DisposalAuditTrailView.as_view(), name='disposal-record-audit-trail'),
+   path('asset-disposal-records/<str:uid>/conversations', DisposalConversationView.as_view(), name='disposal-record-conversations'),
+
     
     # Warranty URLs
    path('asset-warranties', WarrantyView.as_view(), name='warranty-list'),
