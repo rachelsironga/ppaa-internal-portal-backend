@@ -69,11 +69,17 @@ class DisposalRecordView(APIView):
             disposal_method = request.GET.get('disposal_method', '').strip()
             status = request.GET.get('status', '').strip()
             is_active = request.GET.get('is_active', '').strip()
+
+            print("Disposal Record View", asset_uid, disposal_method, status, is_active, search_query)
+            # disposal_records = DisposalRecord.objects.filter(is_deleted=False).order_by('-created_at')
+
             
             disposal_records = DisposalRecord.objects.filter(is_deleted=False).select_related(
                 'asset', 'asset__asset_type', 'asset__manufacturer', 'asset__supplier', 
                 'asset__location', 'asset__custodian', 'approved_by', 'rejected_by'
             )
+
+            print("======================DisposalRecord============================>")
 
             if asset_uid:
                 disposal_records = disposal_records.filter(asset__uid=asset_uid)
@@ -138,6 +144,8 @@ class DisposalRecordView(APIView):
                 )
                 return CustomResponse.success(data=serializer.data, message="Success")
         except Exception as e:
+            print("======================")
+            print(f'Failed to Retrieve Disposal Records: {str(e)}')
             return CustomResponse.server_error(message=f'Failed to Retrieve Disposal Records: {str(e)}')
 
     def post(self, request):
