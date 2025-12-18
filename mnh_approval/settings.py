@@ -201,17 +201,17 @@ DATABASES = {
         "HOST": os.getenv("POSTGRES_DB_HOST"),
         "PORT": os.getenv("POSTGRES_DB_PORT"),
     },
-    "analytical": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("ANALYTICS_DB_NAME"),
-        "USER": os.getenv("ANALYTICS_DB_USER"),
-        "PASSWORD": os.getenv("ANALYTICS_DB_PWD"),
-        "HOST": os.getenv("ANALYTICS_DB_HOST"),
-        "PORT": os.getenv("ANALYTICS_DB_PORT"),
-        "OPTIONS": {
-            "charset": "utf8mb4",
-        },
-    },
+    # "analytical": {
+    #     "ENGINE": "django.db.backends.mysql",
+    #     "NAME": os.getenv("ANALYTICS_DB_NAME"),
+    #     "USER": os.getenv("ANALYTICS_DB_USER"),
+    #     "PASSWORD": os.getenv("ANALYTICS_DB_PWD"),
+    #     "HOST": os.getenv("ANALYTICS_DB_HOST"),
+    #     "PORT": os.getenv("ANALYTICS_DB_PORT"),
+    #     "OPTIONS": {
+    #         "charset": "utf8mb4",
+    #     },
+    # },
 }
 
 
