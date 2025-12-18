@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.validators import RegexValidator, FileExtensionValidator, MinValueValidator, MaxValueValidator
+from django.utils.text import slugify
 import uuid
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager, PermissionsMixin, Permission
@@ -213,7 +215,8 @@ class BaseModel(models.Model):
     deleted_at = models.DateTimeField(blank=True, null=True)
     is_deleted = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(User, related_name='created_%(class)s', on_delete=models.SET_NULL, null=True,
+    created_by = models.ForeignKey(User, related_name='created_%(class)s', 
+                                   on_delete=models.SET_NULL, null=True,
                                    blank=True)
     updated_by = models.ForeignKey(User, related_name='updated_%(class)s', on_delete=models.SET_NULL, null=True,
                                    blank=True)
@@ -222,6 +225,97 @@ class BaseModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class Currency(BaseModel):
+    name = models.CharField(max_length=20, unique=True)
+    code = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True, help_text="Timestamp when the project was created.")
+    updated_at = models.DateTimeField(auto_now=True, help_text="Timestamp when the project was last updated.")
+    is_deleted = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.name}"
+    
+    class Meta:
+        db_table = 'currencies'
+        verbose_name = "Currency"
+        verbose_name_plural = "Currencies"  
+
+
+class Country(BaseModel):
+    """Country model without internationalization"""
+    
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[a-zA-Z\s\-]+$',
+                message='Country name can only contain letters, spaces and hyphens'
+            )
+        ]
+    )
+    
+    iso_code = models.CharField(
+        max_length=2,
+        blank=True,
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[A-Z]{2}$',
+                message='ISO code must be 2 uppercase letters'
+            )
+        ],
+        verbose_name="ISO Alpha-2 Code"
+    )
+    
+    latitude = models.FloatField(
+        blank=True,
+        null=True,
+        validators=[
+            MinValueValidator(-90),
+            MaxValueValidator(90)
+        ]
+    )
+    
+    longitude = models.FloatField(
+        blank=True,
+        null=True,
+        validators=[
+            MinValueValidator(-180),
+            MaxValueValidator(180)
+        ]
+    )
+    
+    description = models.TextField(blank=True, null=True)
+    slug = models.SlugField(max_length=100, unique=True, blank=True)
+    
+    # Timestamps and soft delete fields (if using BaseModel)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_deleted = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return self.name
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+    
+    def clean(self):
+        if self.name:
+            self.name = self.name.strip().title()
+        super().clean()
+    
+    class Meta:
+        verbose_name_plural = "Countries"
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['is_deleted']),
+        ]
 
 
 class GroupProfile(models.Model):

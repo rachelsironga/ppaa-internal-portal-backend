@@ -7,19 +7,13 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: P@ssw0rd
       POSTGRES_DB: mnh_approval_db
-      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
-      EMAIL_HOST: smtp.gmail.com
-      EMAIL_PORT: 465
-      EMAIL_HOST_USER: mnhconnect@gmail.com
-      EMAIL_HOST_PASSWORD: 'fzlf psfi zpmf uiyw'
-      DEFAULT_FROM_EMAIL: mnhconnect@gmail.com
     ports:
       - "5433:5432"
     volumes:
       - /opt/mnh-data/postgres:/var/lib/postgresql/data
+      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
     networks:
       - mnh-network
-
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
@@ -35,6 +29,29 @@ services:
       - mnh-network
     depends_on:
       - postgres
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: analytics_db
+      MYSQL_USER: analytics
+      MYSQL_PASSWORD: analytics@MNH25
+      MYSQL_ROOT_PASSWORD: P@ssw0rd
+    ports:
+      - "3307:3306"
+    volumes:
+      - /opt/mnh-data/mysql-analytics:/var/lib/mysql
+    networks:
+      - mnh-network
+  redis:
+    image: redis:7
+    container_name: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - mnh-network
 
   backend:
     image: mnh-connect-backend
@@ -51,13 +68,80 @@ services:
     expose:
       - "8000"
     environment:
+      # PostgreSQL
       POSTGRES_DB_NAME: "mnh_approval_db"
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
       POSTGRES_DB_HOST: "postgres"
       POSTGRES_DB_PORT: 5432
+
+      # MySQL
+      ANALYTICS_DB_NAME: "analytics_db"
+      ANALYTICS_DB_USER: "analytics"
+      ANALYTICS_DB_PWD: "analytics@MNH25"
+      ANALYTICS_DB_HOST: "mysql"
+      ANALYTICS_DB_PORT: 3306
+
+      # 🔥 EMAIL SETTINGS (LIVE GMAIL)
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: smtp.gmail.com
+      EMAIL_PORT: 587
+      EMAIL_HOST_USER: mnhconnect@gmail.com
+      EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
+      EMAIL_USE_TLS: "True"
+      DEFAULT_FROM_EMAIL: mnhconnect@gmail.com
+
+      # 🔥 CELERY + REDIS
+      CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
     env_file:
       - .env
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - postgres
+
+  celery_worker:
+    image: mnh-connect-backend
+    container_name: celery-worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A mnh_approval.config.celery_app worker --loglevel=info
+
+    volumes:
+      - ./:/app
+    networks:
+      - mnh-network
+    environment:
+      # Same DB connection
+      POSTGRES_DB_NAME: "mnh_approval_db"
+      POSTGRES_DB_USER: "postgres"
+      POSTGRES_DB_PWD: "P@ssw0rd"
+      POSTGRES_DB_HOST: "postgres"
+      POSTGRES_DB_PORT: 5432
+
+      ANALYTICS_DB_NAME: "analytics_db"
+      ANALYTICS_DB_USER: "analytics"
+      ANALYTICS_DB_PWD: "analytics@MNH25"
+      ANALYTICS_DB_HOST: "mysql"
+      ANALYTICS_DB_PORT: 3306
+
+      # Same EMAIL SETTINGS
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: smtp.gmail.com
+      EMAIL_PORT: 587
+      EMAIL_HOST_USER: mnhconnect@gmail.com
+      EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
+      EMAIL_USE_TLS: "True"
+      DEFAULT_FROM_EMAIL: mnhconnect@gmail.com
+
+      # Celery + Redis
+      CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+      - backend
     restart: unless-stopped
 
   nginx:

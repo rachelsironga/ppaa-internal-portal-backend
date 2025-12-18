@@ -17,7 +17,14 @@ from microservices.ict_assets.modules.dashboard_summary import (
     StatusDistributionAPIView,
     WarrantyAlertsAPIView,
 )
-from microservices.ict_assets.modules.disposal_record import DisposalRecordView
+from microservices.ict_assets.modules.disposal_record import (
+    DisposalRecordView,
+    DisposalAuditTrailView,
+    DisposalConversationView,
+    DisposalApprovalView,
+    DisposalResubmitView,
+    DisposalCancelView,
+)
 from microservices.ict_assets.modules.floor import FloorView
 from microservices.ict_assets.modules.location import LocationView
 from microservices.ict_assets.modules.maintenance_record import MaintenanceRecordView
@@ -170,7 +177,16 @@ urlpatterns = [
     
     # Disposal Record URLs
    path('asset-disposal-records', DisposalRecordView.as_view(), name='disposal-record-list'),
-   path('asset-disposal-records/<str:uid>', DisposalRecordView.as_view(), name='disposal-record-create'),
+   path('asset-disposal-records/<str:uid>', DisposalRecordView.as_view(), name='disposal-record-detail'),
+   
+   # Disposal Record Approval/Rejection URLs
+   path('asset-disposal-records/<str:uid>/approve', DisposalApprovalView.as_view(), {'action': 'approve'}, name='disposal-record-approve'),
+   path('asset-disposal-records/<str:uid>/reject', DisposalApprovalView.as_view(), {'action': 'reject'}, name='disposal-record-reject'),
+   path('asset-disposal-records/<str:uid>/resubmit', DisposalResubmitView.as_view(), name='disposal-record-resubmit'),
+   path('asset-disposal-records/<str:uid>/cancel', DisposalCancelView.as_view(), name='disposal-record-cancel'),
+   
+   path('asset-disposal-records/<str:uid>/audit-trail', DisposalAuditTrailView.as_view(), name='disposal-record-audit-trail'),
+   path('asset-disposal-records/<str:uid>/conversations', DisposalConversationView.as_view(), name='disposal-record-conversations'),
 
     
     # Warranty URLs
