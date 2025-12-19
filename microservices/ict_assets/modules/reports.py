@@ -415,7 +415,7 @@ class MaintenanceReportsAPIView(APIView):
 
     def _get_technician_report(self, records):
         technician_data = list(records.values(
-            technician_uid=F('technician__uid'),
+            technician_guid=F('technician__guid'),
             technician_first=F('technician__first_name'),
             technician_last=F('technician__last_name')
         ).annotate(
@@ -425,10 +425,25 @@ class MaintenanceReportsAPIView(APIView):
             in_progress=Count('uid', filter=Q(status='in_progress'))
         ).order_by('-count'))
 
+        # Format the data for better display
+        formatted_data = []
+        for item in technician_data:
+            first_name = item.get('technician_first') or ''
+            last_name = item.get('technician_last') or ''
+            technician_name = f"{first_name} {last_name}".strip() or 'Unassigned'
+            formatted_data.append({
+                'technician_guid': str(item.get('technician_guid')) if item.get('technician_guid') else None,
+                'technician_name': technician_name,
+                'count': item.get('count', 0),
+                'total_cost': float(item.get('total_cost') or 0),
+                'completed': item.get('completed', 0),
+                'in_progress': item.get('in_progress', 0),
+            })
+
         return Response({
             'report_type': 'by_technician',
             'generated_at': timezone.now().isoformat(),
-            'data': technician_data,
+            'data': formatted_data,
             'total_records': records.count()
         })
 
