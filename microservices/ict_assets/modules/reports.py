@@ -36,16 +36,18 @@ class AssetReportsAPIView(APIView):
         if end_date:
             assets = assets.filter(created_at__lte=end_date)
         if category_id:
-            assets = assets.filter(asset_type__category_id=category_id)
+            assets = assets.filter(asset_type__category__uid=category_id)
         if status_filter:
             assets = assets.filter(status=status_filter)
         if location_id:
-            assets = assets.filter(location_id=location_id)
+            assets = assets.filter(location__uid=location_id)
 
         if report_type == 'summary':
             return self._get_summary_report(assets)
         elif report_type == 'by_status':
             return self._get_status_report(assets)
+        elif report_type == 'by_condition':
+            return self._get_condition_report(assets)
         elif report_type == 'by_category':
             return self._get_category_report(assets)
         elif report_type == 'by_location':
@@ -83,6 +85,19 @@ class AssetReportsAPIView(APIView):
         today = timezone.now().date()
         thirty_days = today + timedelta(days=30)
 
+        # Get condition distribution for each asset type
+        computers_by_condition = list(Computer.objects.values(
+            condition=F('asset__condition')
+        ).annotate(count=Count('uid')).order_by('-count'))
+
+        network_devices_by_condition = list(NetworkDevice.objects.values(
+            condition=F('asset__condition')
+        ).annotate(count=Count('uid')).order_by('-count'))
+
+        peripherals_by_condition = list(Peripheral.objects.values(
+            condition=F('asset__condition')
+        ).annotate(count=Count('uid')).order_by('-count'))
+
         return Response({
             'report_type': 'summary',
             'generated_at': timezone.now().isoformat(),
@@ -93,6 +108,11 @@ class AssetReportsAPIView(APIView):
                 'computers': Computer.objects.count(),
                 'network_devices': NetworkDevice.objects.count(),
                 'peripherals': Peripheral.objects.count(),
+            },
+            'asset_type_conditions': {
+                'computers': computers_by_condition,
+                'network_devices': network_devices_by_condition,
+                'peripherals': peripherals_by_condition,
             },
             'status_breakdown': status_breakdown,
             'category_breakdown': category_breakdown,
@@ -117,9 +137,23 @@ class AssetReportsAPIView(APIView):
             'total_assets': assets.count()
         })
 
+    def _get_condition_report(self, assets):
+        condition_data = list(assets.values('condition').annotate(
+            count=Count('uid'),
+            total_value=Sum('purchase_cost'),
+            avg_value=Avg('purchase_cost')
+        ).order_by('-count'))
+
+        return Response({
+            'report_type': 'by_condition',
+            'generated_at': timezone.now().isoformat(),
+            'data': condition_data,
+            'total_assets': assets.count()
+        })
+
     def _get_category_report(self, assets):
         category_data = list(assets.values(
-            category_id=F('asset_type__category__uid'),
+            category_uid=F('asset_type__category__uid'),
             category_name=F('asset_type__category__name')
         ).annotate(
             count=Count('uid'),
@@ -138,7 +172,7 @@ class AssetReportsAPIView(APIView):
 
     def _get_location_report(self, assets):
         location_data = list(assets.values(
-            location_id=F('location__uid'),
+            location_uid=F('location__uid'),
             location_name=F('location__name'),
             building_name=F('location__building__name')
         ).annotate(
@@ -156,7 +190,7 @@ class AssetReportsAPIView(APIView):
 
     def _get_type_report(self, assets):
         type_data = list(assets.values(
-            type_id=F('asset_type__uid'),
+            type_uid=F('asset_type__uid'),
             type_name=F('asset_type__name'),
             category_name=F('asset_type__category__name')
         ).annotate(
@@ -294,7 +328,7 @@ class MaintenanceReportsAPIView(APIView):
         if status_filter:
             records = records.filter(status=status_filter)
         if technician_id:
-            records = records.filter(technician_id=technician_id)
+            records = records.filter(technician__uid=technician_id)
 
         if report_type == 'summary':
             return self._get_summary_report(records)
@@ -381,7 +415,7 @@ class MaintenanceReportsAPIView(APIView):
 
     def _get_technician_report(self, records):
         technician_data = list(records.values(
-            technician_id=F('technician__uid'),
+            technician_guid=F('technician__guid'),
             technician_first=F('technician__first_name'),
             technician_last=F('technician__last_name')
         ).annotate(
@@ -391,16 +425,31 @@ class MaintenanceReportsAPIView(APIView):
             in_progress=Count('uid', filter=Q(status='in_progress'))
         ).order_by('-count'))
 
+        # Format the data for better display
+        formatted_data = []
+        for item in technician_data:
+            first_name = item.get('technician_first') or ''
+            last_name = item.get('technician_last') or ''
+            technician_name = f"{first_name} {last_name}".strip() or 'Unassigned'
+            formatted_data.append({
+                'technician_guid': str(item.get('technician_guid')) if item.get('technician_guid') else None,
+                'technician_name': technician_name,
+                'count': item.get('count', 0),
+                'total_cost': float(item.get('total_cost') or 0),
+                'completed': item.get('completed', 0),
+                'in_progress': item.get('in_progress', 0),
+            })
+
         return Response({
             'report_type': 'by_technician',
             'generated_at': timezone.now().isoformat(),
-            'data': technician_data,
+            'data': formatted_data,
             'total_records': records.count()
         })
 
     def _get_asset_report(self, records):
         asset_data = list(records.values(
-            asset_id=F('asset__uid'),
+            asset_uid=F('asset__uid'),
             asset_tag=F('asset__asset_tag')
         ).annotate(
             maintenance_count=Count('uid'),
@@ -488,7 +537,7 @@ class SoftwareReportsAPIView(APIView):
         software = Software.objects.all()
 
         if category_id:
-            software = software.filter(category_id=category_id)
+            software = software.filter(category__uid=category_id)
         if license_type:
             software = software.filter(license_type=license_type)
 
