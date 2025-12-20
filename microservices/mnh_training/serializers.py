@@ -188,21 +188,9 @@ class ApplicationMinimalSerializer(serializers.ModelSerializer):
 
 class SupervisorMinimalSerializer(serializers.ModelSerializer):
     """Minimal supervisor serializer for nested display"""
-    user = serializers.SerializerMethodField()
-    
     class Meta:
         model = Supervisor
-        fields = ['uid', 'user']
-    
-    def get_user(self, obj):
-        if obj.user:
-            return {
-                'uid': str(obj.user.uid),
-                'full_name': obj.user.get_full_name(),
-                'username': obj.user.username,
-                'email': obj.user.email
-            }
-        return None
+        fields = ['uid', 'user_guid', 'department_uid', 'description']
 
 
 class InstitutionMinimalSerializer(serializers.ModelSerializer):
@@ -429,12 +417,11 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
         write_only=True,
         source='application'
     )
-    department_uid = UUIDRelatedField(
-        queryset=Department.objects.filter(is_deleted=False),
+    department_uid = serializers.CharField(
         required=False,
         allow_null=True,
         write_only=True,
-        source='department'
+        help_text="UID reference to Department from auth microservice"
     )
     supervisor_uid = UUIDRelatedField(
         queryset=Supervisor.objects.filter(is_deleted=False),
@@ -445,7 +432,6 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
     )
     # For read operations - return nested objects
     application = ApplicationMinimalSerializer(read_only=True)
-    department = DepartmentMinimalSerializer(read_only=True)
     supervisor = SupervisorMinimalSerializer(read_only=True)
     
     duration_days = serializers.IntegerField(read_only=True)
@@ -453,7 +439,7 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
     class Meta:
         model = DepartmentAllocation
         fields = BaseModelSerializer.Meta.fields + [
-            'application', 'application_uid', 'department', 'department_uid',
+            'application', 'application_uid', 'department_uid',
             'supervisor', 'supervisor_uid', 'start_date', 'end_date',
             'duration_days', 'description', 'is_active'
         ]
@@ -465,32 +451,18 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
 
 # Supervisor Serializer
 class SupervisorSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
-    # For write operations - accept UUID strings
-    user_uid = UUIDRelatedField(
-        queryset=User.objects.filter(is_deleted=False),
-        required=False,
-        allow_null=True,
-        write_only=True,
-        source='user'
-    )
-    # For read operations - return nested object
-    user = serializers.SerializerMethodField(read_only=True)
-    
-    def get_user(self, obj):
-        if obj.user:
-            return {
-                'uid': str(obj.user.guid),
-                'full_name': obj.user.get_full_name(),
-                'email': obj.user.email
-            }
-        return None
-    
     class Meta:
         model = Supervisor
         fields = BaseModelSerializer.Meta.fields + [
-            'user', 'user_uid', 'department',
+            'user_guid', 'department_uid',
             'description', 'is_active'
         ]
+
+
+# Supervisor List Serializer
+class SupervisorListSerializer(SupervisorSerializer):
+    """List serializer for supervisor display"""
+    pass
 
 
 # Institution Serializer
@@ -603,18 +575,12 @@ class TrainingBatchSerializer(SaveWithRequestUserMixin, BaseModelSerializer, Dat
     
     department_names = serializers.SerializerMethodField()
     duration_display = serializers.CharField(read_only=True)
-    cancelled_by_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     mou_number = serializers.SerializerMethodField()
     institution_name = serializers.SerializerMethodField()
     
     def get_department_names(self, obj):
         return list(obj.departments.values_list('name', flat=True))
-    
-    def get_cancelled_by_name(self, obj):
-        if obj.cancelled_by:
-            return f"{obj.cancelled_by.first_name} {obj.cancelled_by.last_name}"
-        return None
     
     def get_mou_number(self, obj):
         return obj.mou.mou_number if obj.mou else None
@@ -629,7 +595,7 @@ class TrainingBatchSerializer(SaveWithRequestUserMixin, BaseModelSerializer, Dat
             'number_of_students', 'departments', 'department_names',
             'invoiced_amount', 'currency', 'training_start_date', 'training_end_date',
             'duration_display', 'application_letter', 'status', 'status_display',
-            'notes', 'cancellation_reason', 'cancelled_by', 'cancelled_by_name',
+            'notes', 'cancellation_reason', 'cancelled_by_guid',
             'cancelled_at', 'is_active'
         ]
         read_only_fields = ['batch_number', 'duration_display', 'mou_number', 'institution_name']

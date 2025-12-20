@@ -282,8 +282,8 @@ class Student(BaseModel):
 
 
 class Supervisor(BaseModel):    
-    user = models.ForeignKey(User, on_delete=models.PROTECT, related_name="supervisor")
-    department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="supervisor")
+    user_guid = models.CharField(max_length=36, help_text="GUID reference to User from auth microservice")
+    department_uid = models.CharField(max_length=36, help_text="UID reference to Department from auth microservice")
 
     description = models.TextField(max_length=500, blank=True, null=True)    
     
@@ -296,11 +296,11 @@ class Supervisor(BaseModel):
         super().clean()
 
     def __str__(self):
-        return f"{self.user}"
+        return f"Supervisor {self.user_guid}"
     
     @property
     def get_supervisor(self):
-        return (self.user) or (self.user.email)
+        return self.user_guid
 
 
 class Application(BaseModel):
@@ -441,7 +441,7 @@ class Application(BaseModel):
 
 class DepartmentAllocation(BaseModel):
     application = models.ForeignKey(Application, on_delete=models.PROTECT)
-    department = models.ForeignKey(Department, on_delete=models.PROTECT)
+    department_uid = models.CharField(max_length=36, help_text="UID reference to Department from auth microservice")
     supervisor = models.ForeignKey(Supervisor, on_delete=models.PROTECT, blank=True, null=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
@@ -465,7 +465,7 @@ class DepartmentAllocation(BaseModel):
         if self.start_date and self.end_date:
             overlapping_allocations = DepartmentAllocation.objects.filter(
                 application=self.application,
-                department=self.department,
+                department_uid=self.department_uid,
                 start_date__lte=self.end_date,
                 end_date__gte=self.start_date,
                 is_deleted=False,  # Optional: exclude soft-deleted
@@ -477,7 +477,7 @@ class DepartmentAllocation(BaseModel):
                 )
 
     def __str__(self):
-        return f"{self.department.name} Allocation"
+        return f"{self.department_uid} Allocation"
     
     @property
     def duration_days(self):
@@ -625,12 +625,11 @@ class TrainingBatch(BaseModel):
     ], default='planned')
     notes = models.TextField(blank=True)
     cancellation_reason = models.TextField(blank=True)
-    cancelled_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
+    cancelled_by_guid = models.CharField(
+        max_length=36,
         null=True,
         blank=True,
-        related_name='cancelled_%(class)s',
+        help_text="GUID reference to User from auth microservice who cancelled this batch",
         db_index=True  
     )
     cancelled_at = models.DateTimeField(auto_now=True, blank=True, null=True)

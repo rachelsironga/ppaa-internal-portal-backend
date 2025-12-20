@@ -44,9 +44,9 @@ class DepartmentAllocationView(APIView):
 
             if search_query:
                 allocations = allocations.filter(
-                    Q(department__name__icontains=search_query) |
+                    Q(department_uid__icontains=search_query) |
                     Q(application__application_number__icontains=search_query) |
-                    Q(supervisor__user__username__icontains=search_query)
+                    Q(supervisor__user_guid__icontains=search_query)
                 )
 
             if allocations.exists():

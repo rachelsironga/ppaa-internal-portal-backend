@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from microservices.mnh_training.models import Supervisor
-from microservices.mnh_training.serializers import SupervisorSerializer
+from microservices.mnh_training.serializers import SupervisorSerializer, SupervisorListSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from utils.permissions import HasMethodPermission
@@ -16,6 +16,7 @@ from utils.permissions import HasMethodPermission
 class SupervisorView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = SupervisorSerializer
+    list_serializer_class = SupervisorListSerializer
 
     required_permissions = {
         "get": ["view_supervisor"],
@@ -39,14 +40,13 @@ class SupervisorView(APIView):
             supervisors = Supervisor.objects.filter(is_deleted=False)
 
             if department_uid:
-                supervisors = supervisors.filter(department__uid=department_uid)
+                supervisors = supervisors.filter(department_uid=department_uid)
 
             if search_query:
                 supervisors = supervisors.filter(
-                    Q(user__first_name__icontains=search_query) |
-                    Q(user__last_name__icontains=search_query) |
-                    Q(user__email__icontains=search_query) |
-                    Q(department__name__icontains=search_query)
+                    Q(user_guid__icontains=search_query) |
+                    Q(department_uid__icontains=search_query) |
+                    Q(description__icontains=search_query)
                 )
 
             if supervisors.exists():

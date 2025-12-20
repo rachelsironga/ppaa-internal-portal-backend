@@ -305,43 +305,263 @@ def generate_password(length=8):
 
 
 class CountriesView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = CountrySerializer
+    required_permissions = {
+        "get": ["view_country"],
+        "post": ["add_country"],
+        "put": ["change_country"],
+        "delete": ["delete_country"],
+    }
 
-    def get(self, request):
-        """Get all countries"""
+    def get(self, request, uid=None):
+        """Get all countries or a specific country by uid"""
         try:
-            countries = Country.objects.filter(is_deleted=False).order_by('name')
-            serializer = self.serializer_class(countries, many=True)
-            return CustomResponse.success(
-                message="Countries retrieved successfully",
-                data=serializer.data
-            )
+            if uid:
+                country = Country.objects.filter(uid=uid, is_deleted=False).first()
+                if not country:
+                    return CustomResponse.error(
+                        message="Country not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                serializer = self.serializer_class(country)
+                return CustomResponse.success(
+                    message="Country retrieved successfully",
+                    data=serializer.data
+                )
+            else:
+                countries = Country.objects.filter(is_deleted=False).order_by('name')
+                serializer = self.serializer_class(countries, many=True)
+                return CustomResponse.success(
+                    message="Countries retrieved successfully",
+                    data=serializer.data
+                )
         except Exception as e:
             return CustomResponse.server_error(
                 message=f"Failed to retrieve countries: {str(e)}"
             )
 
+    def post(self, request):
+        """Create a new country"""
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(data=request.data)
+                if serializer.is_valid():
+                    country = serializer.save(
+                        created_by=request.user,
+                        updated_by=request.user
+                    )
+                    return CustomResponse.success(
+                        message="Country created successfully",
+                        data=CountrySerializer(country).data,
+                        code=STATUS_CODES.get("CREATED", 201)
+                    )
+                else:
+                    return CustomResponse.error(
+                        message="Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to create country: {str(e)}"
+            )
+
+    def put(self, request, uid=None):
+        """Update an existing country"""
+        try:
+            with transaction.atomic():
+                if not uid:
+                    return CustomResponse.error(
+                        message="Country uid is required",
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                
+                country = Country.objects.filter(uid=uid, is_deleted=False).first()
+                if not country:
+                    return CustomResponse.error(
+                        message="Country not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                
+                serializer = self.serializer_class(country, data=request.data, partial=True)
+                if serializer.is_valid():
+                    country = serializer.save(updated_by=request.user)
+                    return CustomResponse.success(
+                        message="Country updated successfully",
+                        data=CountrySerializer(country).data
+                    )
+                else:
+                    return CustomResponse.error(
+                        message="Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to update country: {str(e)}"
+            )
+
+    def delete(self, request, uid=None):
+        """Soft delete a country"""
+        try:
+            with transaction.atomic():
+                if not uid:
+                    return CustomResponse.error(
+                        message="Country uid is required",
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                
+                country = Country.objects.filter(uid=uid, is_deleted=False).first()
+                if not country:
+                    return CustomResponse.error(
+                        message="Country not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                
+                # Soft delete
+                country.is_deleted = True
+                country.deleted_by = request.user
+                country.deleted_at = timezone.now()
+                country.save()
+                
+                return CustomResponse.success(
+                    message="Country deleted successfully"
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to delete country: {str(e)}"
+            )
 
 class CurrenciesView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = CurrencySerializer
+    required_permissions = {
+        "get": ["view_currency"],
+        "post": ["add_currency"],
+        "put": ["change_currency"],
+        "delete": ["delete_currency"],
+    }
 
-    def get(self, request):
-        """Get all currencies"""
+    def get(self, request, uid=None):
+        """Get all currencies or a specific currency by uid"""
         try:
-            currencies = Currency.objects.filter(is_deleted=False).order_by('name')
-            serializer = self.serializer_class(currencies, many=True)
-            return CustomResponse.success(
-                message="Currencies retrieved successfully",
-                data=serializer.data
-            )
+            if uid:
+                currency = Currency.objects.filter(uid=uid, is_deleted=False).first()
+                if not currency:
+                    return CustomResponse.error(
+                        message="Currency not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                serializer = self.serializer_class(currency)
+                return CustomResponse.success(
+                    message="Currency retrieved successfully",
+                    data=serializer.data
+                )
+            else:
+                currencies = Currency.objects.filter(is_deleted=False).order_by('name')
+                serializer = self.serializer_class(currencies, many=True)
+                return CustomResponse.success(
+                    message="Currencies retrieved successfully",
+                    data=serializer.data
+                )
         except Exception as e:
             return CustomResponse.server_error(
                 message=f"Failed to retrieve currencies: {str(e)}"
             )
 
+    def post(self, request):
+        """Create a new currency"""
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(data=request.data)
+                if serializer.is_valid():
+                    currency = serializer.save(
+                        created_by=request.user,
+                        updated_by=request.user
+                    )
+                    return CustomResponse.success(
+                        message="Currency created successfully",
+                        data=CurrencySerializer(currency).data,
+                        code=STATUS_CODES.get("CREATED", 201)
+                    )
+                else:
+                    return CustomResponse.error(
+                        message="Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to create currency: {str(e)}"
+            )
 
+    def put(self, request, uid=None):
+        """Update an existing currency"""
+        try:
+            with transaction.atomic():
+                if not uid:
+                    return CustomResponse.error(
+                        message="Currency uid is required",
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                
+                currency = Currency.objects.filter(uid=uid, is_deleted=False).first()
+                if not currency:
+                    return CustomResponse.error(
+                        message="Currency not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                
+                serializer = self.serializer_class(currency, data=request.data, partial=True)
+                if serializer.is_valid():
+                    currency = serializer.save(updated_by=request.user)
+                    return CustomResponse.success(
+                        message="Currency updated successfully",
+                        data=CurrencySerializer(currency).data
+                    )
+                else:
+                    return CustomResponse.error(
+                        message="Validation failed",
+                        data=serializer.errors,
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to update currency: {str(e)}"
+            )
+
+    def delete(self, request, uid=None):
+        """Soft delete a currency"""
+        try:
+            with transaction.atomic():
+                if not uid:
+                    return CustomResponse.error(
+                        message="Currency uid is required",
+                        code=STATUS_CODES["VALIDATION_ERROR"]
+                    )
+                
+                currency = Currency.objects.filter(uid=uid, is_deleted=False).first()
+                if not currency:
+                    return CustomResponse.error(
+                        message="Currency not found",
+                        code=STATUS_CODES["DATA_NOT_FOUND"]
+                    )
+                
+                # Soft delete
+                currency.is_deleted = True
+                currency.deleted_by = request.user
+                currency.deleted_at = timezone.now()
+                currency.save()
+                
+                return CustomResponse.success(
+                    message="Currency deleted successfully"
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to delete currency: {str(e)}"
+            )
+        
 class DirectoryView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = DirectorySerializer
@@ -470,7 +690,6 @@ class DirectoryView(APIView):
             return CustomResponse.server_error(
                 message=f"Failed to delete directory: {str(e)}"
             )
-
 
 class DepartmentView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
