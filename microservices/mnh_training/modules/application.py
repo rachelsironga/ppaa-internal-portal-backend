@@ -62,18 +62,42 @@ class ApplicationView(APIView):
                     Q(student__email__icontains=search_query)
                 )
 
-            if applications.exists():
-               serializer = self.list_serializer_class(
-                   applications,
-                   many=True,
-                   context={'request': request}
-               )
-               return CustomResponse.success(
-                   data=serializer.data,
-                   message="Success"
-               )
-
-            return CustomResponse.errors(message="Applications not found", data=[])
+            # Check if pagination is requested
+            paginated = request.GET.get('paginated', 'false').lower() == 'true'
+            if paginated:
+                page = int(request.GET.get('page', 1))
+                page_size = int(request.GET.get('page_size', 10))
+                
+                total = applications.count()
+                start_num = (page - 1) * page_size
+                end_num = page_size * page
+                
+                paginated_applications = applications[start_num:end_num]
+                
+                serializer = self.list_serializer_class(
+                    paginated_applications,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success",
+                    pagination={
+                        "page_size": page_size,
+                        "page": page,
+                        "total": total,
+                    }
+                )
+            else:
+                serializer = self.list_serializer_class(
+                    applications,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success"
+                )
 
         except Exception as e:
             return CustomResponse.server_error(

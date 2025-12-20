@@ -50,15 +50,15 @@ class DepartmentAllocationView(APIView):
                 )
 
             if allocations.exists():
-               serializer = self.list_serializer_class(
-                   allocations,
-                   many=True,
-                   context={'request': request}
-               )
-               return CustomResponse.success(
-                   data=serializer.data,
-                   message="Success"
-               )
+                serializer = self.serializer_class(
+                    allocations,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success"
+                )
 
             return CustomResponse.errors(message="Department Allocations not found", data=[])
 

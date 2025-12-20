@@ -178,18 +178,31 @@ class StudentMinimalSerializer(serializers.ModelSerializer):
 
 class ApplicationMinimalSerializer(serializers.ModelSerializer):
     """Minimal application serializer for nested display"""
+    student = StudentMinimalSerializer(read_only=True)
+    reference_number = serializers.CharField(read_only=True)
+    
     class Meta:
         model = Application
-        fields = ['uid', 'application_number', 'placement_type', 'from_date', 'to_date']
+        fields = ['uid', 'application_number', 'reference_number', 'placement_type', 'from_date', 'to_date', 'student']
 
 
 class SupervisorMinimalSerializer(serializers.ModelSerializer):
     """Minimal supervisor serializer for nested display"""
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user = serializers.SerializerMethodField()
     
     class Meta:
         model = Supervisor
-        fields = ['uid', 'user_name']
+        fields = ['uid', 'user']
+    
+    def get_user(self, obj):
+        if obj.user:
+            return {
+                'uid': str(obj.user.uid),
+                'full_name': obj.user.get_full_name(),
+                'username': obj.user.username,
+                'email': obj.user.email
+            }
+        return None
 
 
 class InstitutionMinimalSerializer(serializers.ModelSerializer):
@@ -204,6 +217,13 @@ class MOUMinimalSerializer(serializers.ModelSerializer):
     class Meta:
         model = MOU
         fields = ['uid', 'mou_number', 'start_date', 'end_date']
+
+
+class DepartmentMinimalSerializer(serializers.ModelSerializer):
+    """Minimal department serializer for nested display"""
+    class Meta:
+        model = Department
+        fields = ['uid', 'name', 'code']
 
 
 # Country Serializer
@@ -409,6 +429,13 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
         write_only=True,
         source='application'
     )
+    department_uid = UUIDRelatedField(
+        queryset=Department.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='department'
+    )
     supervisor_uid = UUIDRelatedField(
         queryset=Supervisor.objects.filter(is_deleted=False),
         required=False,
@@ -418,6 +445,7 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
     )
     # For read operations - return nested objects
     application = ApplicationMinimalSerializer(read_only=True)
+    department = DepartmentMinimalSerializer(read_only=True)
     supervisor = SupervisorMinimalSerializer(read_only=True)
     
     duration_days = serializers.IntegerField(read_only=True)
@@ -425,7 +453,7 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
     class Meta:
         model = DepartmentAllocation
         fields = BaseModelSerializer.Meta.fields + [
-            'application', 'application_uid', 'department',
+            'application', 'application_uid', 'department', 'department_uid',
             'supervisor', 'supervisor_uid', 'start_date', 'end_date',
             'duration_days', 'description', 'is_active'
         ]
@@ -577,6 +605,8 @@ class TrainingBatchSerializer(SaveWithRequestUserMixin, BaseModelSerializer, Dat
     duration_display = serializers.CharField(read_only=True)
     cancelled_by_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    mou_number = serializers.SerializerMethodField()
+    institution_name = serializers.SerializerMethodField()
     
     def get_department_names(self, obj):
         return list(obj.departments.values_list('name', flat=True))
@@ -586,17 +616,23 @@ class TrainingBatchSerializer(SaveWithRequestUserMixin, BaseModelSerializer, Dat
             return f"{obj.cancelled_by.first_name} {obj.cancelled_by.last_name}"
         return None
     
+    def get_mou_number(self, obj):
+        return obj.mou.mou_number if obj.mou else None
+    
+    def get_institution_name(self, obj):
+        return obj.mou.institution.name if obj.mou and obj.mou.institution else None
+    
     class Meta:
         model = TrainingBatch
         fields = BaseModelSerializer.Meta.fields + [
-            'batch_number', 'mou', 'mou_uid',
+            'batch_number', 'mou', 'mou_uid', 'mou_number', 'institution_name',
             'number_of_students', 'departments', 'department_names',
             'invoiced_amount', 'currency', 'training_start_date', 'training_end_date',
             'duration_display', 'application_letter', 'status', 'status_display',
             'notes', 'cancellation_reason', 'cancelled_by', 'cancelled_by_name',
             'cancelled_at', 'is_active'
         ]
-        read_only_fields = ['batch_number', 'duration_display']
+        read_only_fields = ['batch_number', 'duration_display', 'mou_number', 'institution_name']
     
     def validate(self, data):
         """Validate training batch data"""
