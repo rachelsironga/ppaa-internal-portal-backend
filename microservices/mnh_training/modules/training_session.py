@@ -1,4 +1,4 @@
-# supervisor.py
+# training_session.py
 from datetime import datetime
 from django.db import transaction
 from django.db.models import Q
@@ -6,65 +6,65 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from microservices.mnh_training.models import Supervisor
-from microservices.mnh_training.serializers import SupervisorSerializer, SupervisorListSerializer
-from mnh_approval.pagination import CustomPagination
+from microservices.mnh_training.models import TrainingSession, TrainingBatch
+from microservices.mnh_training.serializers import TrainingSessionSerializer, TrainingSessionListSerializer
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from utils.permissions import HasMethodPermission
 
 
-class SupervisorView(APIView):
+class TrainingSessionView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
-    serializer_class = SupervisorSerializer
-    list_serializer_class = SupervisorListSerializer
+    serializer_class = TrainingSessionSerializer
+    list_serializer_class = TrainingSessionListSerializer
 
     required_permissions = {
-        "get": ["view_supervisor"],
-        "post": ["add_supervisor", "change_supervisor"],
-        "put": ["change_supervisor"],
-        "patch": ["change_supervisor"],
-        "delete": ["delete_supervisor"],
+        "get": ["view_trainingsession"],
+        "post": ["add_trainingsession", "change_trainingsession"],
+        "put": ["change_trainingsession"],
+        "patch": ["change_trainingsession"],
+        "delete": ["delete_trainingsession"],
     }
 
     def get(self, request, uid=None):
         try:
             if uid:
-                supervisor = Supervisor.objects.filter(uid=uid, is_deleted=False).first()
-                if not supervisor:
-                    raise NotFound("Supervisor not found")
-                return CustomResponse.success(data=self.serializer_class(supervisor).data)
+                session = TrainingSession.objects.filter(uid=uid, is_deleted=False).first()
+                if not session:
+                    raise NotFound("Training session not found")
+                return CustomResponse.success(data=self.serializer_class(session).data)
 
-            search_query = request.GET.get('search', '').strip()
-            department_uid = request.GET.get('department', '').strip()
+            batch_uid = request.GET.get('batch_uid', '').strip()
+            status = request.GET.get('status', '').strip()
+            from_date = request.GET.get('from_date', '').strip()
+            to_date = request.GET.get('to_date', '').strip()
 
-            supervisors = Supervisor.objects.filter(is_deleted=False)
+            sessions = TrainingSession.objects.filter(is_deleted=False)
 
-            if department_uid:
-                supervisors = supervisors.filter(department_uid=department_uid)
+            if batch_uid:
+                sessions = sessions.filter(batch__uid=batch_uid)
 
-            if search_query:
-                supervisors = supervisors.filter(
-                    Q(user_guid__icontains=search_query) |
-                    Q(department_uid__icontains=search_query) |
-                    Q(description__icontains=search_query)
+            if status:
+                sessions = sessions.filter(status=status)
+
+            if from_date:
+                sessions = sessions.filter(session_date__gte=from_date)
+
+            if to_date:
+                sessions = sessions.filter(session_date__lte=to_date)
+
+            if sessions.exists():
+                serializer = self.list_serializer_class(
+                    sessions.order_by('-session_date', 'session_number'),
+                    many=True,
+                    context={'request': request}
                 )
+                return CustomResponse.success(data=serializer.data)
 
-            if supervisors.exists():
-               serializer = self.list_serializer_class(
-                   supervisors,
-                   many=True,
-                   context={'request': request}
-               )
-               return CustomResponse.success(
-                   data=serializer.data,
-                   message="Success"
-               )
-
-            return CustomResponse.errors(message="Supervisors not found", data=[])
+            return CustomResponse.errors(message="Training sessions not found", data=[])
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Retrieve Supervisors: {str(e)}'
+                message=f'Failed to Retrieve Training Sessions: {str(e)}'
             )
 
     def post(self, request):
@@ -73,9 +73,9 @@ class SupervisorView(APIView):
                 uid = request.data.get('uid')
 
                 if uid:
-                    instance = Supervisor.objects.filter(uid=uid, is_deleted=False).first()
+                    instance = TrainingSession.objects.filter(uid=uid, is_deleted=False).first()
                     if not instance:
-                        return CustomResponse.errors(message="Supervisor not found")
+                        return CustomResponse.errors(message="Training session not found")
 
                     serializer = self.serializer_class(
                         instance,
@@ -94,22 +94,22 @@ class SupervisorView(APIView):
                     return CustomResponse.success(data=serializer.data)
 
                 return CustomResponse.errors(
-                    message="Validation Failed, Please Try Again",
+                    message="Validation Failed",
                     data=serializer.errors,
                     code=STATUS_CODES["VALIDATION_ERROR"]
                 )
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Create/Update Supervisor: {str(e)}'
+                message=f'Failed to Create/Update Training Session: {str(e)}'
             )
 
     def put(self, request, uid):
         try:
             with transaction.atomic():
-                instance = Supervisor.objects.filter(uid=uid, is_deleted=False).first()
+                instance = TrainingSession.objects.filter(uid=uid, is_deleted=False).first()
                 if not instance:
-                    return CustomResponse.errors(message="Supervisor not found")
+                    return CustomResponse.errors(message="Training session not found")
 
                 serializer = self.serializer_class(
                     instance,
@@ -130,15 +130,15 @@ class SupervisorView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Update Supervisor: {str(e)}'
+                message=f'Failed to Update Training Session: {str(e)}'
             )
 
     def patch(self, request, uid):
         try:
             with transaction.atomic():
-                instance = Supervisor.objects.filter(uid=uid, is_deleted=False).first()
+                instance = TrainingSession.objects.filter(uid=uid, is_deleted=False).first()
                 if not instance:
-                    return CustomResponse.errors(message="Supervisor not found")
+                    return CustomResponse.errors(message="Training session not found")
 
                 serializer = self.serializer_class(
                     instance,
@@ -159,24 +159,24 @@ class SupervisorView(APIView):
 
         except Exception as e:
             return CustomResponse.server_error(
-                message=f'Failed to Partially Update Supervisor: {str(e)}'
+                message=f'Failed to Partially Update Training Session: {str(e)}'
             )
 
     def delete(self, request, uid):
         try:
             with transaction.atomic():
-                supervisor = Supervisor.objects.filter(uid=uid, is_deleted=False).first()
-                if not supervisor:
-                    return CustomResponse.errors(message="Supervisor Not Found or Already Deleted")
+                session = TrainingSession.objects.filter(uid=uid, is_deleted=False).first()
+                if not session:
+                    return CustomResponse.errors(message="Training session not found or already deleted")
 
-                supervisor.is_deleted = True
-                supervisor.deleted_at = datetime.now()
-                supervisor.deleted_by = request.user
-                supervisor.save()
+                session.is_deleted = True
+                session.deleted_at = datetime.now()
+                session.deleted_by = request.user
+                session.save()
 
-                return CustomResponse.success(message='Supervisor deleted successfully')
+                return CustomResponse.success(message='Training session deleted successfully')
 
         except Exception as e:
             return CustomResponse.server_error(
-                message="Something went wrong While Deleting Supervisor"
+                message="Something went wrong while deleting training session"
             )
