@@ -1,10 +1,13 @@
 # student.py
+import csv
+import io
 from datetime import datetime
 from django.db import transaction
 from django.db.models import Q
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from microservices.mnh_training.models import Student
 from microservices.mnh_training.serializers import StudentSerializer, StudentListSerializer
@@ -12,9 +15,15 @@ from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from utils.permissions import HasMethodPermission
 
+try:
+    from mnh_auth.models import Country
+except ImportError:
+    Country = None
+
 
 class StudentView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
+    parser_classes = [MultiPartParser, FormParser]
     serializer_class = StudentSerializer
     list_serializer_class = StudentListSerializer
 
@@ -72,6 +81,10 @@ class StudentView(APIView):
 
     def post(self, request):
         try:
+            # Check if this is an import request
+            if 'file' in request.FILES:
+                return self._import_students(request)
+            
             with transaction.atomic():
                 uid = request.data.get('uid')
 
@@ -106,6 +119,95 @@ class StudentView(APIView):
             return CustomResponse.server_error(
                 message=f'Failed to Create/Update Student: {str(e)}'
             )
+    
+    def _import_students(self, request):
+        """Handle CSV import of students"""
+        try:
+            file = request.FILES['file']
+            
+            if not file.name.endswith('.csv'):
+                return CustomResponse.errors(message="Please upload a CSV file")
+            
+            decoded_file = file.read().decode('utf-8')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+            
+            created_count = 0
+            updated_count = 0
+            errors = []
+            
+            with transaction.atomic():
+                for row_num, row in enumerate(reader, start=2):
+                    try:
+                        # Clean and prepare row data
+                        student_data = {
+                            'first_name': row.get('first_name', '').strip(),
+                            'middle_name': row.get('middle_name', '').strip() or None,
+                            'last_name': row.get('last_name', '').strip(),
+                            'email': row.get('email', '').strip().lower(),
+                            'primary_phone': row.get('primary_phone', '').strip(),
+                            'secondary_phone': row.get('secondary_phone', '').strip() or None,
+                            'sex': row.get('sex', '').strip().upper(),
+                            'student_id': row.get('student_id', '').strip(),
+                            'id_type': row.get('id_type', '').strip().upper() or None,
+                            'are_you_currently_studying': row.get('are_you_currently_studying', '').strip().lower() == 'true',
+                        }
+                        
+                        # Handle nationality
+                        nationality_name = row.get('nationality', '').strip()
+                        if nationality_name and Country:
+                            nationality = Country.objects.filter(
+                                name__iexact=nationality_name,
+                                is_deleted=False
+                            ).first()
+                            if nationality:
+                                student_data['nationality'] = nationality
+                        
+                        # Check if student exists by email or student_id
+                        existing_student = Student.objects.filter(
+                            Q(email__iexact=student_data['email']) | 
+                            Q(student_id=student_data['student_id']),
+                            is_deleted=False
+                        ).first()
+                        
+                        if existing_student:
+                            # Update existing student
+                            for key, value in student_data.items():
+                                if value is not None:
+                                    setattr(existing_student, key, value)
+                            existing_student.updated_by = request.user
+                            existing_student.save()
+                            updated_count += 1
+                        else:
+                            # Create new student
+                            student = Student(
+                                **student_data,
+                                created_by=request.user,
+                                updated_by=request.user
+                            )
+                            student.save()
+                            created_count += 1
+                            
+                    except Exception as e:
+                        errors.append(f"Row {row_num}: {str(e)}")
+            
+            message = f"Import complete. Created: {created_count}, Updated: {updated_count}"
+            if errors:
+                message += f", Errors: {len(errors)}"
+                return CustomResponse.success(
+                    message=message,
+                    data={'created': created_count, 'updated': updated_count, 'errors': errors[:10]}
+                )
+            
+            return CustomResponse.success(
+                message=message,
+                data={'created': created_count, 'updated': updated_count}
+            )
+            
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f'Failed to import students: {str(e)}'
+            )
 
     def put(self, request, uid):
         try:
@@ -117,7 +219,7 @@ class StudentView(APIView):
                 serializer = self.serializer_class(
                     instance,
                     data=request.data,
-                    partial=False,
+                    partial=True,
                     context={'request': request}
                 )
 

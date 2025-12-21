@@ -7,11 +7,13 @@ from microservices.mnh_training.modules.mou import MOUView
 from microservices.mnh_training.modules.training_batch import TrainingBatchView
 from microservices.mnh_training.modules.department_allocation import DepartmentAllocationView
 from microservices.mnh_training.modules.supervisor import SupervisorView
+from microservices.mnh_training.modules.training_setting import TrainingSettingView
 
 urlpatterns = [
     # Student URLs
     path('students', StudentView.as_view(), name='student-list'),
     path('students/create', StudentView.as_view(), name='student-create'),
+    path('students/import', StudentView.as_view(), name='student-import'),
     path('students/<uuid:uid>', StudentView.as_view(), name='student-detail'),
     path('students/<uuid:uid>/update', StudentView.as_view(), name='student-update'),
     path('students/<uuid:uid>/delete', StudentView.as_view(), name='student-delete'),
@@ -63,4 +65,10 @@ urlpatterns = [
     path('supervisors/<uuid:uid>', SupervisorView.as_view(), name='supervisor-detail'),
     path('supervisors/<uuid:uid>/update', SupervisorView.as_view(), name='supervisor-update'),
     path('supervisors/<uuid:uid>/delete', SupervisorView.as_view(), name='supervisor-delete'),
+    
+    # Training Settings URLs
+    path('settings', TrainingSettingView.as_view(), name='training-setting-get'),
+    path('settings/update', TrainingSettingView.as_view(), name='training-setting-update'),
+    path('settings/special-departments', TrainingSettingView.as_view(), name='training-setting-special-dept'),
+    path('settings/special-departments/<uuid:department_uid>', TrainingSettingView.as_view(), name='training-setting-special-dept-detail'),
 ]

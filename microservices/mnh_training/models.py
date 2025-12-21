@@ -4,6 +4,7 @@ from functools import partial
 from datetime import datetime
 from django.utils import timezone
 from django.db import models
+from datetime import date
 from django.core.validators import RegexValidator, FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
@@ -24,6 +25,17 @@ def year_based_upload_path(instance, filename, prefix):
     filename = f"{prefix}_{instance.pk or 'new'}{ext}"
     return f"{prefix}/{timezone.now().year}/{filename}"
 
+
+
+
+# models = [
+#     TrainingCertificate, TrainingAssessment, TrainingAttendance,
+#     TrainingSession, TrainingMaterial, TrainingModule, TrainingBatch,
+#     TrainingProgram, TrainingInstructor, TrainingVenue, TrainingCategory
+#     TrainingBatch, MOU, Institution, DepartmentAllocation,
+#     Application, Supervisor, Student, Affiliation
+# ]
+    
 
 class Affiliation(BaseModel):
     class AffiliationType(models.TextChoices):
@@ -338,10 +350,10 @@ class Application(BaseModel):
             )
         ]
     )
-    departments = models.ManyToManyField(
-        Department,
-        related_name='applications',
-        db_table='application_departments'  # Explicit join table name
+    department_uids = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of department UIDs from auth microservice"
     )
     duration = models.PositiveIntegerField(
         default=0,
@@ -419,8 +431,8 @@ class Application(BaseModel):
 
     @property
     def department_names(self):
-        """Optimized department names listing"""
-        return ', '.join(self.departments.values_list('name', flat=True))
+        """Return list of department UIDs (names should be resolved by frontend)"""
+        return self.department_uids if self.department_uids else []
     
     class Meta:
         verbose_name = 'Application'
@@ -690,3 +702,203 @@ class TrainingBatch(BaseModel):
         verbose_name_plural = 'Training Batches'
 
 
+class TrainingSetting(BaseModel):
+    """
+    Global training configuration settings for number/ID generation,
+    training schedules, and certificate management.
+    """
+    
+    class Duration(models.TextChoices):
+        WEEKS = 'W', 'Weeks'
+        MONTHS = 'M', 'Months'
+        DAYS = 'D', 'Days'
+    
+    # ========= STUDENT ID/NUMBER SETTINGS ===========
+    student_id_format = models.CharField(
+        max_length=100,
+        default='STD-{YYYY}-{NNNN}',
+        help_text='Format pattern for student ID (e.g., STD-{YYYY}-{NNNN}, {YYYY} = year, {NNNN} = sequential)'
+    )
+    student_id_prefix = models.CharField(
+        max_length=10,
+        default='STD',
+        help_text='Prefix for student ID'
+    )
+    student_id_increment_counter = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text='Current counter for student ID generation'
+    )
+    reset_student_counter_yearly = models.BooleanField(
+        default=True,
+        help_text='Reset student ID counter at the beginning of each year'
+    )
+    
+    # ========= APPLICATION REFERENCE NUMBER SETTINGS ===========
+    application_ref_format = models.CharField(
+        max_length=100,
+        default='APP-{YYYY}-{NNNN}',
+        help_text='Format pattern for application reference (e.g., APP-{YYYY}-{NNNN})'
+    )
+    application_ref_prefix = models.CharField(
+        max_length=10,
+        default='APP',
+        help_text='Prefix for application reference number'
+    )
+    application_ref_counter = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text='Current counter for application reference generation'
+    )
+    reset_application_counter_yearly = models.BooleanField(
+        default=True,
+        help_text='Reset application counter at the beginning of each year'
+    )
+    
+    # ========= CERTIFICATE NUMBER SETTINGS ===========
+    certificate_number_format = models.CharField(
+        max_length=100,
+        default='CERT-{YYYY}-{NNNN}',
+        help_text='Format pattern for certificate number (e.g., CERT-{YYYY}-{NNNN})'
+    )
+    certificate_number_prefix = models.CharField(
+        max_length=10,
+        default='CERT',
+        help_text='Prefix for certificate number'
+    )
+    certificate_counter = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text='Current counter for certificate generation'
+    )
+    reset_certificate_counter_yearly = models.BooleanField(
+        default=True,
+        help_text='Reset certificate counter at the beginning of each year'
+    )
+    
+    # ========= TRAINING SCHEDULE SETTINGS ===========
+    training_hours_per_week = models.PositiveIntegerField(
+        default=40,
+        validators=[MinValueValidator(1), MaxValueValidator(168)],
+        help_text='Standard training hours per week'
+    )
+    training_days_per_week = models.PositiveIntegerField(
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(7)],
+        help_text='Standard number of training days per week'
+    )
+    standard_training_duration = models.PositiveIntegerField(
+        default=12,
+        validators=[MinValueValidator(1)],
+        help_text='Standard training duration (value)'
+    )
+    standard_training_duration_unit = models.CharField(
+        max_length=1,
+        choices=Duration.choices,
+        default='W',
+        help_text='Unit for standard training duration'
+    )
+    
+    # ========= SPECIAL DEPARTMENT SETTINGS ===========
+    # JSONField to store special department configurations
+    special_departments = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text='Special department configurations with custom training hours/duration (format: {dept_uid: {hours_per_week: int, duration_value: int, duration_unit: str, special_requirements: str}})'
+    )
+    
+    # ========= DEPARTMENT ALLOCATION SETTINGS ===========
+    min_training_days = models.PositiveIntegerField(
+        default=1,
+        validators=[MinValueValidator(1)],
+        help_text='Minimum number of days per department allocation'
+    )
+    max_training_days = models.PositiveIntegerField(
+        default=365,
+        validators=[MinValueValidator(1)],
+        help_text='Maximum number of days per department allocation'
+    )
+    allow_overlapping_departments = models.BooleanField(
+        default=False,
+        help_text='Allow training in multiple departments simultaneously'
+    )
+    
+    # ========= GENERAL SETTINGS ===========
+    organization_name = models.CharField(
+        max_length=255,
+        default='MNH Training Center',
+        help_text='Organization name for certificates and official documents'
+    )
+    certificate_validity_years = models.PositiveIntegerField(
+        default=0,
+        help_text='Certificate validity period in years (0 = indefinite)'
+    )
+    minimum_attendance_percentage = models.PositiveIntegerField(
+        default=80,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text='Minimum attendance percentage required to receive certificate'
+    )
+    require_supervisor_approval = models.BooleanField(
+        default=True,
+        help_text='Require supervisor approval before training completion'
+    )
+    
+    # ========= NOTIFICATION SETTINGS ===========
+    days_before_training_reminder = models.PositiveIntegerField(
+        default=7,
+        help_text='Send reminder notification N days before training starts'
+    )
+    notify_on_completion = models.BooleanField(
+        default=True,
+        help_text='Send notification when training is completed'
+    )
+    
+    # ========= SYSTEM METADATA ===========
+    last_modified_by_guid = models.CharField(
+        max_length=36,
+        null=True,
+        blank=True,
+        help_text='GUID of user who last modified these settings'
+    )
+    last_modified_at = models.DateTimeField(
+        auto_now=True,
+        help_text='Timestamp of last modification'
+    )
+    
+    class Meta:
+        verbose_name = 'Training Setting'
+        verbose_name_plural = 'Training Settings'
+    
+    def __str__(self):
+        return f"Training Settings - {self.organization_name}"
+    
+    def save(self, *args, **kwargs):
+        """Ensure only one instance of TrainingSetting exists"""
+        if not self.pk and TrainingSetting.objects.exists():
+            # Update existing instead of creating new
+            existing = TrainingSetting.objects.first()
+            self.pk = existing.pk
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_settings(cls):
+        """Get or create the single TrainingSetting instance"""
+        settings, _ = cls.objects.get_or_create(pk=1)
+        return settings
+    
+    def get_special_department_config(self, department_uid):
+        """Get special configuration for a specific department"""
+        return self.special_departments.get(department_uid, None)
+    
+    def set_special_department_config(self, department_uid, config):
+        """Set special configuration for a specific department"""
+        if not isinstance(self.special_departments, dict):
+            self.special_departments = {}
+        self.special_departments[department_uid] = config
+        self.save()
+    
+    def remove_special_department_config(self, department_uid):
+        """Remove special configuration for a specific department"""
+        if isinstance(self.special_departments, dict) and department_uid in self.special_departments:
+            del self.special_departments[department_uid]
+            self.save()
