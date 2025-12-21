@@ -8,6 +8,10 @@ from microservices.mnh_training.modules.training_batch import TrainingBatchView
 from microservices.mnh_training.modules.department_allocation import DepartmentAllocationView
 from microservices.mnh_training.modules.supervisor import SupervisorView
 from microservices.mnh_training.modules.training_setting import TrainingSettingView
+from microservices.mnh_training.modules.training_session import TrainingSessionView
+from microservices.mnh_training.modules.training_attendance import TrainingAttendanceView
+from microservices.mnh_training.modules.training_assessment import TrainingAssessmentView
+from microservices.mnh_training.modules.training_certificate import TrainingCertificateView
 
 urlpatterns = [
     # Student URLs
@@ -71,4 +75,35 @@ urlpatterns = [
     path('settings/update', TrainingSettingView.as_view(), name='training-setting-update'),
     path('settings/special-departments', TrainingSettingView.as_view(), name='training-setting-special-dept'),
     path('settings/special-departments/<uuid:department_uid>', TrainingSettingView.as_view(), name='training-setting-special-dept-detail'),
+    
+    # Training Session URLs
+    path('training-sessions', TrainingSessionView.as_view(), name='training-session-list'),
+    path('training-sessions/create', TrainingSessionView.as_view(), name='training-session-create'),
+    path('training-sessions/<uuid:uid>', TrainingSessionView.as_view(), name='training-session-detail'),
+    path('training-sessions/<uuid:uid>/update', TrainingSessionView.as_view(), name='training-session-update'),
+    path('training-sessions/<uuid:uid>/delete', TrainingSessionView.as_view(), name='training-session-delete'),
+    
+    # Training Attendance URLs
+    path('training-attendance', TrainingAttendanceView.as_view(), name='training-attendance-list'),
+    path('training-attendance/create', TrainingAttendanceView.as_view(), name='training-attendance-create'),
+    path('training-attendance/bulk-mark', TrainingAttendanceView.as_view(), name='training-attendance-bulk'),
+    path('training-attendance/<uuid:uid>', TrainingAttendanceView.as_view(), name='training-attendance-detail'),
+    path('training-attendance/<uuid:uid>/update', TrainingAttendanceView.as_view(), name='training-attendance-update'),
+    path('training-attendance/<uuid:uid>/delete', TrainingAttendanceView.as_view(), name='training-attendance-delete'),
+    
+    # Training Assessment URLs
+    path('training-assessments', TrainingAssessmentView.as_view(), name='training-assessment-list'),
+    path('training-assessments/create', TrainingAssessmentView.as_view(), name='training-assessment-create'),
+    path('training-assessments/<uuid:uid>', TrainingAssessmentView.as_view(), name='training-assessment-detail'),
+    path('training-assessments/<uuid:uid>/update', TrainingAssessmentView.as_view(), name='training-assessment-update'),
+    path('training-assessments/<uuid:uid>/delete', TrainingAssessmentView.as_view(), name='training-assessment-delete'),
+    
+    # Training Certificate URLs
+    path('training-certificates', TrainingCertificateView.as_view(), name='training-certificate-list'),
+    path('training-certificates/create', TrainingCertificateView.as_view(), name='training-certificate-create'),
+    path('training-certificates/<uuid:uid>', TrainingCertificateView.as_view(), name='training-certificate-detail'),
+    path('training-certificates/<uuid:uid>/update', TrainingCertificateView.as_view(), name='training-certificate-update'),
+    path('training-certificates/<uuid:uid>/delete', TrainingCertificateView.as_view(), name='training-certificate-delete'),
+    path('training-certificates/<uuid:uid>/issue', TrainingCertificateView.as_view(), name='training-certificate-issue'),
+    path('training-certificates/<uuid:uid>/revoke', TrainingCertificateView.as_view(), name='training-certificate-revoke'),
 ]

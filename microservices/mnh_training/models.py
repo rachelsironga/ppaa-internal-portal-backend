@@ -902,3 +902,364 @@ class TrainingSetting(BaseModel):
         if isinstance(self.special_departments, dict) and department_uid in self.special_departments:
             del self.special_departments[department_uid]
             self.save()
+
+
+class TrainingSession(BaseModel):
+    """Model for individual training sessions"""
+    
+    class SessionStatus(models.TextChoices):
+        SCHEDULED = 'SC', 'Scheduled'
+        ONGOING = 'ON', 'Ongoing'
+        COMPLETED = 'CP', 'Completed'
+        CANCELLED = 'CN', 'Cancelled'
+    
+    batch = models.ForeignKey(
+        TrainingBatch,
+        on_delete=models.PROTECT,
+        related_name='training_sessions',
+        db_index=True
+    )
+    department_allocation = models.ForeignKey(
+        DepartmentAllocation,
+        on_delete=models.PROTECT,
+        related_name='training_sessions',
+        null=True,
+        blank=True,
+        db_index=True
+    )
+    supervisor_uid = models.CharField(
+        max_length=36,
+        help_text="UID reference to Supervisor"
+    )
+    session_number = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+        help_text="Session sequence number within batch"
+    )
+    session_date = models.DateField(db_index=True)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    location = models.CharField(max_length=255, blank=True)
+    topic = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    expected_attendees = models.PositiveIntegerField(
+        default=0,
+        validators=[MinValueValidator(0)],
+        help_text="Expected number of attendees"
+    )
+    status = models.CharField(
+        max_length=2,
+        choices=SessionStatus.choices,
+        default=SessionStatus.SCHEDULED,
+        db_index=True
+    )
+    materials_provided = models.FileField(
+        upload_to=partial(year_based_upload_path, prefix='training_materials'),
+        null=True,
+        blank=True,
+        help_text="Training materials/handouts"
+    )
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-session_date', 'session_number']
+        verbose_name = 'Training Session'
+        verbose_name_plural = 'Training Sessions'
+        indexes = [
+            models.Index(fields=['batch', 'session_date']),
+            models.Index(fields=['status', 'session_date']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['batch', 'session_number'],
+                name='unique_batch_session_number'
+            )
+        ]
+    
+    def __str__(self):
+        return f"Session {self.session_number} - {self.batch.batch_number} ({self.session_date})"
+    
+    def clean(self):
+        """Validate session data"""
+        super().clean()
+        
+        if self.start_time and self.end_time:
+            if self.start_time >= self.end_time:
+                raise ValidationError({
+                    'end_time': 'End time must be after start time'
+                })
+    
+    @property
+    def duration_minutes(self):
+        """Calculate session duration in minutes"""
+        if self.start_time and self.end_time:
+            from datetime import datetime as dt, timedelta
+            start = dt.combine(date.today(), self.start_time)
+            end = dt.combine(date.today(), self.end_time)
+            return int((end - start).total_seconds() / 60)
+        return 0
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class TrainingAttendance(BaseModel):
+    """Model for tracking training attendance"""
+    
+    class AttendanceStatus(models.TextChoices):
+        PRESENT = 'P', 'Present'
+        ABSENT = 'A', 'Absent'
+        LATE = 'L', 'Late'
+        EXCUSED = 'E', 'Excused Absence'
+    
+    session = models.ForeignKey(
+        TrainingSession,
+        on_delete=models.CASCADE,
+        related_name='attendance_records',
+        db_index=True
+    )
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.PROTECT,
+        related_name='training_attendance',
+        db_index=True
+    )
+    status = models.CharField(
+        max_length=1,
+        choices=AttendanceStatus.choices,
+        db_index=True
+    )
+    arrival_time = models.TimeField(null=True, blank=True)
+    departure_time = models.TimeField(null=True, blank=True)
+    remarks = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['session', 'application__student__last_name']
+        verbose_name = 'Training Attendance'
+        verbose_name_plural = 'Training Attendances'
+        indexes = [
+            models.Index(fields=['session', 'status']),
+            models.Index(fields=['application', 'session']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['session', 'application'],
+                name='unique_session_application_attendance'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.application.student.full_name} - {self.session.session_date} ({self.get_status_display()})"
+    
+    @property
+    def attendance_percentage(self):
+        """Calculate attendance for this application across all sessions"""
+        total_sessions = TrainingSession.objects.filter(
+            batch=self.session.batch,
+            status__in=[TrainingSession.SessionStatus.COMPLETED, TrainingSession.SessionStatus.ONGOING]
+        ).count()
+        
+        if total_sessions == 0:
+            return 0
+        
+        present_sessions = TrainingAttendance.objects.filter(
+            application=self.application,
+            session__batch=self.session.batch,
+            status__in=[self.AttendanceStatus.PRESENT, self.AttendanceStatus.LATE]
+        ).count()
+        
+        return round((present_sessions / total_sessions) * 100, 2)
+
+
+class TrainingAssessment(BaseModel):
+    """Model for training assessments/evaluations"""
+    
+    class AssessmentType(models.TextChoices):
+        PRE_TRAINING = 'PRE', 'Pre-Training Assessment'
+        MID_TRAINING = 'MID', 'Mid-Training Assessment'
+        POST_TRAINING = 'PST', 'Post-Training Assessment'
+        PRACTICAL = 'PRC', 'Practical Assessment'
+        WRITTEN = 'WRT', 'Written Assessment'
+    
+    batch = models.ForeignKey(
+        TrainingBatch,
+        on_delete=models.PROTECT,
+        related_name='assessments',
+        db_index=True
+    )
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.PROTECT,
+        related_name='training_assessments',
+        db_index=True
+    )
+    assessment_type = models.CharField(
+        max_length=3,
+        choices=AssessmentType.choices,
+        db_index=True
+    )
+    assessment_date = models.DateField()
+    score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Score out of 100"
+    )
+    total_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=100,
+        validators=[MinValueValidator(1)],
+        help_text="Total possible score"
+    )
+    graded_by_guid = models.CharField(
+        max_length=36,
+        help_text="UID reference to grader"
+    )
+    feedback = models.TextField(blank=True)
+    assessment_file = models.FileField(
+        upload_to=partial(year_based_upload_path, prefix='assessments'),
+        null=True,
+        blank=True,
+        help_text="Assessment document/answer sheet"
+    )
+    
+    class Meta:
+        ordering = ['-assessment_date', 'application']
+        verbose_name = 'Training Assessment'
+        verbose_name_plural = 'Training Assessments'
+        indexes = [
+            models.Index(fields=['batch', 'assessment_type']),
+            models.Index(fields=['application', 'assessment_type']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['batch', 'application', 'assessment_type'],
+                name='unique_batch_application_assessment_type'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.application.student.full_name} - {self.get_assessment_type_display()} ({self.score}/{self.total_score})"
+    
+    @property
+    def percentage_score(self):
+        """Calculate percentage score"""
+        if self.total_score == 0:
+            return 0
+        return round((self.score / self.total_score) * 100, 2)
+    
+    @property
+    def is_pass(self):
+        """Determine if assessment is passed (70% threshold)"""
+        return self.percentage_score >= 70
+
+
+class TrainingCertificate(BaseModel):
+    """Model for training certificates issued to participants"""
+    
+    class CertificateStatus(models.TextChoices):
+        DRAFT = 'DR', 'Draft'
+        PENDING = 'PD', 'Pending Issue'
+        ISSUED = 'IS', 'Issued'
+        REVOKED = 'RV', 'Revoked'
+    
+    batch = models.ForeignKey(
+        TrainingBatch,
+        on_delete=models.PROTECT,
+        related_name='certificates',
+        db_index=True
+    )
+    application = models.ForeignKey(
+        Application,
+        on_delete=models.PROTECT,
+        related_name='training_certificates',
+        db_index=True
+    )
+    certificate_number = models.CharField(
+        max_length=50,
+        unique=True,
+        editable=False,
+        db_index=True
+    )
+    issue_date = models.DateField(null=True, blank=True)
+    expiry_date = models.DateField(null=True, blank=True)
+    status = models.CharField(
+        max_length=2,
+        choices=CertificateStatus.choices,
+        default=CertificateStatus.DRAFT,
+        db_index=True
+    )
+    attendance_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Final attendance percentage"
+    )
+    final_assessment_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="Final assessment score"
+    )
+    issued_by_guid = models.CharField(
+        max_length=36,
+        null=True,
+        blank=True,
+        help_text="UID reference to issuer"
+    )
+    revoked_by_guid = models.CharField(
+        max_length=36,
+        null=True,
+        blank=True,
+        help_text="UID reference to revoker"
+    )
+    revocation_reason = models.TextField(blank=True)
+    certificate_file = models.FileField(
+        upload_to=partial(year_based_upload_path, prefix='certificates'),
+        null=True,
+        blank=True,
+        help_text="Certificate PDF document"
+    )
+    remarks = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-issue_date', 'application']
+        verbose_name = 'Training Certificate'
+        verbose_name_plural = 'Training Certificates'
+        indexes = [
+            models.Index(fields=['batch', 'status']),
+            models.Index(fields=['application', 'status']),
+            models.Index(fields=['certificate_number']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['batch', 'application'],
+                name='unique_batch_application_certificate'
+            )
+        ]
+    
+    def __str__(self):
+        return f"Cert {self.certificate_number} - {self.application.student.full_name}"
+    
+    def save(self, *args, **kwargs):
+        """Generate certificate number if not set"""
+        if not self.certificate_number:
+            settings = TrainingSetting.get_settings()
+            self.certificate_number = f"{settings.certificate_number_prefix}-{timezone.now().year}-{settings.certificate_counter:04d}"
+            settings.certificate_counter += 1
+            settings.save()
+        
+        super().save(*args, **kwargs)
+    
+    @property
+    def is_valid(self):
+        """Check if certificate is valid and not expired"""
+        if self.status != self.CertificateStatus.ISSUED:
+            return False
+        
+        if self.expiry_date:
+            return self.expiry_date >= timezone.now().date()
+        return True

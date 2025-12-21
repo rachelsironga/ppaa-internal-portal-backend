@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     Affiliation, Student, Application, DepartmentAllocation,
-    Supervisor, Institution, MOU, TrainingBatch, TrainingSetting
+    Supervisor, Institution, MOU, TrainingBatch, TrainingSetting,
+    TrainingSession, TrainingAttendance, TrainingAssessment, TrainingCertificate
 )
 
 
@@ -130,3 +131,53 @@ class TrainingSettingAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         """Allow only one TrainingSetting instance"""
         return not TrainingSetting.objects.exists()
+
+
+@admin.register(TrainingSession)
+class TrainingSessionAdmin(admin.ModelAdmin):
+    list_display = ('uid', 'batch', 'session_number', 'session_date', 'topic', 'status', 'is_deleted')
+    list_filter = ('status', 'session_date', 'is_deleted')
+    search_fields = ('topic', 'description', 'batch__batch_number')
+    readonly_fields = ('uid', 'created_at', 'updated_at', 'deleted_at', 'duration_minutes')
+
+
+@admin.register(TrainingAttendance)
+class TrainingAttendanceAdmin(admin.ModelAdmin):
+    list_display = ('uid', 'session', 'application', 'status', 'arrival_time', 'is_deleted')
+    list_filter = ('status', 'session__session_date', 'is_deleted')
+    search_fields = ('application__student__first_name', 'application__student__last_name', 'remarks')
+    readonly_fields = ('uid', 'created_at', 'updated_at', 'deleted_at', 'attendance_percentage')
+
+
+@admin.register(TrainingAssessment)
+class TrainingAssessmentAdmin(admin.ModelAdmin):
+    list_display = ('uid', 'batch', 'application', 'assessment_type', 'assessment_date', 'percentage_score', 'is_deleted')
+    list_filter = ('assessment_type', 'assessment_date', 'is_deleted')
+    search_fields = ('batch__batch_number', 'application__student__first_name', 'application__student__last_name')
+    readonly_fields = ('uid', 'created_at', 'updated_at', 'deleted_at', 'percentage_score')
+
+
+@admin.register(TrainingCertificate)
+class TrainingCertificateAdmin(admin.ModelAdmin):
+    list_display = ('uid', 'certificate_number', 'batch', 'application', 'status', 'issue_date', 'is_valid', 'is_deleted')
+    list_filter = ('status', 'issue_date', 'is_deleted')
+    search_fields = ('certificate_number', 'batch__batch_number', 'application__student__first_name', 'application__student__last_name')
+    readonly_fields = ('uid', 'created_at', 'updated_at', 'deleted_at', 'certificate_number', 'is_valid')
+    fieldsets = (
+        ('Certificate Information', {
+            'fields': ('certificate_number', 'batch', 'application', 'issue_date', 'expiry_date')
+        }),
+        ('Performance Metrics', {
+            'fields': ('attendance_percentage', 'final_assessment_score')
+        }),
+        ('Status & Management', {
+            'fields': ('status', 'issued_by_guid', 'revoked_by_guid', 'revocation_reason', 'is_valid')
+        }),
+        ('Supporting Documents', {
+            'fields': ('certificate_file', 'remarks')
+        }),
+        ('Audit Information', {
+            'fields': ('created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by'),
+            'classes': ('collapse',)
+        }),
+    )

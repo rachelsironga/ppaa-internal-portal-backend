@@ -12,7 +12,8 @@ except ImportError:
 
 from .models import (
     Affiliation, Student, Application, DepartmentAllocation,
-    Supervisor, Institution, MOU, TrainingBatch, TrainingSetting
+    Supervisor, Institution, MOU, TrainingBatch, TrainingSetting,
+    TrainingSession, TrainingAttendance, TrainingAssessment, TrainingCertificate
 )
 
 User = get_user_model()
@@ -188,9 +189,28 @@ class ApplicationMinimalSerializer(serializers.ModelSerializer):
 
 class SupervisorMinimalSerializer(serializers.ModelSerializer):
     """Minimal supervisor serializer for nested display"""
+    user = serializers.SerializerMethodField()
+    
+    def get_user(self, obj):
+        """Fetch user details from User model"""
+        if obj.user_guid:
+            try:
+                user = User.objects.get(id=obj.user_guid)
+                return {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'full_name': f"{user.first_name} {user.last_name}".strip()
+                }
+            except User.DoesNotExist:
+                return None
+        return None
+    
     class Meta:
         model = Supervisor
-        fields = ['uid', 'user_guid', 'department_uid', 'description']
+        fields = ['uid', 'user_guid', 'user', 'department_uid', 'description']
 
 
 class InstitutionMinimalSerializer(serializers.ModelSerializer):
@@ -502,6 +522,35 @@ class DepartmentAllocationSerializer(SaveWithRequestUserMixin, BaseModelSerializ
         return self.validate_dates('start_date', 'end_date', data)
 
 
+class DepartmentAllocationListSerializer(DepartmentAllocationSerializer):
+    """List serializer for department allocations with department details"""
+    department = serializers.SerializerMethodField()
+    supervisor = SupervisorMinimalSerializer(read_only=True)
+    
+    def get_department(self, obj):
+        """Fetch department details from auth microservice using department_uid"""
+        if not obj.department_uid or obj.department_uid.strip() == '':
+            return None
+        
+        try:
+            # Filter by uid field
+            department = Department.objects.filter(uid=obj.department_uid).first()
+            if department:
+                return {
+                    'uid': str(department.uid),
+                    'name': department.name,
+                    'code': department.code
+                }
+            return None
+        except Exception as e:
+            # Silently handle exceptions and return None
+            return None
+    
+    class Meta:
+        model = DepartmentAllocation
+        fields = DepartmentAllocationSerializer.Meta.fields + ['department']
+
+
 # Supervisor Serializer
 class SupervisorSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
     class Meta:
@@ -695,7 +744,7 @@ class ApplicationDetailSerializer(ApplicationSerializer):
         fields = ApplicationSerializer.Meta.fields + ['department_details']
 
 
-class DepartmentAllocationDetailSerializer(DepartmentAllocationSerializer):
+class DepartmentAllocationDetailSerializer(DepartmentAllocationListSerializer):
     application = ApplicationListSerializer(read_only=True)
     supervisor = SupervisorSerializer(read_only=True)
 
@@ -811,4 +860,203 @@ class TrainingSettingSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
             })
         
         return data
+
+
+# Training Session Serializer
+class TrainingSessionSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    """Serializer for training sessions"""
+    batch_uid = UUIDRelatedField(
+        queryset=TrainingBatch.objects.filter(is_deleted=False),
+        required=True,
+        write_only=True,
+        source='batch'
+    )
+    department_allocation_uid = UUIDRelatedField(
+        queryset=DepartmentAllocation.objects.filter(is_deleted=False),
+        required=False,
+        allow_null=True,
+        write_only=True,
+        source='department_allocation'
+    )
+    
+    batch = serializers.CharField(source='batch.batch_number', read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    duration_minutes = serializers.IntegerField(read_only=True)
+    
+    class Meta:
+        model = TrainingSession
+        fields = BaseModelSerializer.Meta.fields + [
+            'batch', 'batch_uid', 'department_allocation_uid', 'supervisor_uid',
+            'session_number', 'session_date', 'start_time', 'end_time',
+            'location', 'topic', 'description', 'expected_attendees',
+            'status', 'status_display', 'materials_provided', 'notes',
+            'duration_minutes', 'is_active'
+        ]
+        read_only_fields = ['duration_minutes']
+
+
+class TrainingSessionListSerializer(TrainingSessionSerializer):
+    """Lightweight training session serializer for list endpoints"""
+    class Meta:
+        model = TrainingSession
+        fields = BaseModelSerializer.Meta.fields + [
+            'batch', 'session_number', 'session_date', 'start_time', 'end_time',
+            'topic', 'status', 'status_display', 'is_active'
+        ]
+
+
+# Training Attendance Serializer
+class TrainingAttendanceSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    """Serializer for training attendance"""
+    session_uid = UUIDRelatedField(
+        queryset=TrainingSession.objects.filter(is_deleted=False),
+        required=True,
+        write_only=True,
+        source='session'
+    )
+    application_uid = UUIDRelatedField(
+        queryset=Application.objects.filter(is_deleted=False),
+        required=True,
+        write_only=True,
+        source='application'
+    )
+    
+    session = serializers.SerializerMethodField(read_only=True)
+    student_info = serializers.SerializerMethodField(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    attendance_percentage = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        read_only=True
+    )
+    
+    def get_session(self, obj):
+        return {
+            'uid': str(obj.session.uid),
+            'date': obj.session.session_date,
+            'topic': obj.session.topic
+        }
+    
+    def get_student_info(self, obj):
+        return {
+            'uid': str(obj.application.student.uid),
+            'name': obj.application.student.full_name,
+            'student_id': obj.application.student.student_id
+        }
+    
+    class Meta:
+        model = TrainingAttendance
+        fields = BaseModelSerializer.Meta.fields + [
+            'session', 'session_uid', 'application_uid', 'student_info',
+            'status', 'status_display', 'arrival_time', 'departure_time',
+            'remarks', 'attendance_percentage', 'is_active'
+        ]
+
+
+class TrainingAttendanceListSerializer(TrainingAttendanceSerializer):
+    """Lightweight training attendance serializer for list endpoints"""
+    class Meta:
+        model = TrainingAttendance
+        fields = BaseModelSerializer.Meta.fields + [
+            'student_info', 'session_uid', 'status', 'status_display', 'is_active'
+        ]
+
+
+# Training Assessment Serializer
+class TrainingAssessmentSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    """Serializer for training assessments"""
+    batch_uid = UUIDRelatedField(
+        queryset=TrainingBatch.objects.filter(is_deleted=False),
+        required=True,
+        write_only=True,
+        source='batch'
+    )
+    application_uid = UUIDRelatedField(
+        queryset=Application.objects.filter(is_deleted=False),
+        required=True,
+        write_only=True,
+        source='application'
+    )
+    
+    batch_number = serializers.CharField(source='batch.batch_number', read_only=True)
+    student_info = serializers.SerializerMethodField(read_only=True)
+    assessment_type_display = serializers.CharField(source='get_assessment_type_display', read_only=True)
+    percentage_score = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    is_pass = serializers.BooleanField(read_only=True)
+    
+    def get_student_info(self, obj):
+        return {
+            'uid': str(obj.application.student.uid),
+            'name': obj.application.student.full_name,
+            'student_id': obj.application.student.student_id
+        }
+    
+    class Meta:
+        model = TrainingAssessment
+        fields = BaseModelSerializer.Meta.fields + [
+            'batch', 'batch_uid', 'batch_number', 'application_uid', 'student_info',
+            'assessment_type', 'assessment_type_display', 'assessment_date',
+            'score', 'total_score', 'percentage_score', 'is_pass', 'graded_by_guid',
+            'feedback', 'assessment_file', 'is_active'
+        ]
+
+
+class TrainingAssessmentListSerializer(TrainingAssessmentSerializer):
+    """Lightweight training assessment serializer for list endpoints"""
+    class Meta:
+        model = TrainingAssessment
+        fields = BaseModelSerializer.Meta.fields + [
+            'student_info', 'batch_number', 'assessment_type', 'assessment_type_display',
+            'assessment_date', 'percentage_score', 'is_pass', 'is_active'
+        ]
+
+
+# Training Certificate Serializer
+class TrainingCertificateSerializer(SaveWithRequestUserMixin, BaseModelSerializer):
+    """Serializer for training certificates"""
+    batch_uid = UUIDRelatedField(
+        queryset=TrainingBatch.objects.filter(is_deleted=False),
+        required=True,
+        write_only=True,
+        source='batch'
+    )
+    application_uid = UUIDRelatedField(
+        queryset=Application.objects.filter(is_deleted=False),
+        required=True,
+        write_only=True,
+        source='application'
+    )
+    
+    batch_number = serializers.CharField(source='batch.batch_number', read_only=True)
+    student_info = serializers.SerializerMethodField(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    is_valid = serializers.BooleanField(read_only=True)
+    
+    def get_student_info(self, obj):
+        return {
+            'uid': str(obj.application.student.uid),
+            'name': obj.application.student.full_name,
+            'student_id': obj.application.student.student_id
+        }
+    
+    class Meta:
+        model = TrainingCertificate
+        fields = BaseModelSerializer.Meta.fields + [
+            'batch', 'batch_uid', 'batch_number', 'application_uid', 'student_info',
+            'certificate_number', 'issue_date', 'expiry_date', 'status', 'status_display',
+            'attendance_percentage', 'final_assessment_score', 'issued_by_guid',
+            'revoked_by_guid', 'revocation_reason', 'certificate_file',
+            'remarks', 'is_valid', 'is_active'
+        ]
+        read_only_fields = ['certificate_number', 'is_valid']
+
+
+class TrainingCertificateListSerializer(TrainingCertificateSerializer):
+    """Lightweight training certificate serializer for list endpoints"""
+    class Meta:
+        model = TrainingCertificate
+        fields = BaseModelSerializer.Meta.fields + [
+            'certificate_number', 'student_info', 'batch_number', 'status', 'status_display',
+            'issue_date', 'attendance_percentage', 'is_valid', 'is_active'
+        ]
 
