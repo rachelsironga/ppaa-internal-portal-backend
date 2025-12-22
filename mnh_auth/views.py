@@ -221,7 +221,7 @@ class AdminChangePasswordView(APIView):
                 if serializer.is_valid():
                     user = serializer.validated_data['user']
                     user.set_password(serializer.validated_data['new_password'])
-                    request.user.save()
+                    user.save()
                     return CustomResponse.success(data=UserSerializer(request.user).data)
 
                 # Validation failed
