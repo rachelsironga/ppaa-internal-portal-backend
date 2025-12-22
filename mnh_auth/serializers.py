@@ -6,7 +6,7 @@ from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 
 from mnh_approval.services.minio.minio_helpers import get_presigned_url
-from .models import User, GroupProfile
+from .models import User, GroupProfile, Country, Currency, Department, Directory
 from rest_framework import status
 from rest_framework.serializers import ModelSerializer
 
@@ -576,3 +576,34 @@ class UserImportSerializer(serializers.Serializer):
 
 class DesignationImportSerializer(serializers.Serializer):
     file = serializers.CharField(required=True)
+
+
+class CountrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Country
+        fields = ['uid', 'name', 'iso_code', 'slug']
+        read_only_fields = ['uid', 'slug']
+
+
+class CurrencySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Currency
+        fields = ['uid', 'name', 'code']
+        read_only_fields = ['uid']
+
+
+class DirectorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Directory
+        fields = ['uid', 'name', 'code', 'description']
+        read_only_fields = ['uid']
+
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    directory_name = serializers.CharField(source='directory.name', read_only=True)
+    directory_code = serializers.CharField(source='directory.code', read_only=True)
+
+    class Meta:
+        model = Department
+        fields = ['uid', 'name', 'code', 'description', 'is_active', 'directory', 'directory_name', 'directory_code', 'created_at', 'updated_at']
+        read_only_fields = ['uid', 'created_at', 'updated_at']

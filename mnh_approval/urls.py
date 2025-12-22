@@ -42,10 +42,14 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('user/', include('mnh_auth.urls')),
+    # I USE THIS TO ENSURE BUSINESS LOGIC MATCH THE REALITY:  
+    # path('api/', include('mnh_auth.urls')), YOU MAY UNCOMMENT THIS IF THE BUSINESS LOGIC MATCH THE REALITY
+    path('api/', include('mnh_auth.common_provider_urls')),
     path('api/', include('api.urls')),
     path('api/oxygen/', include('microservices.oxygen_managements.urls')),
     path('api/', include('microservices.ict_assets.urls')),
     path('api/analytical/', include('microservices.mnh_analytical.urls')),
+    path('api/training/', include('microservices.mnh_training.urls')),
     path('token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
