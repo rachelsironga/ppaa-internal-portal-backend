@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import os
 
 from microservices import oxygen_managements
+from .db_router import ROUTERS as DATABASE_ROUTERS
 
 load_dotenv()
 
@@ -201,21 +202,31 @@ DATABASES = {
         "HOST": os.getenv("POSTGRES_DB_HOST"),
         "PORT": os.getenv("POSTGRES_DB_PORT"),
     },
-    # "analytical": {
-    #     "ENGINE": "django.db.backends.mysql",
-    #     "NAME": os.getenv("ANALYTICS_DB_NAME"),
-    #     "USER": os.getenv("ANALYTICS_DB_USER"),
-    #     "PASSWORD": os.getenv("ANALYTICS_DB_PWD"),
-    #     "HOST": os.getenv("ANALYTICS_DB_HOST"),
-    #     "PORT": os.getenv("ANALYTICS_DB_PORT"),
-    #     "OPTIONS": {
-    #         "charset": "utf8mb4",
-    #     },
-    # },
+    "analytical": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("ANALYTICS_DB_NAME"),
+        "USER": os.getenv("ANALYTICS_DB_USER"),
+        "PASSWORD": os.getenv("ANALYTICS_DB_PWD"),
+        "HOST": os.getenv("ANALYTICS_DB_HOST"),
+        "PORT": os.getenv("ANALYTICS_DB_PORT"),
+    },
+    "ict_assets": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("ICT_ASSETS_DB_NAME"),
+        "USER": os.getenv("ICT_ASSETS_DB_USER"),
+        "PASSWORD": os.getenv("ICT_ASSETS_DB_PWD"),
+        "HOST": os.getenv("ICT_ASSETS_DB_HOST"),
+        "PORT": os.getenv("ICT_ASSETS_DB_PORT"),
+    },
+    "training": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("TRAINING_DB_NAME"),
+        "USER": os.getenv("TRAINING_DB_USER"),
+        "PASSWORD": os.getenv("TRAINING_DB_PWD"),
+        "HOST": os.getenv("TRAINING_DB_HOST"),
+        "PORT": os.getenv("TRAINING_DB_PORT"),
+    },
 }
-
-
-DATABASE_ROUTERS = ['microservices.mnh_analytical.db_router.AnalyticalRouter']
 
 
 # Password validation
@@ -278,3 +289,7 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+
+
+# ---------- MICROSERVICES URLS ---------- 
+AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://localhost:8092')
