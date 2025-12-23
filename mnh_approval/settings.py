@@ -68,7 +68,7 @@ REST_FRAMEWORK = {
 
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(hours=2),
     # "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     # "REFRESH_TOKEN_LIFETIME": timedelta(minutes=30),
@@ -203,12 +203,17 @@ DATABASES = {
         "PORT": os.getenv("POSTGRES_DB_PORT"),
     },
     "analytical": {
+<<<<<<< HEAD
         "ENGINE": "django.db.backends.postgresql",
+=======
+        "ENGINE": "django.db.backends.mysql",
+>>>>>>> origin/main
         "NAME": os.getenv("ANALYTICS_DB_NAME"),
         "USER": os.getenv("ANALYTICS_DB_USER"),
         "PASSWORD": os.getenv("ANALYTICS_DB_PWD"),
         "HOST": os.getenv("ANALYTICS_DB_HOST"),
         "PORT": os.getenv("ANALYTICS_DB_PORT"),
+<<<<<<< HEAD
     },
     "ict_assets": {
         "ENGINE": "django.db.backends.postgresql",
@@ -225,6 +230,11 @@ DATABASES = {
         "PASSWORD": os.getenv("TRAINING_DB_PWD"),
         "HOST": os.getenv("TRAINING_DB_HOST"),
         "PORT": os.getenv("TRAINING_DB_PORT"),
+=======
+        "OPTIONS": {
+            "charset": "utf8mb4",
+        },
+>>>>>>> origin/main
     },
 }
 

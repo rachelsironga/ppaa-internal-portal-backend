@@ -7,7 +7,7 @@ from django.utils import timezone
 from api.utils import send_custom_email
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from mnh_auth.serializers import UserSerializer, CheckUserNameSerializer, UpdateProfileSerializer, LoginSerializer, \
-    NewUserLoginSerializer, PasswordResetSerializer, CountrySerializer, CurrencySerializer
+    NewUserLoginSerializer, PasswordResetSerializer, PasswordNewChangeSerializer, CountrySerializer, CurrencySerializer
 from django.contrib.auth import authenticate, login, logout
 from rest_framework import status, permissions
 from rest_framework.permissions import IsAuthenticated
@@ -206,6 +206,35 @@ class ChangePasswordView(APIView):
             )
 
 
+class AdminChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated, HasMethodPermission, ]
+    serializer_class = PasswordNewChangeSerializer
+    required_permissions = {
+        "post": ["can_change_user_password"],
+    }
+
+    def post(self, request):
+        try:
+            with transaction.atomic():
+                serializer = self.serializer_class(context={'request': request}, data=request.data)
+                # Validate and save
+                if serializer.is_valid():
+                    user = serializer.validated_data['user']
+                    user.set_password(serializer.validated_data['new_password'])
+                    user.save()
+                    return CustomResponse.success(data=UserSerializer(request.user).data)
+
+                # Validation failed
+                return CustomResponse.errors(
+                    message="validation failed",
+                    data=serializer.errors,
+                    code=STATUS_CODES["VALIDATION_ERROR"]
+                )
+        except Exception as e:
+            return CustomResponse.server_error(
+                message=f"Failed to Change Change Password: {str(e)}"
+            )
+
 class ResetPasswordView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     required_permissions = {
@@ -376,14 +405,14 @@ class CountriesView(APIView):
                         message="Country uid is required",
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
-                
+
                 country = Country.objects.filter(uid=uid, is_deleted=False).first()
                 if not country:
                     return CustomResponse.error(
                         message="Country not found",
                         code=STATUS_CODES["DATA_NOT_FOUND"]
                     )
-                
+
                 serializer = self.serializer_class(country, data=request.data, partial=True)
                 if serializer.is_valid():
                     country = serializer.save(updated_by=request.user)
@@ -411,20 +440,20 @@ class CountriesView(APIView):
                         message="Country uid is required",
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
-                
+
                 country = Country.objects.filter(uid=uid, is_deleted=False).first()
                 if not country:
                     return CustomResponse.error(
                         message="Country not found",
                         code=STATUS_CODES["DATA_NOT_FOUND"]
                     )
-                
+
                 # Soft delete
                 country.is_deleted = True
                 country.deleted_by = request.user
                 country.deleted_at = timezone.now()
                 country.save()
-                
+
                 return CustomResponse.success(
                     message="Country deleted successfully"
                 )
@@ -505,14 +534,14 @@ class CurrenciesView(APIView):
                         message="Currency uid is required",
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
-                
+
                 currency = Currency.objects.filter(uid=uid, is_deleted=False).first()
                 if not currency:
                     return CustomResponse.error(
                         message="Currency not found",
                         code=STATUS_CODES["DATA_NOT_FOUND"]
                     )
-                
+
                 serializer = self.serializer_class(currency, data=request.data, partial=True)
                 if serializer.is_valid():
                     currency = serializer.save(updated_by=request.user)
@@ -540,20 +569,20 @@ class CurrenciesView(APIView):
                         message="Currency uid is required",
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
-                
+
                 currency = Currency.objects.filter(uid=uid, is_deleted=False).first()
                 if not currency:
                     return CustomResponse.error(
                         message="Currency not found",
                         code=STATUS_CODES["DATA_NOT_FOUND"]
                     )
-                
+
                 # Soft delete
                 currency.is_deleted = True
                 currency.deleted_by = request.user
                 currency.deleted_at = timezone.now()
                 currency.save()
-                
+
                 return CustomResponse.success(
                     message="Currency deleted successfully"
                 )
@@ -561,7 +590,7 @@ class CurrenciesView(APIView):
             return CustomResponse.server_error(
                 message=f"Failed to delete currency: {str(e)}"
             )
-        
+
 class DirectoryView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = DirectorySerializer
@@ -634,14 +663,14 @@ class DirectoryView(APIView):
                         message="Directory uid is required",
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
-                
+
                 directory = Directory.objects.filter(uid=uid, is_deleted=False).first()
                 if not directory:
                     return CustomResponse.errors(
                         message="Directory not found",
                         code=STATUS_CODES["DATA_NOT_FOUND"]
                     )
-                
+
                 serializer = self.serializer_class(directory, data=request.data, partial=True)
                 if serializer.is_valid():
                     directory = serializer.save(updated_by=request.user)
@@ -669,20 +698,20 @@ class DirectoryView(APIView):
                         message="Directory uid is required",
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
-                
+
                 directory = Directory.objects.filter(uid=uid, is_deleted=False).first()
                 if not directory:
                     return CustomResponse.errors(
                         message="Directory not found",
                         code=STATUS_CODES["DATA_NOT_FOUND"]
                     )
-                
+
                 # Soft delete
                 directory.is_deleted = True
                 directory.deleted_by = request.user
                 directory.deleted_at = timezone.now()
                 directory.save()
-                
+
                 return CustomResponse.success(
                     message="Directory deleted successfully"
                 )
@@ -720,10 +749,10 @@ class DepartmentView(APIView):
                 # Optional: filter by directory if provided
                 directory_uid = request.query_params.get('directory_uid')
                 query = Department.objects.filter(is_deleted=False).select_related('directory')
-                
+
                 if directory_uid:
                     query = query.filter(directory__uid=directory_uid)
-                
+
                 departments = query.order_by('name')
                 serializer = self.serializer_class(departments, many=True)
                 return CustomResponse.success(
@@ -748,14 +777,14 @@ class DepartmentView(APIView):
                             message="Directory is required",
                             code=STATUS_CODES["VALIDATION_ERROR"]
                         )
-                    
+
                     directory = Directory.objects.filter(uid=directory_uid, is_deleted=False).first()
                     if not directory:
                         return CustomResponse.errors(
                             message="Directory not found",
                             code=STATUS_CODES["DATA_NOT_FOUND"]
                         )
-                    
+
                     department = serializer.save(
                         created_by=request.user,
                         updated_by=request.user
@@ -785,14 +814,14 @@ class DepartmentView(APIView):
                         message="Department uid is required",
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
-                
+
                 department = Department.objects.filter(uid=uid, is_deleted=False).first()
                 if not department:
                     return CustomResponse.errors(
                         message="Department not found",
                         code=STATUS_CODES["DATA_NOT_FOUND"]
                     )
-                
+
                 serializer = self.serializer_class(department, data=request.data, partial=True)
                 if serializer.is_valid():
                     department = serializer.save(updated_by=request.user)
@@ -820,20 +849,20 @@ class DepartmentView(APIView):
                         message="Department uid is required",
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
-                
+
                 department = Department.objects.filter(uid=uid, is_deleted=False).first()
                 if not department:
                     return CustomResponse.errors(
                         message="Department not found",
                         code=STATUS_CODES["DATA_NOT_FOUND"]
                     )
-                
+
                 # Soft delete
                 department.is_deleted = True
                 department.deleted_by = request.user
                 department.deleted_at = timezone.now()
                 department.save()
-                
+
                 return CustomResponse.success(
                     message="Department deleted successfully"
                 )

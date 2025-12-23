@@ -519,6 +519,25 @@ class PasswordChangeSerializer(serializers.Serializer):
                 {'status': status.HTTP_400_BAD_REQUEST, 'message': 'Password Does not match'})
         return value
 
+class PasswordNewChangeSerializer(serializers.Serializer):
+    uid = serializers.UUIDField(write_only=True, required=True)
+    new_password = serializers.CharField(style={"input_type": "password"}, required=True)
+    confirm_password = serializers.CharField(style={"input_type": "password"}, required=True)
+
+    def validate(self, data):
+        uid = data.pop('uid')
+        try:
+            data['user'] = User.objects.get(guid=uid)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User Does not exist")
+
+        confirm_password = data.pop('confirm_password')
+        new_password = data.pop('new_password')
+        if confirm_password != new_password:
+            raise serializers.ValidationError("Passwords do not match")
+        data['new_password'] = new_password
+        return data
+
 
 class PasswordResetSerializer(serializers.Serializer):
     user_guid = serializers.CharField(
