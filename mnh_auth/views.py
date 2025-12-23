@@ -724,7 +724,7 @@ class DepartmentView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = DepartmentSerializer
     required_permissions = {
-        "get": ["view_department"],
+        "get": ["view_department", "can_view_department_lookup"],
         "post": ["add_department"],
         "put": ["change_department"],
         "delete": ["delete_department"],
