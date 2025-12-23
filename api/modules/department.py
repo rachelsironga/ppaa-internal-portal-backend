@@ -28,7 +28,6 @@ class DepartmentView(APIView):
             "can_add_department",
             "can_view_department",
             "can_view_department_lookup",
-            "can_delete_department"
         ],
         "post": [
             "add_department",
@@ -44,6 +43,7 @@ class DepartmentView(APIView):
     def get(self, request, uid=None):
         try:
             """ Retrieve a single department by UID or list departments with optional search """
+            print("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP")
             if uid:
                 department = Department.objects.filter(uid=uid, is_deleted=False).first()
                 if not department:
