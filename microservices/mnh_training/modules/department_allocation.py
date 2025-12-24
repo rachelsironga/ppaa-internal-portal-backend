@@ -7,7 +7,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from microservices.mnh_training.models import DepartmentAllocation, Application
-from microservices.mnh_training.serializers import DepartmentAllocationSerializer, DepartmentAllocationDetailSerializer
+from microservices.mnh_training.serializers import (
+    DepartmentAllocationSerializer, 
+    DepartmentAllocationDetailSerializer,
+    DepartmentAllocationListSerializer
+)
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from utils.permissions import HasMethodPermission
@@ -16,6 +20,7 @@ from utils.permissions import HasMethodPermission
 class DepartmentAllocationView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = DepartmentAllocationSerializer
+    list_serializer_class = DepartmentAllocationListSerializer
     detail_serializer_class = DepartmentAllocationDetailSerializer
 
     required_permissions = {
@@ -44,21 +49,21 @@ class DepartmentAllocationView(APIView):
 
             if search_query:
                 allocations = allocations.filter(
-                    Q(department__name__icontains=search_query) |
+                    Q(department_uid__icontains=search_query) |
                     Q(application__application_number__icontains=search_query) |
-                    Q(supervisor__user__username__icontains=search_query)
+                    Q(supervisor__user_guid__icontains=search_query)
                 )
 
             if allocations.exists():
-               serializer = self.list_serializer_class(
-                   allocations,
-                   many=True,
-                   context={'request': request}
-               )
-               return CustomResponse.success(
-                   data=serializer.data,
-                   message="Success"
-               )
+                serializer = self.list_serializer_class(
+                    allocations,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success"
+                )
 
             return CustomResponse.errors(message="Department Allocations not found", data=[])
 

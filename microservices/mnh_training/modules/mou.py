@@ -60,18 +60,42 @@ class MOUView(APIView):
                 mou_ids = [m.id for m in mous]
                 mous = MOU.objects.filter(id__in=mou_ids, is_deleted=False)
 
-            if mous.exists() if hasattr(mous, 'exists') else mous:
-               serializer = self.list_serializer_class(
-                   mous,
-                   many=True,
-                   context={'request': request}
-               )
-               return CustomResponse.success(
-                   data=serializer.data,
-                   message="Success"
-               )
-
-            return CustomResponse.errors(message="MOUs not found", data=[])
+            # Check if pagination is requested
+            paginated = request.GET.get('paginated', 'false').lower() == 'true'
+            if paginated:
+                page = int(request.GET.get('page', 1))
+                page_size = int(request.GET.get('page_size', 10))
+                
+                total = mous.count()
+                start_num = (page - 1) * page_size
+                end_num = page_size * page
+                
+                paginated_mous = mous[start_num:end_num]
+                
+                serializer = self.list_serializer_class(
+                    paginated_mous,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success",
+                    pagination={
+                        "page_size": page_size,
+                        "page": page,
+                        "total": total,
+                    }
+                )
+            else:
+                serializer = self.list_serializer_class(
+                    mous,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success"
+                )
 
         except Exception as e:
             return CustomResponse.server_error(

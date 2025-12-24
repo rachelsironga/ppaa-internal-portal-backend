@@ -2,3 +2,6 @@
 DROP SCHEMA public CASCADE; CREATE SCHEMA public;
 DELETE FROM user_profile WHERE user_id NOT IN (1);
 DELETE FROM auth_user WHERE id NOT IN (1);
+
+sudo mkdir -p /opt/mnh-data/mysql-analytics
+sudo chown -R 999:999 /opt/mnh-data/mysql-analytics

@@ -5,9 +5,10 @@ from django.db.models import Q
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from microservices.mnh_training.models import Application
-from microservices.mnh_training.serializers import ApplicationSerializer, ApplicationListSerializer
+from microservices.mnh_training.serializers import ApplicationSerializer, ApplicationListSerializer, ApplicationDetailSerializer
 from mnh_approval.pagination import CustomPagination
 from mnh_approval.response_codes import CustomResponse, STATUS_CODES
 from utils.permissions import HasMethodPermission
@@ -15,7 +16,9 @@ from utils.permissions import HasMethodPermission
 
 class ApplicationView(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     serializer_class = ApplicationSerializer
+    detail_serializer_class = ApplicationDetailSerializer
     list_serializer_class = ApplicationListSerializer
 
     required_permissions = {
@@ -32,7 +35,7 @@ class ApplicationView(APIView):
                 application = Application.objects.filter(uid=uid, is_deleted=False).first()
                 if not application:
                     raise NotFound("Application not found")
-                return CustomResponse.success(data=self.serializer_class(application).data)
+                return CustomResponse.success(data=self.detail_serializer_class(application).data)
 
             search_query = request.GET.get('search', '').strip()
             placement_type = request.GET.get('placement_type', '').strip()
@@ -62,18 +65,42 @@ class ApplicationView(APIView):
                     Q(student__email__icontains=search_query)
                 )
 
-            if applications.exists():
-               serializer = self.list_serializer_class(
-                   applications,
-                   many=True,
-                   context={'request': request}
-               )
-               return CustomResponse.success(
-                   data=serializer.data,
-                   message="Success"
-               )
-
-            return CustomResponse.errors(message="Applications not found", data=[])
+            # Check if pagination is requested
+            paginated = request.GET.get('paginated', 'false').lower() == 'true'
+            if paginated:
+                page = int(request.GET.get('page', 1))
+                page_size = int(request.GET.get('page_size', 10))
+                
+                total = applications.count()
+                start_num = (page - 1) * page_size
+                end_num = page_size * page
+                
+                paginated_applications = applications[start_num:end_num]
+                
+                serializer = self.list_serializer_class(
+                    paginated_applications,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success",
+                    pagination={
+                        "page_size": page_size,
+                        "page": page,
+                        "total": total,
+                    }
+                )
+            else:
+                serializer = self.list_serializer_class(
+                    applications,
+                    many=True,
+                    context={'request': request}
+                )
+                return CustomResponse.success(
+                    data=serializer.data,
+                    message="Success"
+                )
 
         except Exception as e:
             return CustomResponse.server_error(
@@ -127,7 +154,7 @@ class ApplicationView(APIView):
                 serializer = self.serializer_class(
                     instance,
                     data=request.data,
-                    partial=False,
+                    partial=True,
                     context={'request': request}
                 )
 

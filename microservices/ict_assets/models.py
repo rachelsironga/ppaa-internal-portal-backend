@@ -57,7 +57,7 @@ class Asset(BaseModel):
     barcode = models.CharField(max_length=128, blank=True)  # optional barcode string (nullable true)
     serial_number = models.CharField(max_length=100, null=True, blank=True, unique=True)
 
-    asset_type = models.ForeignKey(AssetType, on_delete=models.CASCADE)
+    asset_type = models.ForeignKey(AssetType, on_delete=models.CASCADE, default=None, null=False)
     manufacturer = models.ForeignKey(Manufacturer, on_delete=models.SET_NULL, null=True, blank=True)
     model = models.CharField(max_length=100, blank=True)
     
@@ -722,8 +722,9 @@ class DisposalRecord(BaseModel):
     disposal_method = models.CharField(max_length=20, choices=DISPOSAL_METHODS)
     disposal_reason = models.TextField()
     disposal_value = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS, default='pending', null=True, blank=True)
     notes = models.TextField(blank=True)
+    
     approved_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='approved_disposals')
     rejected_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='rejected_disposals')
     rejection_reason = models.TextField(blank=True, null=True)
@@ -732,6 +733,14 @@ class DisposalRecord(BaseModel):
 # Disposal Audit trail
 
 class DisposalAuditTrail(BaseModel):
+
+    ACTION_CHOICES = [
+        ('created', 'Created'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+        ('resubmitted', 'Resubmitted'),
+    ]
+
     disposal_record = models.ForeignKey(
         DisposalRecord, 
         on_delete=models.CASCADE, 
@@ -739,7 +748,8 @@ class DisposalAuditTrail(BaseModel):
     )
 
     action = models.CharField(
-        max_length=100
+        max_length=100,
+        choices=ACTION_CHOICES,
     )  # e.g., "Created", "Approved", "Rejected", "Resubmitted"
 
     performed_by = models.ForeignKey(
@@ -782,6 +792,7 @@ class DisposalConversation(BaseModel):
 
     sender = models.ForeignKey(
         User,
+        related_name="disposal_conversations",
         on_delete=models.SET_NULL,
         null=True
     )
