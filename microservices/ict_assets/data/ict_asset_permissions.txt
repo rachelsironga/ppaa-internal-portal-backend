@@ -5,14 +5,16 @@
 ### Asset Category
 - add_assetcategory
 - view_assetcategory
-- change_assetcategory
+- change_assetcategory 
 - delete_assetcategory
 
 ### Asset Type
 - add_assettype
 - view_assettype
 - change_assettype
-- delete_assettype
+- delete_assetty
+
+
 
 ### Asset
 - add_asset
