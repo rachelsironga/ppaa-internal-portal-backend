@@ -33,7 +33,11 @@ class ExternalReferralView(APIView):
 
     def get(self, request, uid=None):
         try:
-            data = get_patient_data()
+            pid = request.GET.get('search', None)
+            pid_type = request.GET.get('type', None)
+            if pid is None or pid_type is None:
+                return CustomResponse.errors(message="Search Value or Identity Type not provided")
+            data = get_patient_data(pid=pid, pid_type=pid_type)
             print("=======================RESPONSE========================>",data)
             return CustomResponse.success(data=data)
         except Exception as e:
