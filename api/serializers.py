@@ -82,8 +82,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Department
-        fields = ['uid', 'name', 'code', 'directory', 'directory_uid', 'description', 'is_active', 'created_at',
-                  'updated_at']
+        fields = ['uid', 'name', 'code', 'directory', 'directory_uid', 'description', 'is_active', 'created_at','updated_at']
         read_only_fields = ['uid', 'created_at', 'updated_at', 'directory_uid']
         extra_kwargs = {
             'created_by': {'read_only': True},

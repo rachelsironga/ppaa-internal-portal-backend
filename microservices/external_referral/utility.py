@@ -4,10 +4,11 @@ from django.conf import settings
 
 
 
-def get_patient_data():
+def get_patient_data(pid=None, pid_type=None):
     api = ApiService(base_url=settings.EXTERNAL_REFERRAL_API_URL)
     response = api.get(
-    endpoint="/shr/sharedRecords?id=105267-9-M01",
+    endpoint=f"/shr/sharedRecords?idType={pid_type}&id={pid}" if pid is not None or pid_type is None else "/shr/sharedRecords",
+        # endpoint=f"/shr/sharedRecords",
     username=settings.EXTERNAL_REFERRAL_API_USERNAME,
     password=settings.EXTERNAL_REFERRAL_API_PASSWORD,
     auth_method=AuthMethod.BASIC_AUTH

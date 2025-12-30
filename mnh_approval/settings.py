@@ -80,6 +80,7 @@ SIMPLE_JWT = {
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 # CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
+    "connect.mnh.or.tz",
     "http://localhost:4001",
     "http://127.0.0.1:4001",
     "http://frontend.approval.mnh",
@@ -94,6 +95,7 @@ CORS_ALLOWED_ORIGINS = [
 
 # Make sure these match your CORS settings
 CSRF_TRUSTED_ORIGINS = [
+    "connect.mnh.or.tz",
     "http://localhost:4001",
     "http://127.0.0.1:4001",
     "http://frontend.approval.mnh",
