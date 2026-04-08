@@ -47,4 +47,4 @@ COPY . .
 RUN python manage.py collectstatic --noinput || true
 
 # Run using Gunicorn
-CMD ["gunicorn", "mnh_approval.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "ppaa_portal.wsgi:application", "--bind", "0.0.0.0:8000"]

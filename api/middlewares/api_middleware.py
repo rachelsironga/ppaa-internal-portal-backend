@@ -1,4 +1,4 @@
-from mnh_approval.response_codes import CustomResponse
+from ppaa_portal.response_codes import CustomResponse
 
 
 class APIMiddleware:

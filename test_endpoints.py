@@ -4,7 +4,7 @@
 import os
 import django
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'mnh_approval.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ppaa_portal.settings')
 django.setup()
 
 from django.test import Client

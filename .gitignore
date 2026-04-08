@@ -1,6 +1,6 @@
 __pycache__/
 .env
 .idea/
-mnh_approval/settings.py
+ppaa_portal/settings.py
 virtualenv/
 media/Attendance/

@@ -1,63 +1,126 @@
 from django.urls import path
 
-from api.modules.approval_action import ApprovalActionView
-from api.modules.approval_module_level_step import ApproveModuleLevelStepView, ApproveModuleLevelActingUser, \
-    ApprovalRequestCustomise
-from api.modules.date_range import DateRangeView
-from api.modules.handler import RequestHandler
-from api.modules.positional_level import PositionalLevelView, BulkDesignationImportView
-from api.modules.approval_module import ApprovalModuleView
-from api.modules.approval_module_level import ApprovalModuleLevelView
-from api.modules.approval_request import ApprovalRequestView, ApprovalRequestHandlerView
 from api.modules.department import DepartmentView
-from api.modules.directory import DirectoryView, UploadDirectoryExcelView
-from api.modules.external_auth.jeeva_roles import JeevaRoleView, JeevaRolePermissionListView
+from api.modules.positional_level import PositionalLevelView
 from api.modules.system.user_roles import SystemRoleView, SystemPermissionView, SystemAssignRoleUser, SystemRoleUsers, \
     SystemAssignRoleListToUser, SystemGroupView
 
+from ppaa_portal.performance_views import (
+    FinancialYearView,
+    ObjectiveView,
+    TargetView,
+    TargetAssignOfficerView,
+    PerformanceOfficersView,
+    ActivityView,
+    ImplementationActivitiesView,
+    ImplementationTargetsView,
+    ActivitySubmitImplementationView,
+    ActivityImplementationApprovalView,
+    QuarterlyDataView,
+    KPIActualView,
+    ActivityDocumentView,
+    ActivityDocumentDownloadView,
+    PerformanceDashboardSummaryView,
+    PerformanceAnalyticsView,
+    ObjectiveApprovalView,
+    ObjectiveSubmitPackageView,
+    TargetApprovalView,
+    ActivityApprovalView,
+)
+from ppaa_performance.views import (
+    PendingApprovalsView,
+    PerformanceAuditLogListView,
+    SPISMReportsView,
+    SPISMConfigView,
+)
+
+from ppaa_portal.views import (
+    DocumentCategoryView, DocumentView, AnnouncementView, EventView,
+    FAQView, NotificationView, TodoListView, AuditLogView, QuickLinkView, QuickLinkClickView,
+    PortalPopupCardView, InternalPortalDashboardSummaryView
+)
 
 
 urlpatterns = [
-    path('date-range', DateRangeView.as_view(), name='date-range-view'),
-    path('date-range/<str:uid>', DateRangeView.as_view(), name='date-range-open'),
 
-    path('directory', DirectoryView.as_view(), name='directory-view'),
-    path('directory/<str:uid>', DirectoryView.as_view(), name='directory-open'),
+    path('internal-portal/dashboard-summary', InternalPortalDashboardSummaryView.as_view(), name='internal-portal-dashboard-summary'),
 
-    path('departments', DepartmentView.as_view(), name='view'),
-    path('departments/<str:uid>', DepartmentView.as_view(), name='open'),
-    path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
+    path('internal-portal/document-categories', DocumentCategoryView.as_view(), name='document-categories'),
+    path('internal-portal/document-categories/<str:uid>', DocumentCategoryView.as_view(), name='document-category-detail'),
 
-    path('positional-level', PositionalLevelView.as_view(), name='view-positional-level'),
-    path('positional-level/<str:uid>', PositionalLevelView.as_view(), name='open-positional-level'),
-    path('positional-level-import', BulkDesignationImportView.as_view(), name='positional-level-import'),
+    path('internal-portal/documents', DocumentView.as_view(), name='documents'),
+    path('internal-portal/documents/<str:uid>', DocumentView.as_view(), name='document-detail'),
 
-    path('approval-action', ApprovalActionView.as_view(), name='view-approval-action'),
-    path('approval-action/<str:uid>', ApprovalActionView.as_view(), name='open-approval-action'),
+    path('internal-portal/announcements', AnnouncementView.as_view(), name='announcements'),
+    path('internal-portal/announcements/<str:uid>', AnnouncementView.as_view(), name='announcement-detail'),
 
-    path('approval-module', ApprovalModuleView.as_view(), name='view-approval-module'),
-    path('approval-module/<str:uid>', ApprovalModuleView.as_view(), name='open-approval-module'),
+    path('internal-portal/departments', DepartmentView.as_view(), name='departments'),
+    path('internal-portal/departments/<str:uid>', DepartmentView.as_view(), name='department-detail'),
 
-    path('approval-module-level', ApprovalModuleLevelView.as_view(), name='view-approval-module-level'),
-    path('approval-module-level/<str:uid>', ApprovalModuleLevelView.as_view(), name='open-approval-module-level'),
+    path('internal-portal/positional-levels', PositionalLevelView.as_view(), name='positional-levels'),
+    path('internal-portal/positional-levels/<str:uid>', PositionalLevelView.as_view(), name='positional-level-detail'),
 
-    path('jeeva-role', JeevaRoleView.as_view(), name='all-jeeva-role'),
-    path('jeeva-role/<str:uid>', JeevaRoleView.as_view(), name='one-jeeva-role'),
-    path('jeeva-role-perm-list', JeevaRolePermissionListView.as_view(), name='jeeva-role-perm-list'),
-    path('jeeva-role-perm-by-code/<str:role_codename>', JeevaRolePermissionListView.as_view(), name='jeeva-role-perm-by-code'),
+    path('internal-portal/events', EventView.as_view(), name='events'),
+    path('internal-portal/events/<str:uid>', EventView.as_view(), name='event-detail'),
+    # path('internal-portal/events-import', BulkEventImportView.as_view(), name='events-import'),
 
-    path('approval-request', ApprovalRequestView.as_view(), name='view-approval-request'),
-    path('approval-request/<str:uid>', ApprovalRequestView.as_view(), name='open-approval-request'),
+    path('internal-portal/faqs', FAQView.as_view(), name='faqs'),
+    path('internal-portal/faqs/<str:uid>', FAQView.as_view(), name='faq-detail'),
+    # path('internal-portal/faqs-import', BulkFAQImportView.as_view(), name='faqs-import'),
 
-    path('approval-request-handler', RequestHandler.as_view(), name='approval-request-handler'),
-    path('approval-request-handler/<str:uid>', RequestHandler.as_view(), name='approval-request-handler'),
-    path('handle-approval-request', ApprovalRequestHandlerView.as_view(), name='handle-approval-request'),
+    path('internal-portal/notifications', NotificationView.as_view(), name='notifications'),
+    path('internal-portal/notifications/<str:uid>', NotificationView.as_view(), name='notification-detail'),
+    # path('internal-portal/notifications-import', BulkNotificationImportView.as_view(), name='notifications-import'),
 
-    path('approve-reject-request', ApproveModuleLevelStepView.as_view(), name='approve-reject-request'),
+    path('internal-portal/todos', TodoListView.as_view(), name='todos'),
+    path('internal-portal/todos/<str:uid>', TodoListView.as_view(), name='todo-detail'),
+    # path('internal-portal/todos-import', BulkTodoImportView.as_view(), name='todos-import'),
 
-    path('approval-request-step/<str:request_uid>', ApproveModuleLevelStepView.as_view(), name='one-approval-request-step'),
-    path('get-acting-user', ApproveModuleLevelActingUser.as_view(), name='get-acting-user'),
-    path('approval-request-update-permissions/<str:request_uid>', ApprovalRequestCustomise.as_view(), name='approval-request-update-permissions'),
+    path('internal-portal/audit-logs', AuditLogView.as_view(), name='audit-logs'),
+    path('internal-portal/audit-logs/<str:uid>', AuditLogView.as_view(), name='audit-log-detail'),
+    # path('internal-portal/audit-logs-import', BulkAuditLogImportView.as_view(), name='audit-logs-import'),
+
+    path('internal-portal/quick-links', QuickLinkView.as_view(), name='quick-links'),
+    path('internal-portal/quick-links/<str:uid>', QuickLinkView.as_view(), name='quick-link-detail'),
+    path('internal-portal/quick-links/<str:uid>/click', QuickLinkClickView.as_view(), name='quick-link-click'),
+
+    path('internal-portal/popup-cards', PortalPopupCardView.as_view(), name='popup-cards'),
+    path('internal-portal/popup-cards/<str:uid>', PortalPopupCardView.as_view(), name='popup-card-detail'),
+
+    # Performance Dashboard (Strategic & Operational Performance Monitoring)
+    path('performance-dashboard/financial-years', FinancialYearView.as_view(), name='performance-financial-years'),
+    path('performance-dashboard/financial-years/<str:uid>', FinancialYearView.as_view(), name='performance-financial-year-detail'),
+    path('performance-dashboard/objectives', ObjectiveView.as_view(), name='performance-objectives'),
+    path('performance-dashboard/objectives/<str:uid>', ObjectiveView.as_view(), name='performance-objective-detail'),
+    path('performance-dashboard/objectives/<str:uid>/approval', ObjectiveApprovalView.as_view(), name='performance-objective-approval'),
+    path('performance-dashboard/objectives/<str:uid>/submit-package', ObjectiveSubmitPackageView.as_view(), name='performance-objective-submit-package'),
+    path('performance-dashboard/targets', TargetView.as_view(), name='performance-targets'),
+    path('performance-dashboard/targets/<str:uid>', TargetView.as_view(), name='performance-target-detail'),
+    path('performance-dashboard/targets/<str:uid>/approval', TargetApprovalView.as_view(), name='performance-target-approval'),
+    path('performance-dashboard/targets/<str:uid>/assign-officer', TargetAssignOfficerView.as_view(), name='performance-target-assign-officer'),
+    path('performance-dashboard/performance-officers', PerformanceOfficersView.as_view(), name='spism-performance-officers'),
+    path('performance-dashboard/activities', ActivityView.as_view(), name='performance-activities'),
+    path('performance-dashboard/activities/<str:uid>', ActivityView.as_view(), name='performance-activity-detail'),
+    path('performance-dashboard/activities/<str:uid>/approval', ActivityApprovalView.as_view(), name='performance-activity-approval'),
+    path('performance-dashboard/activities/<str:uid>/submit-implementation', ActivitySubmitImplementationView.as_view(), name='performance-activity-submit-implementation'),
+    path('performance-dashboard/activities/<str:uid>/implementation-approval', ActivityImplementationApprovalView.as_view(), name='performance-activity-implementation-approval'),
+    path('performance-dashboard/implementation-activities', ImplementationActivitiesView.as_view(), name='performance-implementation-activities'),
+    path('performance-dashboard/implementation-targets', ImplementationTargetsView.as_view(), name='performance-implementation-targets'),
+    path('performance-dashboard/quarterly-data', QuarterlyDataView.as_view(), name='performance-quarterly-data'),
+    path('performance-dashboard/quarterly-data/<str:uid>', QuarterlyDataView.as_view(), name='performance-quarterly-data-detail'),
+    path('performance-dashboard/kpi-actuals', KPIActualView.as_view(), name='performance-kpi-actuals'),
+    path('performance-dashboard/kpi-actuals/<str:uid>', KPIActualView.as_view(), name='performance-kpi-actual-detail'),
+    path('performance-dashboard/activity-documents', ActivityDocumentView.as_view(), name='performance-activity-documents'),
+    path('performance-dashboard/activity-documents/<str:uid>/download', ActivityDocumentDownloadView.as_view(), name='performance-activity-document-download'),
+    path('performance-dashboard/activity-documents/<str:uid>', ActivityDocumentView.as_view(), name='performance-activity-document-detail'),
+    path('performance-dashboard/summary', PerformanceDashboardSummaryView.as_view(), name='performance-dashboard-summary'),
+    path('performance-dashboard/analytics', PerformanceAnalyticsView.as_view(), name='performance-dashboard-analytics'),
+    # SPISM: Approval, Reports, Audit, Config
+    path('performance-dashboard/pending-approvals', PendingApprovalsView.as_view(), name='spism-pending-approvals'),
+    path('performance-dashboard/audit-logs', PerformanceAuditLogListView.as_view(), name='spism-audit-logs'),
+    path('performance-dashboard/audit-logs/<str:uid>', PerformanceAuditLogListView.as_view(), name='spism-audit-log-detail'),
+    path('performance-dashboard/reports', SPISMReportsView.as_view(), name='spism-reports'),
+    path('performance-dashboard/config', SPISMConfigView.as_view(), name='spism-config'),
 
     path('system/roles', SystemRoleView.as_view(), name='system-roles'),
     path('system/roles/<str:uid>', SystemRoleView.as_view(), name='open-system-roles'),

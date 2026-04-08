@@ -6,44 +6,44 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: P@ssw0rd
-      POSTGRES_DB: mnh_approval_db
+      POSTGRES_DB: ppaa_portal_db
     ports:
       - "5433:5432"
     volumes:
-      - /opt/mnh-data/postgres:/var/lib/postgresql/data
+      - /opt/ppaa-data/postgres:/var/lib/postgresql/data
       - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
     networks:
-      - mnh-network
+      - ppaa-network
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
     restart: always
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@mnh.com
+      PGADMIN_DEFAULT_EMAIL: admin@ppaa.com
       PGADMIN_DEFAULT_PASSWORD: P@ssw0rd
     ports:
       - "8099:80"
     volumes:
-      - /opt/mnh-data/pgadmin:/var/lib/pgadmin
+      - /opt/ppaa-data/pgadmin:/var/lib/pgadmin
     networks:
-      - mnh-network
+      - ppaa-network
     depends_on:
       - postgres
-  mysql:
-    image: mysql:8.0
-    container_name: mysql
-    restart: always
-    environment:
-      MYSQL_DATABASE: analytics_db
-      MYSQL_USER: analytics
-      MYSQL_PASSWORD: analytics@MNH25
-      MYSQL_ROOT_PASSWORD: P@ssw0rd
-    ports:
-      - "3307:3306"
-    volumes:
-      - /opt/mnh-data/mysql-analytics:/var/lib/mysql
-    networks:
-      - mnh-network
+  # mysql:
+    # image: mysql:8.0
+    # container_name: mysql
+    # restart: always
+    # environment:
+    #   MYSQL_DATABASE: analytics_db
+    #   MYSQL_USER: analytics
+    #   MYSQL_PASSWORD: analytics@MNH25
+    #   MYSQL_ROOT_PASSWORD: P@ssw0rd
+    # ports:
+    #   - "3307:3306"
+    # volumes:
+    #   - /opt/mnh-data/mysql-analytics:/var/lib/mysql
+    # networks:
+    #   - mnh-network
   redis:
     image: redis:7
     container_name: redis
@@ -51,16 +51,16 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - mnh-network
+      - ppaa-network
 
   backend:
-    image: mnh-connect-backend
+    image: ppaa-internal-portal-backend
     container_name: backend-container
     build:
       context: .
       dockerfile: Dockerfile
     networks:
-      - mnh-network
+      - ppaa-network
     volumes:
       - ./:/app
       - static_volume:/app/static
@@ -69,27 +69,33 @@ services:
       - "8000"
     environment:
       # PostgreSQL
-      POSTGRES_DB_NAME: "mnh_approval_db"
+      POSTGRES_DB_NAME: "ppaa_portal_db"
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
       POSTGRES_DB_HOST: "postgres"
       POSTGRES_DB_PORT: 5432
 
-      # MySQL
-      ANALYTICS_DB_NAME: "analytics_db"
-      ANALYTICS_DB_USER: "analytics"
-      ANALYTICS_DB_PWD: "analytics@MNH25"
-      ANALYTICS_DB_HOST: "mysql"
-      ANALYTICS_DB_PORT: 3306
+
+# Maoni Microservice Database
+      MAONI_DB_NAME: "maoni_db"
+      MAONI_DB_USER: "postgres"
+      MAONI_DB_PWD: "P@ssw0rd"
+      MAONI_DB_HOST: "postgres"
+      MAONI_DB_PORT: 5432
+
+      # PPAA Reports Database
+      REPORTS_DB_NAME: "ppaa_reports"
+      RMS_REPORTS_BUCKET: "reports-management"
+
 
       # 🔥 EMAIL SETTINGS (LIVE GMAIL)
       EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
       EMAIL_HOST: smtp.gmail.com
       EMAIL_PORT: 587
-      EMAIL_HOST_USER: mnhconnect@gmail.com
+      EMAIL_HOST_USER: ppaa@gmail.com
       EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
       EMAIL_USE_TLS: "True"
-      DEFAULT_FROM_EMAIL: mnhconnect@gmail.com
+      DEFAULT_FROM_EMAIL: ppaa@gmail.com
 
       # 🔥 CELERY + REDIS
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -102,39 +108,39 @@ services:
       - postgres
 
   celery_worker:
-    image: mnh-connect-backend
+    image: ppaa-internal-portal-backend
     container_name: celery-worker
     build:
       context: .
       dockerfile: Dockerfile
-    command: celery -A mnh_approval.config.celery_app worker --loglevel=info
+    command: celery -A ppaa_portal.config.celery_app worker --loglevel=info
 
     volumes:
       - ./:/app
     networks:
-      - mnh-network
+      - ppaa-network
     environment:
       # Same DB connection
-      POSTGRES_DB_NAME: "mnh_approval_db"
+      POSTGRES_DB_NAME: "ppaa_portal_db"
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
       POSTGRES_DB_HOST: "postgres"
       POSTGRES_DB_PORT: 5432
 
-      ANALYTICS_DB_NAME: "analytics_db"
-      ANALYTICS_DB_USER: "analytics"
-      ANALYTICS_DB_PWD: "analytics@MNH25"
-      ANALYTICS_DB_HOST: "mysql"
-      ANALYTICS_DB_PORT: 3306
+      # PPAA Reports Database
+      REPORTS_DB_NAME: "ppaa_reports"
+      RMS_REPORTS_BUCKET: "reports-management"
+
+  
 
       # Same EMAIL SETTINGS
       EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
       EMAIL_HOST: smtp.gmail.com
       EMAIL_PORT: 587
-      EMAIL_HOST_USER: mnhconnect@gmail.com
+      EMAIL_HOST_USER: ppaa@gmail.com
       EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
       EMAIL_USE_TLS: "True"
-      DEFAULT_FROM_EMAIL: mnhconnect@gmail.com
+      DEFAULT_FROM_EMAIL: ppaa@gmail.com
 
       # Celery + Redis
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -156,7 +162,7 @@ services:
     depends_on:
       - backend
     networks:
-      - mnh-network
+      - ppaa-network
     restart: unless-stopped
 
   minio:
@@ -167,12 +173,12 @@ services:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: patrick.nachenga
+      MINIO_ROOT_USER: rachel.sironga
       MINIO_ROOT_PASSWORD: P@ssw0rd
     volumes:
-      - /opt/mnh-data/minio-data:/data
+      - /opt/ppaa-data/minio-data:/data
     networks:
-      - mnh-network
+      - ppaa-network
     restart: unless-stopped
 
 volumes:
@@ -180,6 +186,6 @@ volumes:
   media_volume:
 
 networks:
-  mnh-network:
+  ppaa-network:
     driver: bridge
     external: true
