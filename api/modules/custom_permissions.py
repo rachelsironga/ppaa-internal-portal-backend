@@ -10,91 +10,166 @@ class Command(BaseCommand):
 
         # Define your custom permissions as (codename, name)
         permissions_to_create = [
-            ("can_view_system_permission", "Can View System Permission"),
-            ("can_assign_delegate", "Can Assign Delegate User"),
-            ("can_remove_delegate", "Can Remove Delegate User"),
-            ("can_view_sensitive_data", "Can View Sensitive Data"),
-            ("can_add_directory", "Can add Directory"),
-            ("can_update_directory", "Can update Directory"),
-            ("can_view_directory", "Can View Directory"),
-            ("can_view_directory_lookup", "Can View Directory Lookup"),
-            ("can_import_directory", "Import Directory From Excel File"),
-            ("can_add_department", "Can Add Department"),
+            # Internal Portal Permissions - Document Categories
             ("can_view_department", "Can View Department"),
             ("can_view_department_lookup", "Can View Department Lookup"),
+            ("can_add_department", "Can Add Department"),
             ("can_delete_department", "Can Delete Department"),
-            ("can_add_group", "Can Add Group"),
-            ("can_delete_group", "Can Delete Group"),
-            ("can_view_group", "Can View Group"),
-            ("can_assign_user_to_group", "Can Assign User To Group"),
-            ("can_remove_user_to_group", "Can Remove User From Group"),
-            ("import_users", "Can Import Users"),
-            ("import_designations", "Can Import Designations"),
-            ("assign_user_permission", "Can Assign User Permission"),
-            ("can_view_own_profile", "Can View Own Profile"),
-            ("can_change_own_password", "Can Change Own Password"),
-            ("can_change_user_password", "Can Change User Password"),
-            ("can_view_approval_request", "Can View Approval Request"),
-            ("can_create_approval_request", "Can Create Approval Request"),
-            ("can_update_approval_request_status", "Can Update Approval Request Status"),
-            ("can_upload_profile_photo", "Can Upload Profile Photo"),
-            ("can_upload_profile_signature", "Can Upload Profile Signature"),
-            ("can_view_request_handling","Can View Request Handling"),
-            ("can_perform_request_handling", "Can Perform Request Handling"),
-            ("change_approval_request","change Approval Request"),
-            ("can_view_approval_request_step", "Can View Approval Request Step"),
-            ("can_view_approval_modules","Can View Approval Module"),
-            ("can_view_approval_module_lookup","Can View Approval Module Lookup"),
-            ("can_add_approval_module","Can Add Approval Module"),
-            ("can_edit_approval_module","Can Edit Approval Module"),
-            ("can_delete_approval_module","Can Delete Approval Module"),
-            ("can_view_date_range", "Can View Date Range"),
-            ("can_view_date_range_lookup", "Can View Date Range Lookup"),
-            ("can_edit_date_range","Can Edit Date Range"),
-            ("can_delete_date_range","Can Delete Date Range"),
-            ("can_approve_request" ,"Can Approve Request"),
+            ("can_edit_department", "Can Edit Department"),
+            
+            ("can_view_document_category", "Can View Document Category"),
+            ("can_add_document_category", "Can Add Document Category"),
+            ("can_edit_document_category", "Can Edit Document Category"),
+            ("can_delete_document_category", "Can Delete Document Category"),
+            # Internal Portal Permissions - Documents
+            ("can_view_document", "Can View Document"),
+            ("can_add_document", "Can Add Document"),
+            ("can_edit_document", "Can Edit Document"),
+            ("can_delete_document", "Can Delete Document"),
+            ("can_download_document", "Can Download Document"),
+            # Internal Portal Permissions - Announcements
+            ("can_view_announcement", "Can View Announcement"),
+            ("can_add_announcement", "Can Add Announcement"),
+            ("can_edit_announcement", "Can Edit Announcement"),
+            ("can_delete_announcement", "Can Delete Announcement"),
+            ("can_pin_announcement", "Can Pin Announcement"),
+            # Internal Portal Permissions - Events
+            ("can_view_event", "Can View Event"),
+            ("can_add_event", "Can Add Event"),
+            ("can_edit_event", "Can Edit Event"),
+            ("can_delete_event", "Can Delete Event"),
+            ("can_manage_event_attendees", "Can Manage Event Attendees"),
+            # Internal Portal Permissions - FAQs
+            ("can_view_faq", "Can View FAQ"),
+            ("can_add_faq", "Can Add FAQ"),
+            ("can_edit_faq", "Can Edit FAQ"),
+            ("can_delete_faq", "Can Delete FAQ"),
+            # Internal Portal Permissions - Notifications
+            ("can_view_notification", "Can View Notification"),
+            ("can_add_notification", "Can Add Notification"),
+            ("can_edit_notification", "Can Edit Notification"),
+            ("can_delete_notification", "Can Delete Notification"),
+            ("can_send_notification", "Can Send Notification"),
+            # Internal Portal Permissions - Todo Lists
+            ("can_view_todo", "Can View Todo"),
+            ("can_add_todo", "Can Add Todo"),
+            ("can_edit_todo", "Can Edit Todo"),
+            ("can_delete_todo", "Can Delete Todo"),
+            ("can_complete_todo", "Can Complete Todo"),
+            # Internal Portal Permissions - Audit Logs
+            ("can_view_audit_log", "Can View Audit Log"),
+            ("can_export_audit_log", "Can Export Audit Log"),
         ]
 
         # Groups and permission mapping for non-admins
         groups_to_permissions = {
-            "Approvers": [
-                "can_assign_delegate",
-                "can_view_directory_lookup",
+          
+            "content_editor": [
+                # Department Management
+                "can_view_department",
                 "can_view_department_lookup",
-                "can_change_own_password",
-                "can_view_approval_module_lookup",
-                "can_approve_request"
+                "can_add_department",
+                "can_delete_department",
+                # Document Categories - View only
+                "can_view_document_category",
+                # Documents - Full access
+                "can_view_document",
+                "can_add_document",
+                "can_edit_document",
+                "can_delete_document",
+                "can_download_document",
+                # Announcements - Full access
+                "can_view_announcement",
+                "can_add_announcement",
+                "can_edit_announcement",
+                "can_delete_announcement",
+                "can_pin_announcement",
+                # Events - Full access
+                "can_view_event",
+                "can_add_event",
+                "can_edit_event",
+                "can_delete_event",
+                "can_manage_event_attendees",
+                # FAQs - Full access
+                "can_view_faq",
+                "can_add_faq",
+                "can_edit_faq",
+                "can_delete_faq",
+                # Notifications - Full access
+                "can_view_notification",
+                "can_add_notification",
+                "can_edit_notification",
+                "can_delete_notification",
+                "can_send_notification",
+                # Todo Lists - Full access
+                "can_view_todo",
+                "can_add_todo",
+                "can_edit_todo",
+                "can_delete_todo",
+                "can_complete_todo",
+                # Audit Logs - View only
+                "can_view_audit_log",
             ],
-            "Request_Handler" : [
-                "can_view_own_profile",
-                "can_change_own_password",
-                "can_view_request_handling",
-                "can_perform_request_handling",
-                "can_view_approval_request",
+            "ICT": [
+                # Department Management - View only
+                "can_view_department",
+                "can_view_department_lookup",
+                # Document Categories - Full access
+                "can_view_document_category",
+                "can_add_document_category",
+                "can_edit_document_category",
+                "can_delete_document_category",
+                # Documents - Full access
+                "can_view_document",
+                "can_add_document",
+                "can_edit_document",
+                "can_delete_document",
+                "can_download_document",
+                # Announcements - Full access
+                "can_view_announcement",
+                "can_add_announcement",
+                "can_edit_announcement",
+                "can_delete_announcement",
+                "can_pin_announcement",
+                # Events - Full access
+                "can_view_event",
+                "can_add_event",
+                "can_edit_event",
+                "can_delete_event",
+                "can_manage_event_attendees",
+                # FAQs - Full access
+                "can_view_faq",
+                "can_add_faq",
+                "can_edit_faq",
+                "can_delete_faq",
+                # Notifications - Full access
+                "can_view_notification",
+                "can_add_notification",
+                "can_edit_notification",
+                "can_delete_notification",
+                "can_send_notification",
+                # Todo Lists - Full access
+                "can_view_todo",
+                "can_add_todo",
+                "can_edit_todo",
+                "can_delete_todo",
+                "can_complete_todo",
+                # Audit Logs - Full access
+                "can_view_audit_log",
+                "can_export_audit_log",
             ],
-            "Delegators": [
-                "can_assign_delegate",
-                "can_remove_delegate",
-                "can_import_directory",
-                "can_view_sensitive_data",
-                "can_view_approval_module_lookup",
-            ],
+        
             "staff": [
-                "can_view_group",
-                "can_view_directory_lookup",
-                "can_view_own_profile",
-                "can_change_own_password",
-                "can_view_approval_request",
-                "can_create_approval_request",
-                "can_update_approval_request_status",
-                "can_upload_profile_photo",
+                # Internal Portal - View and basic actions
+                "can_view_document",
+                "can_download_document",
+                "can_view_announcement",
+                "can_view_event",
+                "can_view_faq",
+                "can_view_notification",
+                "can_view_todo",
+                "can_view_department",
                 "can_view_department_lookup",
-                'can_upload_profile_signature',
-                'can_upload_profile_signature',
-                'change_approval_request',
-                "can_view_approval_module_lookup",
-                "can_view_date_range_lookup",
-                "can_view_approval_request_step",
             ]
         }
 
@@ -137,15 +212,26 @@ class Command(BaseCommand):
                         f"Permission '{code}' does not exist. Skipped."
                     ))
 
-        # Handle admin group: assign all permissions
-        admin_group, created = Group.objects.get_or_create(name="admin")
+        # Handle Admin group: assign all permissions
+        admin_group, created = Group.objects.get_or_create(name="Admin")
+        if created:
+            self.stdout.write(self.style.SUCCESS("Created group 'Admin'"))
+        else:
+            self.stdout.write("Group exists: Admin")
+
+        admin_group.permissions.clear()
+        admin_group.permissions.add(*Permission.objects.all())
+        self.stdout.write(self.style.SUCCESS("Assigned ALL available permissions to Admin group"))
+        
+        # Also handle lowercase 'admin' for backward compatibility
+        admin_group_lower, created = Group.objects.get_or_create(name="admin")
         if created:
             self.stdout.write(self.style.SUCCESS("Created group 'admin'"))
         else:
             self.stdout.write("Group exists: admin")
-
-        admin_group.permissions.clear()
-        admin_group.permissions.add(*Permission.objects.all())
+        
+        admin_group_lower.permissions.clear()
+        admin_group_lower.permissions.add(*Permission.objects.all())
         self.stdout.write(self.style.SUCCESS("Assigned ALL available permissions to admin group"))
 
         self.stdout.write(self.style.SUCCESS("Custom permissions and groups synchronized."))

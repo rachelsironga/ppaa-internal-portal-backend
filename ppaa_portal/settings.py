@@ -14,6 +14,9 @@ from datetime import timedelta
 from dotenv import load_dotenv
 import os
 
+from celery.schedules import crontab
+
+from .db_config import build_databases
 from .db_router import ROUTERS as DATABASE_ROUTERS
 
 load_dotenv()
@@ -41,15 +44,18 @@ if not DEBUG:
 
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-# MinIO configuration
-AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")  # MinIO API port
+# MinIO configuration (S3-compatible API via django-storages + boto3)
+AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")  # e.g. http://minio:9000 in Docker
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-RMS_REPORTS_BUCKET = os.getenv("RMS_REPORTS_BUCKET", "reports-management")
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
 MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
 
+# MinIO / S3 client behaviour (portal uploads: documents, PR flyers, popup images, etc.)
+AWS_DEFAULT_ACL = None
+AWS_S3_ADDRESSING_STYLE = "path"
+AWS_S3_FILE_OVERWRITE = False
 
 # Optional (avoid automatic URL signing)
 AWS_QUERYSTRING_AUTH = False
@@ -80,30 +86,42 @@ SIMPLE_JWT = {
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 # CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
-    "https://connect.mnh.or.tz",
+    "https://ppaa.or.tz",
+    "http://ppaa.or.tz",
+    "http://localhost:4001",
+    "http://127.0.0.1:4001",
+    # Vite dev server (ppaa-internal-portal-frontend/vite.config.js port 4002)
     "http://localhost:4002",
     "http://127.0.0.1:4002",
-    "http://frontend.approval.mnh",
-    "http://minio.mnh",
+    "http://frontend.approval.ppaa",
+    "http://minio.ppaa",
     "http://localhost:8091",
     "http://127.0.0.1:8091",
     "http://localhost:8092",
     "http://127.0.0.1:8092",
+    # Docker nginx frontend (ppaa-internal-portal-frontend/docker-compose.yml → 3000:80)
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
     # "http://192.168.10.166:8091",
     # "http://192.168.10.166:8092"
 ]
 
 # Make sure these match your CORS settings
 CSRF_TRUSTED_ORIGINS = [
-    "https://connect.mnh.or.tz",
-    "http://localhost:4002",
+    "https://ppaa.or.tz",
+    "http://ppaa.or.tz",
+    "http://localhost:4001",
     "http://127.0.0.1:4001",
-    "http://frontend.approval.mnh",
-    "http://minio.mnh",
+    "http://localhost:4002",
+    "http://127.0.0.1:4002",
+    "http://frontend.approval.ppaa",
+    "http://minio.ppaa",
     "http://localhost:8091",
     "http://127.0.0.1:8091",
     "http://localhost:8092",
     "http://127.0.0.1:8092",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
     # "http://192.168.10.166:8091",
     # "http://192.168.10.166:8092"
 ]
@@ -125,14 +143,13 @@ INSTALLED_APPS = [
     'api',
     'ppaa_portal',
     'ppaa_auth',
+    'microservices.ppaa_performance',
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
     'rest_framework_simplejwt.token_blacklist',
     'storages',
-    'microservices.ppaa_maoni',  # Maoni microservice
-    'microservices.ppaa_reports',  # PPAA Reports module
-    'ppaa_performance',  # Performance Dashboard (own app, performance_dashboard_db)
+    'microservices.maoni',
 ]
 
 MIDDLEWARE = [
@@ -144,10 +161,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'ppaa_performance.middleware.ensure_implementation_columns_middleware',
+    'ppaa_portal.audit_middleware.ApiActivityAuditMiddleware',
 ]
-
 
 
 REST_FRAMEWORK.update({
@@ -185,6 +200,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'ppaa_portal.wsgi.application'
 
 AUTHENTICATION_BACKENDS = [
+    'ppaa_auth.backends.EmailOrUsernameModelBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
@@ -193,65 +209,7 @@ AUTHENTICATION_BACKENDS = [
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 AUTH_USER_MODEL = 'ppaa_auth.User'
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB_NAME"),
-        "USER": os.getenv("POSTGRES_DB_USER"),
-        "PASSWORD": os.getenv("POSTGRES_DB_PWD"),
-        "HOST": os.getenv("POSTGRES_DB_HOST"),
-        "PORT": os.getenv("POSTGRES_DB_PORT"),
-    },
-    "maoni": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("MAONI_DB_NAME", "maoni_db"),
-        "USER": os.getenv("POSTGRES_DB_USER"),
-        "PASSWORD": os.getenv("POSTGRES_DB_PWD"),
-        "HOST": os.getenv("POSTGRES_DB_HOST"),
-        "PORT": os.getenv("POSTGRES_DB_PORT"),
-    },
-
-    "performance_dashboard": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("PERFORMANCE_DASHBOARD_DB_NAME", "performance_dashboard_db"),
-        "USER": os.getenv("POSTGRES_DB_USER"),
-        "PASSWORD": os.getenv("POSTGRES_DB_PWD"),
-        "HOST": os.getenv("POSTGRES_DB_HOST"),
-        "PORT": os.getenv("POSTGRES_DB_PORT"),
-    },
-    "ppaa_reports": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("REPORTS_DB_NAME", "ppaa_reports"),
-        "USER": os.getenv("POSTGRES_DB_USER"),
-        "PASSWORD": os.getenv("POSTGRES_DB_PWD"),
-        "HOST": os.getenv("POSTGRES_DB_HOST"),
-        "PORT": os.getenv("POSTGRES_DB_PORT"),
-    },
-    #     "analytical": {
-    #     "ENGINE": "django.db.backends.postgresql",
-    #     "NAME": os.getenv("ANALYTICS_DB_NAME"),
-    #     "USER": os.getenv("ANALYTICS_DB_USER"),
-    #     "PASSWORD": os.getenv("ANALYTICS_DB_PWD"),
-    #     "HOST": os.getenv("ANALYTICS_DB_HOST"),
-    #     "PORT": os.getenv("ANALYTICS_DB_PORT"),
-    # },
-    # "ict_assets": {
-    #     "ENGINE": "django.db.backends.postgresql",
-    #     "NAME": os.getenv("ICT_ASSETS_DB_NAME"),
-    #     "USER": os.getenv("ICT_ASSETS_DB_USER"),
-    #     "PASSWORD": os.getenv("ICT_ASSETS_DB_PWD"),
-    #     "HOST": os.getenv("ICT_ASSETS_DB_HOST"),
-    #     "PORT": os.getenv("ICT_ASSETS_DB_PORT"),
-    # },
-    # "training": {
-    #     "ENGINE": "django.db.backends.postgresql",
-    #     "NAME": os.getenv("TRAINING_DB_NAME"),
-    #     "USER": os.getenv("TRAINING_DB_USER"),
-    #     "PASSWORD": os.getenv("TRAINING_DB_PWD"),
-    #     "HOST": os.getenv("TRAINING_DB_HOST"),
-    #     "PORT": os.getenv("TRAINING_DB_PORT"),
-    # },
-}
+DATABASES = build_databases()
 
 
 # Password validation
@@ -300,20 +258,33 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # ---------- EMAIL (read from env) ----------
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+# Empty string in .env must not override defaults (get() returns "" otherwise).
+EMAIL_BACKEND = (os.environ.get("EMAIL_BACKEND") or "django.core.mail.backends.smtp.EmailBackend").strip()
+EMAIL_HOST = (os.environ.get("EMAIL_HOST") or "smtp.gmail.com").strip()
+EMAIL_PORT = int((os.environ.get("EMAIL_PORT") or "587").strip() or "587")
+EMAIL_HOST_USER = (os.environ.get("EMAIL_HOST_USER") or "").strip()
+EMAIL_HOST_PASSWORD = (os.environ.get("EMAIL_HOST_PASSWORD") or "").strip()
 # Accept "True"/"False" or 1/0
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() in ("true", "1", "yes")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
+DEFAULT_FROM_EMAIL = (os.environ.get("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "webmaster@localhost").strip()
 
 # ---------- CELERY / REDIS ----------
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")
-REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+# Default to localhost so manage.py runserver works without Docker hostname "redis".
+_redis_default = "redis://127.0.0.1:6379/0"
+REDIS_URL = (os.environ.get("REDIS_URL") or _redis_default).strip() or _redis_default
+CELERY_BROKER_URL = (os.environ.get("CELERY_BROKER_URL") or REDIS_URL).strip() or REDIS_URL
+CELERY_RESULT_BACKEND = (os.environ.get("CELERY_RESULT_BACKEND") or REDIS_URL).strip() or REDIS_URL
+# Run tasks in-process (no broker/worker). Set via env for local dev without Redis.
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower() in ("true", "1", "yes")
+
+# Celery Beat: RMS deadline reminder emails (disable with RMS_REMINDERS_BEAT=0).
+CELERY_BEAT_SCHEDULE = {}
+if os.environ.get("RMS_REMINDERS_BEAT", "1").lower() not in ("0", "false", "no", "off"):
+    CELERY_BEAT_SCHEDULE["rms-report-reminders-daily"] = {
+        "task": "ppaa_portal.tasks.rms_send_report_reminders",
+        "schedule": crontab(hour=6, minute=0),
+    }
 
 
 # ---------- MICROSERVICES URLS ---------- 
@@ -324,6 +295,3 @@ EXTERNAL_REFERRAL_API_URL = os.getenv('EXTERNAL_REFERRAL_API_URL', 'http://local
 EXTERNAL_REFERRAL_API_USERNAME = os.getenv('EXTERNAL_REFERRAL_API_USERNAME', 'admin')
 EXTERNAL_REFERRAL_API_PASSWORD = os.getenv('EXTERNAL_REFERRAL_API_PASSWORD', 'admin')
 EXTERNAL_REFERRAL_API_BEARER_TOKEN = os.getenv('EXTERNAL_REFERRAL_API_BEARER_TOKEN', '')
-
-# Frontend app URL (for links in emails, e.g. password reset "Login" button). No trailing slash.
-FRONTEND_URL = os.getenv('FRONTEND_URL','http://127.0.0.1:4002').rstrip('/')

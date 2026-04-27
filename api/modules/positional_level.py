@@ -1,27 +1,19 @@
-import base64
-import csv
 from datetime import datetime
-from io import BytesIO, StringIO
-from uuid import uuid4
 
-import numpy as np
-import pandas as pd
-from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
+from django.http import Http404
+from rest_framework import status
 from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from api.serializers import PositionalLevelSerializer
-from api.utils import base64_to_excel_file
-from mnh_approval.pagination import CustomPagination
-from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_auth.models import Department, User, PositionalLevel, UserProfile
-from mnh_auth.serializers import UserImportSerializer
+from ppaa_portal.pagination import CustomPagination
+from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
+from ppaa_auth.models import PositionalLevel, Department
 from utils.permissions import HasMethodPermission
-
+from ppaa_portal.models import AuditLog
 
 
 class PositionalLevelView(APIView):
@@ -29,36 +21,83 @@ class PositionalLevelView(APIView):
     serializer_class = PositionalLevelSerializer
     required_permissions = {
         "get": [
-            "view_positionallevel"
+            "can_view_department",
+            "can_view_positional_level",
+            "view_department",
         ],
         "post": [
-            "add_positionallevel",
-            "change_positionallevel",
+            "can_add_department",
+            "can_edit_department",
+            "add_department",
+            "change_department",
+            "can_add_positional_level",
+            "can_edit_positional_level",
         ],
         "delete": [
-            "delete_positionallevel",
-        ]
+            "can_delete_department",
+            "delete_department",
+            "can_delete_positional_level",
+        ],
     }
 
     def get(self, request, uid=None):
         try:
-            """ Retrieve a single Positional Level by UID or list Positional Levels with optional search """
+            """ Retrieve a single PositionalLevel by UID or list PositionalLevels with optional search """
             if uid:
-                positional_level = PositionalLevel.objects.filter(uid=uid, is_deleted=False).first()
-                if not positional_level:
+                level = PositionalLevel.objects.filter(uid=uid, is_deleted=False).first()
+                if not level:
                     raise NotFound("Positional Level not found")
-                return CustomResponse.success(data=PositionalLevelSerializer(positional_level).data)
+                
+                # Log view action
+                try:
+                    user = request.user if getattr(request, "user", None) and request.user.is_authenticated else None
+                    ip_address = request.META.get("REMOTE_ADDR")
+                    user_agent = request.META.get("HTTP_USER_AGENT", "")[:500] if request.META.get("HTTP_USER_AGENT") else ""
+                    department = None
+                    try:
+                        if user and hasattr(user, "get_position") and callable(user.get_position):
+                            position = user.get_position() or {}
+                            dept_uid = position.get("department_uid")
+                            if dept_uid:
+                                department = Department.objects.filter(uid=dept_uid, is_deleted=False).first()
+                    except Exception:
+                        department = None
+                    
+                    AuditLog.objects.create(
+                        user=user,
+                        action="VIEW",
+                        model_name="PositionalLevel",
+                        object_id=level.uid,
+                        object_repr=str(level)[:200],
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        department=department,
+                        created_by=user if user else None,
+                        updated_by=user if user else None,
+                    )
+                except Exception:
+                    pass
+                
+                serializer = PositionalLevelSerializer(level)
+                return CustomResponse.success(data=serializer.data)
 
             search_query = request.GET.get('search', '').strip()
-            positional_levels = PositionalLevel.objects.filter(is_deleted=False)
+            is_active = request.GET.get('is_active', None)
+            
+            levels = PositionalLevel.objects.filter(is_deleted=False)
+
+            # Filter by is_active if provided
+            if is_active is not None:
+                is_active_bool = is_active.lower() == 'true' if isinstance(is_active, str) else bool(is_active)
+                levels = levels.filter(is_active=is_active_bool)
 
             if search_query:
-                positional_levels = positional_levels.filter(
+                levels = levels.filter(
                     Q(name__icontains=search_query) | Q(code__icontains=search_query)
                 )
 
-            if positional_levels.exists():
-                return CustomPagination.paginate(view_class=self, results=positional_levels, request=request)
+            if levels.exists():
+                return CustomPagination.paginate(view_class=self, results=levels, request=request)
 
             return CustomResponse.errors(message="Positional Level not found", data=[])
         except Exception as e:
@@ -69,24 +108,56 @@ class PositionalLevelView(APIView):
             with (transaction.atomic()):
                 uid = request.data.get('uid', None)
 
-                # Handle Update case
+                # Handle an Update case
                 if uid:
                     try:
                         instance = PositionalLevel.objects.get(uid=uid)
                         serializer = self.serializer_class(instance, data=request.data, partial=True)
                     except PositionalLevel.DoesNotExist:
                         return CustomResponse.errors(message="Positional Level not found")
-
-                # Handle Create case (when no uid)
                 else:
                     serializer = self.serializer_class(data=request.data)
 
-                # Validate and save
                 if serializer.is_valid():
-                    serializer.save(created_by=request.user, updated_by=request.user)
+                    if uid:
+                        level = serializer.save(updated_by=request.user)
+                        action = "UPDATE"
+                    else:
+                        level = serializer.save(created_by=request.user, updated_by=request.user)
+                        action = "CREATE"
+                    
+                    # Log create/update action
+                    try:
+                        ip_address = request.META.get("REMOTE_ADDR")
+                        user_agent = request.META.get("HTTP_USER_AGENT", "")[:500] if request.META.get("HTTP_USER_AGENT") else ""
+                        department = None
+                        try:
+                            if hasattr(request.user, "get_position") and callable(request.user.get_position):
+                                position = request.user.get_position() or {}
+                                dept_uid = position.get("department_uid")
+                                if dept_uid:
+                                    department = Department.objects.filter(uid=dept_uid, is_deleted=False).first()
+                        except Exception:
+                            department = None
+                        
+                        AuditLog.objects.create(
+                            user=request.user,
+                            action=action,
+                            model_name="PositionalLevel",
+                            object_id=level.uid,
+                            object_repr=str(level)[:200],
+                            changes={"data": serializer.data},
+                            ip_address=ip_address,
+                            user_agent=user_agent,
+                            department=department,
+                            created_by=request.user.id,
+                            updated_by=request.user.id,
+                        )
+                    except Exception:
+                        pass
+                    
                     return CustomResponse.success(data=serializer.data)
 
-                # Validation failed
                 return CustomResponse.errors(
                     message="Validation Failed, Please Try Again",
                     data=serializer.errors,
@@ -94,114 +165,51 @@ class PositionalLevelView(APIView):
                 )
 
         except Exception as e:
-            # Catch unexpected errors that occur in the entire process
-            return CustomResponse.server_error(message=f'Failed to Change Positional Level: {str(e)}', )
+            return CustomResponse.server_error(message=f'Failed to Save Positional Level: {str(e)}', )
 
     def delete(self, request, uid):
         try:
             with transaction.atomic():
-                """ Soft delete a Positional Level by UID """
-                positional_level = PositionalLevel.objects.filter(uid=uid, is_deleted=False).first()
-                if not positional_level:
-                    return CustomResponse.errors(message="Positional Level Not Found or Deleted",)
+                level = PositionalLevel.objects.filter(uid=uid, is_deleted=False).first()
+                if not level:
+                    return CustomResponse.errors(message="Positional Level Not Found or Already Deleted", )
 
-                positional_level.is_deleted = True
-                positional_level.deleted_at = datetime.now()
-                positional_level.deleted_by = request.user
-                positional_level.save()
+                level.is_deleted = True
+                level.deleted_at = datetime.now()
+                level.deleted_by = request.user
+                level.save()
+                
+                # Log delete action
+                try:
+                    ip_address = request.META.get("REMOTE_ADDR")
+                    user_agent = request.META.get("HTTP_USER_AGENT", "")[:500] if request.META.get("HTTP_USER_AGENT") else ""
+                    department = None
+                    try:
+                        if hasattr(request.user, "get_position") and callable(request.user.get_position):
+                            position = request.user.get_position() or {}
+                            dept_uid = position.get("department_uid")
+                            if dept_uid:
+                                department = Department.objects.filter(uid=dept_uid, is_deleted=False).first()
+                    except Exception:
+                        department = None
+                    
+                    AuditLog.objects.create(
+                        user=request.user,
+                        action="DELETE",
+                        model_name="PositionalLevel",
+                        object_id=level.uid,
+                        object_repr=str(level)[:200],
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        department=department,
+                        created_by=request.user.id,
+                        updated_by=request.user.id,
+                    )
+                except Exception:
+                    pass
+                
                 return CustomResponse.success(message='Positional Level deleted successfully')
 
         except Exception as e:
-            return CustomResponse.server_error(message="Something went wrong While Deleting Positional Level")
+            return CustomResponse.server_error(message=f"Failed to Delete Positional Level: {str(e)}")
 
-class BulkDesignationImportView(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission, ]
-    serializer_class = UserImportSerializer
-    required_permissions = {
-        "post": [
-            "import_designations",
-        ],
-    }
-
-    def post(self, request):
-        serializer = self.serializer_class(data=request.data)
-        if not serializer.is_valid():
-            return CustomResponse.errors("Invalid request", data=serializer.errors)
-
-        try:
-            with transaction.atomic():
-                file_obj = base64_to_excel_file(serializer.validated_data['file'])
-                df = pd.read_excel(file_obj)
-                df = df.replace({np.nan: None})
-                required_cols = [
-                    "DESIGNATIONS"
-                ]
-                if not all(col in df.columns for col in required_cols):
-                    return CustomResponse.errors("Missing required columns", data=required_cols)
-
-
-                df.columns = df.columns.str.upper().str.strip()
-
-                # Cache designations for fast lookup
-                designation_map = {
-                    lvl.name.strip().lower(): lvl for lvl in PositionalLevel.objects.filter(is_active=True).all()
-                }
-
-                designation_objs = []
-                failed_rows = []
-                index_number = 0
-                for index, row in df.iterrows():
-                    try:
-                        index_number += 1
-                        position = str(row["DESIGNATIONS"]).strip().lower()
-                        if position is None or position == '':
-                            raise Exception("DESIGNATIONS Column is required")
-
-                        if position in designation_map:
-                            raise Exception(f"Duplicate Designations with name : {position}")
-
-                        position_code = position.replace(" ", "_")
-                        # Add to map so duplicates in the same file are caught
-                        designation_map[position] = None
-
-                        designation_objs.append(PositionalLevel(
-                            name=position,
-                            code=position_code,
-                            is_active=True,
-                            created_by=request.user,
-                            updated_by=request.user,
-                            created_at=timezone.now(),
-                            updated_at=timezone.now(),
-                        ))
-
-                    except Exception as e:
-                        failed_rows.append({
-                            "DESIGNATIONS": row.get("DESIGNATIONS"),
-                            "ERROR_MESSAGE": str(e),
-                        })
-
-                PositionalLevel.objects.bulk_create(designation_objs, batch_size=1000)
-
-                # Generate a failed report if needed
-                csv_report = None
-                if failed_rows:
-                    csv_buffer = StringIO()
-                    writer = csv.DictWriter(csv_buffer, fieldnames=[
-                        "DESIGNATIONS","ERROR_MESSAGE"
-                    ])
-                    writer.writeheader()
-                    writer.writerows(failed_rows)
-                    # Get CSV content
-                    csv_content = csv_buffer.getvalue().encode("utf-8")
-                    # Save as Django ContentFile
-                    csv_report = ContentFile(csv_content, name="failed_users.csv")
-                    # Convert to Base64
-                    csv_base64 = base64.b64encode(csv_content).decode("utf-8")
-
-                return CustomResponse.success(
-                    message=f"Import completed: {len(designation_objs)} success, {len(failed_rows)} failed.",
-                    data={"failures_csv": csv_base64 if csv_report else None}
-                )
-
-        except Exception as e:
-            return CustomResponse.errors("Import failed", data={"error": str(e)})

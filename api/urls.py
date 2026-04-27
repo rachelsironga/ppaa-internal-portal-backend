@@ -1,63 +1,70 @@
 from django.urls import path
 
-from api.modules.approval_action import ApprovalActionView
-from api.modules.approval_module_level_step import ApproveModuleLevelStepView, ApproveModuleLevelActingUser, \
-    ApprovalRequestCustomise
-from api.modules.date_range import DateRangeView
-from api.modules.handler import RequestHandler
-from api.modules.positional_level import PositionalLevelView, BulkDesignationImportView
-from api.modules.approval_module import ApprovalModuleView
-from api.modules.approval_module_level import ApprovalModuleLevelView
-from api.modules.approval_request import ApprovalRequestView, ApprovalRequestHandlerView
 from api.modules.department import DepartmentView
-from api.modules.directory import DirectoryView, UploadDirectoryExcelView
-from api.modules.external_auth.jeeva_roles import JeevaRoleView, JeevaRolePermissionListView
+from api.modules.positional_level import PositionalLevelView
 from api.modules.system.user_roles import SystemRoleView, SystemPermissionView, SystemAssignRoleUser, SystemRoleUsers, \
     SystemAssignRoleListToUser, SystemGroupView
+from api.modules.system.permissions_by_app import SystemPermissionsByAppView
 
+from ppaa_portal.internal_portal_views import (
+    PortalAnnouncementView as AnnouncementView,
+    PortalAuditLogView as AuditLogView,
+    PortalAuditTrailStatsView,
+    PortalDocumentCategoryView as DocumentCategoryView,
+    PortalDocumentView as DocumentView,
+    PortalEventView as EventView,
+    PortalFAQView as FAQView,
+    PortalPopupCardView,
+    PortalPrFlyerView,
+    PortalQuickLinkClickView as QuickLinkClickView,
+    PortalQuickLinkView as QuickLinkView,
+    PortalTodoView as TodoListView,
+)
 
 
 urlpatterns = [
-    path('date-range', DateRangeView.as_view(), name='date-range-view'),
-    path('date-range/<str:uid>', DateRangeView.as_view(), name='date-range-open'),
 
-    path('directory', DirectoryView.as_view(), name='directory-view'),
-    path('directory/<str:uid>', DirectoryView.as_view(), name='directory-open'),
+    path('internal-portal/document-categories', DocumentCategoryView.as_view(), name='document-categories'),
+    path('internal-portal/document-categories/<str:uid>', DocumentCategoryView.as_view(), name='document-category-detail'),
 
-    path('departments', DepartmentView.as_view(), name='view'),
-    path('departments/<str:uid>', DepartmentView.as_view(), name='open'),
-    path('import-directories', UploadDirectoryExcelView.as_view(), name='view'),
+    path('internal-portal/documents', DocumentView.as_view(), name='documents'),
+    path('internal-portal/documents/<str:uid>', DocumentView.as_view(), name='document-detail'),
 
-    path('positional-level', PositionalLevelView.as_view(), name='view-positional-level'),
-    path('positional-level/<str:uid>', PositionalLevelView.as_view(), name='open-positional-level'),
-    path('positional-level-import', BulkDesignationImportView.as_view(), name='positional-level-import'),
+    path('internal-portal/announcements', AnnouncementView.as_view(), name='announcements'),
+    path('internal-portal/announcements/<str:uid>', AnnouncementView.as_view(), name='announcement-detail'),
 
-    path('approval-action', ApprovalActionView.as_view(), name='view-approval-action'),
-    path('approval-action/<str:uid>', ApprovalActionView.as_view(), name='open-approval-action'),
+    path('internal-portal/departments', DepartmentView.as_view(), name='departments'),
+    path('internal-portal/departments/<str:uid>', DepartmentView.as_view(), name='department-detail'),
 
-    path('approval-module', ApprovalModuleView.as_view(), name='view-approval-module'),
-    path('approval-module/<str:uid>', ApprovalModuleView.as_view(), name='open-approval-module'),
+    path('internal-portal/positional-levels', PositionalLevelView.as_view(), name='positional-levels'),
+    path('internal-portal/positional-levels/<str:uid>', PositionalLevelView.as_view(), name='positional-level-detail'),
 
-    path('approval-module-level', ApprovalModuleLevelView.as_view(), name='view-approval-module-level'),
-    path('approval-module-level/<str:uid>', ApprovalModuleLevelView.as_view(), name='open-approval-module-level'),
+    path('internal-portal/events', EventView.as_view(), name='events'),
+    path('internal-portal/events/<str:uid>', EventView.as_view(), name='event-detail'),
+    # path('internal-portal/events-import', BulkEventImportView.as_view(), name='events-import'),
 
-    path('jeeva-role', JeevaRoleView.as_view(), name='all-jeeva-role'),
-    path('jeeva-role/<str:uid>', JeevaRoleView.as_view(), name='one-jeeva-role'),
-    path('jeeva-role-perm-list', JeevaRolePermissionListView.as_view(), name='jeeva-role-perm-list'),
-    path('jeeva-role-perm-by-code/<str:role_codename>', JeevaRolePermissionListView.as_view(), name='jeeva-role-perm-by-code'),
+    path('internal-portal/faqs', FAQView.as_view(), name='faqs'),
+    path('internal-portal/faqs/<str:uid>', FAQView.as_view(), name='faq-detail'),
+    # path('internal-portal/faqs-import', BulkFAQImportView.as_view(), name='faqs-import'),
 
-    path('approval-request', ApprovalRequestView.as_view(), name='view-approval-request'),
-    path('approval-request/<str:uid>', ApprovalRequestView.as_view(), name='open-approval-request'),
+    path('internal-portal/todos', TodoListView.as_view(), name='todos'),
+    path('internal-portal/todos/<str:uid>', TodoListView.as_view(), name='todo-detail'),
+    # path('internal-portal/todos-import', BulkTodoImportView.as_view(), name='todos-import'),
 
-    path('approval-request-handler', RequestHandler.as_view(), name='approval-request-handler'),
-    path('approval-request-handler/<str:uid>', RequestHandler.as_view(), name='approval-request-handler'),
-    path('handle-approval-request', ApprovalRequestHandlerView.as_view(), name='handle-approval-request'),
+    path('internal-portal/audit-logs/stats', PortalAuditTrailStatsView.as_view(), name='audit-logs-stats'),
+    path('internal-portal/audit-logs', AuditLogView.as_view(), name='audit-logs'),
+    path('internal-portal/audit-logs/<str:uid>', AuditLogView.as_view(), name='audit-log-detail'),
+    # path('internal-portal/audit-logs-import', BulkAuditLogImportView.as_view(), name='audit-logs-import'),
 
-    path('approve-reject-request', ApproveModuleLevelStepView.as_view(), name='approve-reject-request'),
+    path('internal-portal/quick-links', QuickLinkView.as_view(), name='quick-links'),
+    path('internal-portal/quick-links/<str:uid>', QuickLinkView.as_view(), name='quick-link-detail'),
+    path('internal-portal/quick-links/<str:uid>/click', QuickLinkClickView.as_view(), name='quick-link-click'),
 
-    path('approval-request-step/<str:request_uid>', ApproveModuleLevelStepView.as_view(), name='one-approval-request-step'),
-    path('get-acting-user', ApproveModuleLevelActingUser.as_view(), name='get-acting-user'),
-    path('approval-request-update-permissions/<str:request_uid>', ApprovalRequestCustomise.as_view(), name='approval-request-update-permissions'),
+    path('internal-portal/popup-cards', PortalPopupCardView.as_view(), name='popup-cards'),
+    path('internal-portal/popup-cards/<str:uid>', PortalPopupCardView.as_view(), name='popup-card-detail'),
+
+    path('internal-portal/pr-flyers', PortalPrFlyerView.as_view(), name='pr-flyers'),
+    path('internal-portal/pr-flyers/<str:uid>', PortalPrFlyerView.as_view(), name='pr-flyer-detail'),
 
     path('system/roles', SystemRoleView.as_view(), name='system-roles'),
     path('system/roles/<str:uid>', SystemRoleView.as_view(), name='open-system-roles'),
@@ -68,6 +75,11 @@ urlpatterns = [
 
     path('system/system-permissions', SystemPermissionView.as_view(), name='system-permissions'),
     path('system/system-groups', SystemGroupView.as_view(), name='system-permissions'),
+    path(
+        'system/permissions-by-app',
+        SystemPermissionsByAppView.as_view(),
+        name='system-permissions-by-app',
+    ),
 
 ]
 

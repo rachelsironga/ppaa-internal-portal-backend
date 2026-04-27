@@ -5,10 +5,10 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from mnh_approval.pagination import CustomPagination
-from mnh_approval.response_codes import CustomResponse, STATUS_CODES
-from mnh_auth.models import User, UserProfile
-from mnh_auth.serializers import UserSerializer, FileUploadSerializer, GroupSerializer, PermissionSerializer, \
+from ppaa_portal.pagination import CustomPagination
+from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
+from ppaa_auth.models import User, UserProfile
+from ppaa_auth.serializers import UserSerializer, FileUploadSerializer, GroupSerializer, PermissionSerializer, \
     AssignUserRoleSerializer, AssignUserRolesListSerializer, GroupListSerializer
 from utils.minio_storage import MinioStorage
 from utils.permissions import HasMethodPermission
@@ -94,6 +94,27 @@ class SystemRoleView(APIView):
                 if isinstance(permissions, list):
                     group.permissions.set(Permission.objects.filter(id__in=permissions))
 
+                # Create audit log for role create/update
+                try:
+                    from ppaa_portal.models import create_audit_log
+                    action = "UPDATE" if is_update else "CREATE"
+                    permission_names = [perm.name for perm in group.permissions.all()]
+                    create_audit_log(
+                        request=request,
+                        action=action,
+                        model_name="SystemRole",
+                        obj=group,
+                        changes={
+                            "role_name": group.name,
+                            "permissions": permission_names,
+                            "permission_ids": list(permissions) if isinstance(permissions, list) else []
+                        }
+                    )
+                except Exception as e:
+                    # Don't fail the request if audit log creation fails
+                    print(f"Failed to create audit log: {str(e)}")
+                    pass
+
                 return CustomResponse.success(data=self.serializer_class(group).data)
 
         except Exception as e:
@@ -105,6 +126,20 @@ class SystemRoleView(APIView):
                 group = Group.objects.filter(id=uid).first()
                 if not group:
                     return CustomResponse.errors(message="Group Not Found")
+
+                # Create audit log before deletion
+                try:
+                    from ppaa_portal.models import create_audit_log
+                    create_audit_log(
+                        request=request,
+                        action="DELETE",
+                        model_name="SystemRole",
+                        obj=group,
+                        changes={"role_name": group.name, "role_id": group.id}
+                    )
+                except Exception:
+                    # Don't fail the request if audit log creation fails
+                    pass
 
                 group.delete()
                 return CustomResponse.success(message='Group deleted successfully')
@@ -211,7 +246,6 @@ class SystemRoleUsers(APIView):
                 users = users.filter(
                     Q(username__icontains=search_query) |
                     Q(email__icontains=search_query) |
-                    Q(pf_number__icontains=search_query) |
                     Q(check_number__icontains=search_query) |
                     Q(first_name__icontains=search_query) |
                     Q(middle_name__icontains=search_query) |
@@ -253,8 +287,32 @@ class SystemAssignRoleUser(APIView):
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
 
-                user_group = serializer.save()
-                return CustomResponse.success(data=self.serializer_class(user_group).data)
+                user = serializer.save()
+                # Refresh user from database to get updated groups
+                user.refresh_from_db()
+                
+                # Create audit log for single role assignment
+                try:
+                    from ppaa_portal.models import create_audit_log
+                    role = serializer.validated_data.get("_group")
+                    if role:
+                        create_audit_log(
+                            request=request,
+                            action="UPDATE",
+                            model_name="UserRoles",
+                            obj=user,
+                            changes={
+                                "action": "Single role assigned",
+                                "role_name": role.name,
+                                "role_id": role.id,
+                            },
+                        )
+                except Exception:
+                    pass
+                
+                # Return user data with groups and permissions using UserSerializer
+                user_serializer = UserSerializer(user, context={"is_auth_view": True, "request": request})
+                return CustomResponse.success(data=user_serializer.data)
 
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Save User Group: {str(e)}')
@@ -276,6 +334,24 @@ class SystemAssignRoleUser(APIView):
                 role = Group.objects.filter(id=role_id).first()
                 if not role:
                     return CustomResponse.errors(message="Role Not Found")
+                
+                # Create audit log before removing role
+                try:
+                    from ppaa_portal.models import create_audit_log
+                    create_audit_log(
+                        request=request,
+                        action="UPDATE",
+                        model_name="UserRoles",
+                        obj=user,
+                        changes={
+                            "action": "Single role removed",
+                            "removed_role_name": role.name,
+                            "removed_role_id": role.id
+                        }
+                    )
+                except Exception:
+                    pass
+                
                 user.groups.remove(role)
                 user.save()
                 return CustomResponse.success(message='User Role deleted successfully')
@@ -302,8 +378,36 @@ class SystemAssignRoleListToUser(APIView):
                         code=STATUS_CODES["VALIDATION_ERROR"]
                     )
 
-                user_group = serializer.save()
-                return CustomResponse.success(data=self.serializer_class(user_group).data)
+                user = serializer.save()
+                # Refresh user from database to get updated groups
+                user.refresh_from_db()
+                
+                # Create audit log for role assignment/removal
+                try:
+                    from ppaa_portal.models import create_audit_log
+
+                    role_names = [g.name for g in user.groups.all()]
+                    groups_qs = serializer.validated_data["_groups"]
+                    assigned_role_ids = list(groups_qs.values_list("id", flat=True))
+                    create_audit_log(
+                        request=request,
+                        action="UPDATE",
+                        model_name="UserRoles",
+                        obj=user,
+                        changes={
+                            "assigned_roles": role_names,
+                            "role_ids": assigned_role_ids,
+                            "user": f"{user.first_name} {user.last_name} ({user.username})",
+                        },
+                    )
+                except Exception as e:
+                    # Don't fail the request if audit log creation fails
+                    print(f"Failed to create audit log: {str(e)}")
+                    pass
+                
+                # Return user data with groups and permissions using UserSerializer
+                user_serializer = UserSerializer(user, context={"is_auth_view": True, "request": request})
+                return CustomResponse.success(data=user_serializer.data)
 
         except Exception as e:
             return CustomResponse.server_error(message=f'Failed to Save Assign Group: {str(e)}')

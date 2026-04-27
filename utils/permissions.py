@@ -1,7 +1,7 @@
 from rest_framework.fields import empty
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
-from mnh_approval.response_codes import CustomResponse
+from ppaa_portal.response_codes import CustomResponse
 
 
 class HasMethodPermission(BasePermission):

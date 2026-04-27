@@ -12,11 +12,15 @@ EOSQL
 }
 
 # Create both databases
-create_database "mnh_approval_db"
-create_database "analytics_db"
+create_database "ppaa_internal_portal"
+create_database "performance_dashboard_db"
+create_database "maoni_db"
+create_database "reports_management_db"
 
 # Grant privileges
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
-  GRANT ALL PRIVILEGES ON DATABASE mnh_approval_db TO $POSTGRES_USER;
-  GRANT ALL PRIVILEGES ON DATABASE analytics_db TO $POSTGRES_USER;
+  GRANT ALL PRIVILEGES ON DATABASE ppaa_internal_portal TO $POSTGRES_USER;
+  GRANT ALL PRIVILEGES ON DATABASE performance_dashboard_db TO $POSTGRES_USER;
+  GRANT ALL PRIVILEGES ON DATABASE maoni_db TO $POSTGRES_USER;
+  GRANT ALL PRIVILEGES ON DATABASE reports_management_db TO $POSTGRES_USER;
 EOSQL
