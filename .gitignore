@@ -3,4 +3,13 @@ __pycache__/
 .idea/
 ppaa_portal/settings.py
 virtualenv/
+.venv/
+venv/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+*.egg-info/
+dist/
+build/
 media/Attendance/
