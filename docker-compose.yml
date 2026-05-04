@@ -6,11 +6,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: P@ssw0rd
-<<<<<<< HEAD
       POSTGRES_DB: ppaa_internal_portal
-=======
-      POSTGRES_DB: ppaa_portal_db
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     ports:
       - "5433:5432"
     volumes:
@@ -23,11 +19,7 @@ services:
     container_name: pgadmin
     restart: always
     environment:
-<<<<<<< HEAD
       PGADMIN_DEFAULT_EMAIL: admin@ppaa.go.tz
-=======
-      PGADMIN_DEFAULT_EMAIL: admin@ppaa.com
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
       PGADMIN_DEFAULT_PASSWORD: P@ssw0rd
     ports:
       - "8099:80"
@@ -37,25 +29,6 @@ services:
       - ppaa-network
     depends_on:
       - postgres
-<<<<<<< HEAD
-
-=======
-  # mysql:
-    # image: mysql:8.0
-    # container_name: mysql
-    # restart: always
-    # environment:
-    #   MYSQL_DATABASE: analytics_db
-    #   MYSQL_USER: analytics
-    #   MYSQL_PASSWORD: analytics@MNH25
-    #   MYSQL_ROOT_PASSWORD: P@ssw0rd
-    # ports:
-    #   - "3307:3306"
-    # volumes:
-    #   - /opt/mnh-data/mysql-analytics:/var/lib/mysql
-    # networks:
-    #   - mnh-network
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
   redis:
     image: redis:7
     container_name: redis
@@ -91,25 +64,12 @@ services:
       FRONTEND_URL: "http://192.168.1.4:8091"
 
       # PostgreSQL
-<<<<<<< HEAD
       POSTGRES_DB_NAME: "ppaa_internal_portal"
-=======
-      POSTGRES_DB_NAME: "ppaa_portal_db"
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
       POSTGRES_DB_HOST: "postgres"
       POSTGRES_DB_PORT: 5432
 
-<<<<<<< HEAD
-      # MySQL
-
-
-      # Email: console backend logs messages to the container (no SMTP). Override in .env for real mail
-      # (Gmail needs an App Password; placeholder credentials cause 535 and noisy Celery retries).
-      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
-      DEFAULT_FROM_EMAIL: noreply@localhost
-=======
 
 # Maoni Microservice Database
       MAONI_DB_NAME: "maoni_db"
@@ -131,7 +91,6 @@ services:
       EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
       EMAIL_USE_TLS: "True"
       DEFAULT_FROM_EMAIL: ppaa@gmail.com
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
       # 🔥 CELERY + REDIS
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -154,13 +113,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-<<<<<<< HEAD
-      args:
-        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-mirror.gcr.io/library/python:3.12-slim}
-    command: ["celery", "-A", "ppaa_portal.config.celery_app", "worker", "--loglevel=info"]
-=======
     command: celery -A ppaa_portal.config.celery_app worker --loglevel=info
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     volumes:
       - ./:/app
@@ -174,23 +127,12 @@ services:
       FRONTEND_URL: "http://192.168.1.4:8091"
 
       # Same DB connection
-<<<<<<< HEAD
-      POSTGRES_DB_NAME: "ppaa_internal_portal"
-=======
       POSTGRES_DB_NAME: "ppaa_portal_db"
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
       POSTGRES_DB_HOST: "postgres"
       POSTGRES_DB_PORT: 5432
 
-<<<<<<< HEAD
-      
-
-      # Same as backend — console email unless .env sets SMTP + valid credentials
-      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
-      DEFAULT_FROM_EMAIL: noreply@localhost
-=======
       # PPAA Reports Database
       REPORTS_DB_NAME: "ppaa_reports"
       RMS_REPORTS_BUCKET: "reports-management"
@@ -205,7 +147,6 @@ services:
       EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
       EMAIL_USE_TLS: "True"
       DEFAULT_FROM_EMAIL: ppaa@gmail.com
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
       # Celery + Redis
       CELERY_BROKER_URL: redis://redis:6379/0
