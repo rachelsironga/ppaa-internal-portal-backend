@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Reset Notification</title>
+</head>
+
+<body style="margin:0; padding:0; background:#f4f4f7; font-family:Arial, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7; padding:40px 0;">
+        <tr>
+            <td align="center">
+
+                <!-- Container Card -->
+                <table width="600" cellpadding="0" cellspacing="0"
+                       style="background:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+
+
+                    <tr>
+                        <td style="
+                            padding:25px;
+                            text-align:center;
+                            background: linear-gradient(135deg, #1976d2 0%, #e53935 60%, #ffd700 100%);
+                        ">
+                            <div style="display: inline-flex; justify-content: center; align-content: center; ">
+                                 <div>
+                                     <h2 style="color:#ffffff; margin:5px; font-size:22px;">
+                                PUBLIC PROCUREMENT APPEALS AUTHORITY (PPAA)
+                            </h2>
+                                     <h3 style="color:#ffffff; margin:5px; font-size:16px;">
+                                PPAA-Internal Portal Password Reset
+                            </h3>
+                                 </div>
+                            </div>
+
+
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding:30px;">
+                            <p style="font-size:16px; color:#333;">Hello <strong>{{ fullname }}</strong>,</p>
+
+                            <p style="font-size:15px; color:#555; line-height:1.6;">
+                                You requested a password reset for your account.
+                                Your new login details are provided below:
+                            </p>
+
+                            <!-- Credential Box -->
+                            <div style="
+                                background:#f1f5fb;
+                                border-left:6px solid #ffd700;
+                                padding:15px;
+                                margin:20px 0;
+                                box-shadow:0 6px 24px 0 rgba(229, 57, 53, 0.08),
+                                           0 1.5px 8px 0 rgba(25, 118, 210, 0.08);
+                            ">
+                                <p style="margin:0; font-size:15px; color:#333;">
+                                    <strong>Username:</strong> {{ username }} <br>
+                                    <strong>Password:</strong>
+                                    <span style="color:#e53935; font-weight:bold;">{{ password }}</span>
+                                </p>
+                            </div>
+
+                            <p style="font-size:15px; color:#555; line-height:1.6;">
+                                For your security, please log in and change this password immediately.
+                            </p>
+
+                            <!-- Premium Gradient Button -->
+                            <div style="text-align:center; margin:30px 0;">
+                                <a href="{{ login_link }}" target="_blank"
+                                   style="
+                                       padding:12px 25px;
+                                       font-size:16px;
+                                       text-decoration:none;
+                                       border-radius:6px;
+                                       background: linear-gradient(135deg, #1976d2 0%, #e53935 60%, #ffd700 100%);
+                                       border-color:#ffd700;
+                                       color:#fff;
+                                       box-shadow:0 6px 24px rgba(229,57,53,0.18),
+                                                  0 1.5px 8px rgba(25,118,210,0.18);
+                                   ">
+                                    Login to Your Account
+                                </a>
+                            </div>
+
+                            <p style="font-size:14px; color:#999;">
+                                If you did not request this change, please contact support immediately.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background:#f4f4f7; padding:20px; text-align:center; font-size:13px; color:#777;">
+                            © {{ year }} PPAA System. All rights reserved.
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -64,7 +64,11 @@ class Command(BaseCommand):
         # Groups and permission mapping for non-admins
         groups_to_permissions = {
           
+<<<<<<< HEAD
             "content_editor": [
+=======
+            "HR": [
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                 # Department Management
                 "can_view_department",
                 "can_view_department_lookup",

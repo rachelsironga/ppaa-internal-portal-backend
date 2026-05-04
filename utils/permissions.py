@@ -33,3 +33,22 @@ class HasMethodPermission(BasePermission):
 
         # Require *all* permissions
         return any(perm in user_permissions for perm in required_perms)
+
+
+class HasMethodPermissionOrRmsManager(HasMethodPermission):
+    """Allow RMS report managers to bypass the per-method permission map."""
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        if request.user.is_superuser:
+            return True
+
+        try:
+            if request.user.groups.filter(name="RMS_REPORT_MANAGER").exists():
+                return True
+        except Exception:
+            pass
+
+        return super().has_permission(request, view)

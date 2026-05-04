@@ -14,6 +14,8 @@ from datetime import timedelta
 from dotenv import load_dotenv
 import os
 
+from .db_router import ROUTERS as DATABASE_ROUTERS
+
 load_dotenv()
 
 from .db_config import build_databases
@@ -47,12 +49,19 @@ AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+RMS_REPORTS_BUCKET = os.getenv("RMS_REPORTS_BUCKET", "reports-management")
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
 MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
 
+<<<<<<< HEAD
 AWS_DEFAULT_ACL = None
 AWS_S3_ADDRESSING_STYLE = "path"
 AWS_S3_FILE_OVERWRITE = False
+=======
+# Redis (used by ppaa_portal.tasks)
+# Provide a safe default so management commands (migrate, showmigrations, etc.) don't crash
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
 
 # Optional (avoid automatic URL signing)
@@ -85,7 +94,14 @@ SIMPLE_JWT = {
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 # CORS_ALLOW_ALL_ORIGINS = True
+<<<<<<< HEAD
 _CORS_BASE_PROD = [
+=======
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:4001",
+    "http://127.0.0.1:4001",
+    # "http://frontend.approval.mnh",
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     "http://minio.ppaa",
     "http://localhost:8091",
     "http://127.0.0.1:8091",
@@ -117,16 +133,25 @@ INSTALLED_APPS = [
     'api',
     'ppaa_portal',
     'ppaa_auth',
+<<<<<<< HEAD
     'microservices.ppaa_performance',
+=======
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
     'rest_framework_simplejwt.token_blacklist',
     'storages',
+<<<<<<< HEAD
     'microservices.ppaa_performance',
     'microservices.maoni',
     'microservices.reports_management',
     'microservices.rms_reports',
+=======
+    'microservices.ppaa_maoni',  # Maoni microservice
+    'microservices.ppaa_reports',  # PPAA Reports module
+    'ppaa_performance',  # Performance Dashboard
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 ]
 
 MIDDLEWARE = [
@@ -187,6 +212,7 @@ AUTHENTICATION_BACKENDS = [
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 AUTH_USER_MODEL = 'ppaa_auth.User'
+<<<<<<< HEAD
 DATABASES = build_databases(
     reports_keys={
         "name_key": "REPORTS_MANAGEMENT_DB_NAME",
@@ -196,6 +222,34 @@ DATABASES = build_databases(
         "port_key": "REPORTS_MANAGEMENT_DB_PORT",
     },
 )
+=======
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB_NAME"),
+        "USER": os.getenv("POSTGRES_DB_USER"),
+        "PASSWORD": os.getenv("POSTGRES_DB_PWD"),
+        "HOST": os.getenv("POSTGRES_DB_HOST"),
+        "PORT": os.getenv("POSTGRES_DB_PORT"),
+    },
+    "maoni": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("MAONI_DB_NAME", "maoni_db"),
+        "USER": os.getenv("POSTGRES_DB_USER"),
+        "PASSWORD": os.getenv("POSTGRES_DB_PWD"),
+        "HOST": os.getenv("POSTGRES_DB_HOST"),
+        "PORT": os.getenv("POSTGRES_DB_PORT"),
+    },
+    "ppaa_reports": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("REPORTS_DB_NAME", "ppaa_reports"),
+        "USER": os.getenv("POSTGRES_DB_USER"),
+        "PASSWORD": os.getenv("POSTGRES_DB_PWD"),
+        "HOST": os.getenv("POSTGRES_DB_HOST"),
+        "PORT": os.getenv("POSTGRES_DB_PORT"),
+    },
+}
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
 
 # Password validation

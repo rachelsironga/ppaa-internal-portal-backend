@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        {% if reminder_stage == "after" %}
+            Report Overdue Notice
+        {% else %}
+            Report Deadline Reminder
+        {% endif %}
+    </title>
+</head>
+
+<body style="margin:0; padding:0; background:#f4f4f7; font-family:Arial, sans-serif;">
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7; padding:40px 0;">
+        <tr>
+            <td align="center">
+
+                <!-- Card Container -->
+                <table width="600" cellpadding="0" cellspacing="0"
+                       style="background:#ffffff; border-radius:10px; overflow:hidden;
+                              box-shadow:0 4px 12px rgba(0,0,0,0.1);">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="
+                            padding:25px;
+                            text-align:center;
+                            background: linear-gradient(135deg, #1976d2 0%, #e53935 60%, #ffd700 100%);
+                        ">
+                            <div style="display: inline-flex; justify-content: center; align-items: center; gap: 12px;">
+                                <div>
+                                    <h2 style="color:#ffffff; margin:5px; font-size:22px;">
+                                        {{ organization_name }}
+                                    </h2>
+                                    <h3 style="color:#ffffff; margin:5px; font-size:16px;">
+                                        {% if reminder_stage == "after" %}
+                                            PPAA Reports - Overdue Notice
+                                        {% else %}
+                                            PPAA Reports - Deadline Reminder
+                                        {% endif %}
+                                    </h3>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding:30px;">
+
+                            <p style="font-size:16px; color:#333;">
+                                Dear <strong>{{ recipient_name }}</strong>,
+                            </p>
+
+                            {% if reminder_stage == "after" %}
+                                <p style="font-size:15px; color:#555; line-height:1.8;">
+                                    This is to notify you that the deadline for the report below has already been reached.
+                                    Kindly submit your report as soon as possible to avoid further delay.
+                                </p>
+                            {% else %}
+                                <p style="font-size:15px; color:#555; line-height:1.8;">
+                                    This is a reminder that the report below is due <strong>{{ urgency_text }}</strong>.
+                                    Please review it and submit before the deadline.
+                                </p>
+                            {% endif %}
+
+                            <!-- Report Details Box -->
+                            <div style="
+                                background:#f8f9fa;
+                                border-left:6px solid #ff9800;
+                                padding:20px;
+                                margin:24px 0;
+                                border-radius:0 8px 8px 0;
+                                box-shadow:0 2px 8px rgba(0,0,0,0.06);
+                            ">
+                                <p style="margin:0 0 8px 0; font-size:14px; color:#666; text-transform:uppercase; letter-spacing:0.5px;">
+                                    Report Details
+                                </p>
+                                <p style="margin:0; font-size:16px; color:#333; font-weight:bold;">
+                                    {{ report_title }}
+                                </p>
+                                <p style="margin:8px 0 0 0; font-size:14px; color:#555; line-height:1.6;">
+                                    <strong>Reference:</strong> {{ reference_number }}<br>
+                                    <strong>Report Type:</strong> {{ report_type_name }}<br>
+                                    <strong>Deadline:</strong> <span style="color:#e53935; font-weight:bold;">{{ deadline_date }}</span><br>
+                                    {% if reminder_stage == "after" %}
+                                        <strong>Overdue By:</strong> {{ days_remaining|add:"0"|cut:"-" }} day(s)<br>
+                                    {% else %}
+                                        <strong>Days Remaining:</strong> {{ days_remaining }} day(s)<br>
+                                    {% endif %}
+                                    {% if directory_name %}<strong>Directorate:</strong> {{ directory_name }}<br>{% endif %}
+                                    <strong>Priority:</strong> {{ priority }}
+                                </p>
+                            </div>
+
+                            {% if reminder_stage == "after" %}
+                                <p style="font-size:15px; color:#555; line-height:1.8;">
+                                    The submission deadline has been reached. Please log in to PPAA Reports
+                                    and submit the report immediately.
+                                </p>
+                            {% else %}
+                                <p style="font-size:15px; color:#555; line-height:1.8;">
+                                    Please log in to PPAA Reports and complete your submission before the deadline.
+                                </p>
+                            {% endif %}
+
+                            <!-- Action Button -->
+                            <div style="text-align:center; margin:30px 0;">
+                                <a href="{{ reports_link }}"
+                                   style="
+                                       display:inline-block;
+                                       padding:14px 28px;
+                                       font-size:16px;
+                                       font-weight:bold;
+                                       text-decoration:none;
+                                       border-radius:6px;
+                                       color:#ffffff;
+                                       background: linear-gradient(135deg, #1976d2 0%, #e53935 60%, #ffd700 100%);
+                                       box-shadow:0 4px 14px rgba(229,57,53,0.25),
+                                                  0 2px 6px rgba(25,118,210,0.15);
+                                   ">
+                                    {% if reminder_stage == "after" %}
+                                        Submit Report Now
+                                    {% else %}
+                                        View Report & Submit
+                                    {% endif %}
+                                </a>
+                            </div>
+
+                            <p style="font-size:14px; color:#777; line-height:1.6;">
+                                If you have already submitted this report, please disregard this email.
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="
+                            background:#f4f4f7;
+                            padding:20px;
+                            text-align:center;
+                            font-size:13px;
+                            color:#777;
+                        ">
+                            © {{ year }} {{ organization_name }} • PPAA Reports • All rights reserved.
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
