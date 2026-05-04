@@ -1,6 +1,8 @@
-# Base overridable when Docker Hub is unreachable (IPv6 / “no route to host”), e.g. in `.env`:
-#   DOCKER_PYTHON_IMAGE=mirror.gcr.io/library/python:3.12-slim
-ARG PYTHON_IMAGE=python:3.12-slim
+# Base overridable when registries fail (DNS / TLS), e.g. in `.env` or compose `DOCKER_PYTHON_IMAGE`:
+#   public.ecr.aws/docker/library/python:3.12-slim   (AWS mirror)
+#   python:3.12-slim                                 (Docker Hub, needs auth.docker.io)
+# Default: Google mirror of docker.io/library/python — often resolves when ECR / Hub do not.
+ARG PYTHON_IMAGE=mirror.gcr.io/library/python:3.12-slim
 FROM ${PYTHON_IMAGE}
 
 # Install system dependencies for WeasyPrint (CRITICAL) + gosu (drop root in entrypoint)

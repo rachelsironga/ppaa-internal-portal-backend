@@ -2,6 +2,7 @@ from django.urls import path
 
 from microservices.maoni.views import (
     MaoniCategoriesView,
+    MaoniSettingsView,
     MaoniSuggestionDetailView,
     MaoniSuggestionPrintView,
     MaoniSuggestionReplyView,
@@ -14,4 +15,5 @@ urlpatterns = [
     path("maoni/suggestions/<uuid:uid>/reply/", MaoniSuggestionReplyView.as_view()),
     path("maoni/suggestions/<uuid:uid>/print/", MaoniSuggestionPrintView.as_view()),
     path("maoni/categories/", MaoniCategoriesView.as_view()),
+    path("maoni/settings/", MaoniSettingsView.as_view()),
 ]

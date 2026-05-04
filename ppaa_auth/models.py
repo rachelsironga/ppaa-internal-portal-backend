@@ -438,6 +438,8 @@ class GroupProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="group_profile",
     )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     update_count = models.PositiveIntegerField(default=0)
     last_updated_at = models.DateTimeField(null=True, blank=True)
     last_updated_by = models.ForeignKey(

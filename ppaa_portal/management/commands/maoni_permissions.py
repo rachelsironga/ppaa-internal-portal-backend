@@ -3,13 +3,15 @@ Create Maoni (PPAA suggestions) model permissions, optional custom codenames, an
 
 Aligns with:
   - microservices.maoni models: MaoniCategory, MaoniSuggestion, MaoniSuggestionComment
-  - Frontend access: staff / PPAA_Maoni_Reviewer / admin (PPAA Maoni & Maoni dashboard)
+  - Frontend access: staff / Maoni_Reviewer / admin (PPAA Maoni & Maoni dashboard)
 
 Run:
   python manage.py maoni_permissions
 
-Merges Maoni permissions into admin / staff without removing their other permissions (reviewers use dedicated PPAA_Maoni_Reviewer).
-Dedicated groups (see MAONI_GROUP_* below) are fully (re)set to the mapped sets.
+Merges Maoni permissions into admin / staff without removing their other permissions (reviewers use dedicated Maoni_Reviewer).
+Dedicated groups (see MAONI_GROUP_* below) are fully (re)set to the mapped sets:
+``Maoni_Reviewer`` gets institutional-reviewer permissions; ``Maoni_Handler`` gets department-queue
+permissions (aligned with ``microservices.maoni.views`` workflow checks).
 Removes obsolete groups ``ppaa_maoni_lead`` / ``PPAA_Maoni_Lead`` if present.
 """
 
@@ -28,9 +30,17 @@ APP_LABEL = "maoni"
 MAONI_GROUP_ADMIN = "Maoni_Admin"
 # Reviewer / moderator role (replaces legacy name "Maoni_HR"); override with env if needed:
 MAONI_GROUP_REVIEWER = os.environ.get(
-    "MAONI_REVIEWER_GROUP_NAME", "PPAA_Maoni_Reviewer"
+    "MAONI_REVIEWER_GROUP_NAME", "Maoni_Reviewer"
 )
+MAONI_GROUP_HANDLER_ALIAS = os.environ.get("MAONI_HANDLER_ALIAS_GROUP_NAME", "Maoni_Handler")
 MAONI_GROUP_CONTRIBUTOR = "Maoni_Contributor"
+# Historical reviewer group names we still accept and can rename in-place:
+LEGACY_MAONI_REVIEWER_GROUP_NAMES = (
+    "Moni_Reviewer",
+    "Maoni_Reviewe",
+    "PPAA_Maoni_Reviewer",
+    "PPAA_MAONI_REVEIWE",
+)
 # Existing portal groups to merge permissions into (must match names in the database):
 PORTAL_GROUP_ADMIN = "admin"
 # Optional: also merge into legacy "HR" group if it still exists (migration aid)
@@ -48,9 +58,39 @@ MAONI_CUSTOM_PERMISSIONS = (
     ("can_view_maoni_dashboard", "Can view Maoni dashboard"),
     ("can_add_maoni_suggestion", "Can submit Maoni suggestions"),
     ("can_change_maoni_suggestion", "Can edit Maoni suggestions (e.g. status, content)"),
+    ("can_handle_maoni_suggestion", "Can process handler-stage Maoni workflow actions (legacy umbrella)"),
+    ("can_pickup_maoni_suggestion", "Can open a submitted Maoni suggestion for department handler review"),
+    (
+        "can_reviewer_pickup_maoni_suggestion",
+        "Can open a submitted Maoni suggestion for review (institutional reviewer queue)",
+    ),
+    (
+        "can_handler_respond_to_maoni_contributor",
+        "Can move Maoni workflow to handler responded to contributor (official contributor channel)",
+    ),
+    (
+        "can_handler_respond_to_maoni_reviewer",
+        "Can send handler response to institutional reviewer on a Maoni suggestion",
+    ),
+    ("can_resume_maoni_from_returned", "Can resume Maoni in-progress review after reviewer returned the case"),
+    (
+        "can_resume_maoni_after_reviewer_response",
+        "Can resume Maoni under handler review after messaging the reviewer",
+    ),
+    (
+        "can_resume_maoni_after_contributor",
+        "Can resume Maoni under handler review after contributor follow-up",
+    ),
+    ("can_escalate_maoni_suggestion", "Can escalate Maoni suggestions to reviewer"),
+    ("can_return_maoni_suggestion", "Can return Maoni suggestions back to handler"),
+    ("can_close_maoni_suggestion", "Can close Maoni suggestions as approved or rejected"),
     ("can_review_maoni_suggestion", "Can review and change status of Maoni suggestions (Maoni reviewers)"),
     ("can_reply_maoni_suggestion", "Can post official replies on Maoni suggestions (Maoni reviewers)"),
+    ("can_print_maoni_suggestion", "Can print Maoni suggestions for official handling"),
     ("can_manage_maoni_categories", "Can manage Maoni categories"),
+    ("can_view_maoni_escalation_days", "Can view Maoni escalation days setting"),
+    ("can_add_maoni_escalation_days", "Can add/update Maoni escalation days setting"),
+    ("can_delete_maoni_escalation_days", "Can reset/delete Maoni escalation days setting"),
 )
 
 
@@ -59,6 +99,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write("Processing Maoni permissions...")
+
+        self._rename_legacy_reviewer_group()
 
         created_model = self._ensure_model_permissions()
         created_custom = self._ensure_custom_permissions()
@@ -74,7 +116,8 @@ class Command(BaseCommand):
 
         dedicated = {
             MAONI_GROUP_ADMIN: all_codes,
-            MAONI_GROUP_REVIEWER: self._hr_codenames(all_codes),
+            MAONI_GROUP_REVIEWER: self._maoni_institutional_reviewer_codenames(all_codes),
+            MAONI_GROUP_HANDLER_ALIAS: self._maoni_department_handler_codenames(all_codes),
             MAONI_GROUP_CONTRIBUTOR: self._contributor_codenames(all_codes),
         }
 
@@ -106,6 +149,35 @@ class Command(BaseCommand):
         self._remove_obsolete_maoni_groups()
 
         self.stdout.write(self.style.SUCCESS("maoni_permissions finished."))
+
+    def _rename_legacy_reviewer_group(self):
+        """
+        Prefer the current reviewer group name by renaming a legacy one in-place.
+
+        This preserves memberships (users assigned to the old group automatically end up in the
+        new group) without requiring manual reassignment.
+        """
+        wanted = (MAONI_GROUP_REVIEWER or "").strip()
+        if not wanted:
+            return
+
+        existing_new = Group.objects.filter(name__iexact=wanted).first()
+        if existing_new:
+            return
+
+        for legacy in LEGACY_MAONI_REVIEWER_GROUP_NAMES:
+            old = Group.objects.filter(name__iexact=legacy).first()
+            if not old:
+                continue
+            old_name = old.name
+            old.name = wanted
+            old.save(update_fields=["name"])
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Renamed legacy Maoni reviewer group '{old_name}' → '{wanted}'."
+                )
+            )
+            return
 
     def _ensure_model_permissions(self) -> int:
         created = 0
@@ -169,9 +241,24 @@ class Command(BaseCommand):
     def _contributor_codenames(self, all_codes):
         """Staff / contributors: submit suggestions; no HR-only or category-admin rights."""
         hr_only_custom = {
+            "can_handle_maoni_suggestion",
+            "can_pickup_maoni_suggestion",
+            "can_reviewer_pickup_maoni_suggestion",
+            "can_handler_respond_to_maoni_contributor",
+            "can_handler_respond_to_maoni_reviewer",
+            "can_resume_maoni_from_returned",
+            "can_resume_maoni_after_reviewer_response",
+            "can_resume_maoni_after_contributor",
+            "can_escalate_maoni_suggestion",
+            "can_return_maoni_suggestion",
+            "can_close_maoni_suggestion",
             "can_review_maoni_suggestion",
             "can_reply_maoni_suggestion",
+            "can_print_maoni_suggestion",
             "can_manage_maoni_categories",
+            "can_view_maoni_escalation_days",
+            "can_add_maoni_escalation_days",
+            "can_delete_maoni_escalation_days",
         }
         out = []
         for c in all_codes:
@@ -192,8 +279,38 @@ class Command(BaseCommand):
         """Maoni reviewers (IHRM / Exec Sec): full Maoni permission set."""
         return sorted(set(all_codes))
 
+    def _maoni_institutional_reviewer_codenames(self, all_codes):
+        """
+        Institutional reviewer / ES role: thread, return-to-handler, reviewer pickup — not
+        department-handler-only transitions (escalate, close, resume-from-returned, etc.).
+        """
+        exclude = frozenset(
+            {
+                "can_pickup_maoni_suggestion",
+                "can_handler_respond_to_maoni_contributor",
+                "can_handler_respond_to_maoni_reviewer",
+                "can_resume_maoni_from_returned",
+                "can_resume_maoni_after_reviewer_response",
+                "can_resume_maoni_after_contributor",
+                "can_escalate_maoni_suggestion",
+                "can_close_maoni_suggestion",
+                "can_handle_maoni_suggestion",
+            }
+        )
+        return sorted(c for c in all_codes if c not in exclude)
+
+    def _maoni_department_handler_codenames(self, all_codes):
+        """Department handler queue: escalate, close, resumes, handler responses — not ES return or reviewer pickup."""
+        exclude = frozenset(
+            {
+                "can_return_maoni_suggestion",
+                "can_reviewer_pickup_maoni_suggestion",
+            }
+        )
+        return sorted(c for c in all_codes if c not in exclude)
+
     def _remove_obsolete_maoni_groups(self):
-        """Drop deprecated Maoni groups (replaced by PPAA_Maoni_Reviewer / Maoni_Admin)."""
+        """Drop deprecated Maoni groups (replaced by Maoni_Reviewer / Maoni_Admin)."""
         obsolete_names = ("ppaa_maoni_lead", "PPAA_Maoni_Lead")
         for raw in obsolete_names:
             qs = Group.objects.filter(name__iexact=raw)

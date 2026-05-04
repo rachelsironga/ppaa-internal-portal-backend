@@ -14,12 +14,13 @@ from datetime import timedelta
 from dotenv import load_dotenv
 import os
 
+load_dotenv()
+
 from celery.schedules import crontab
 
 from .db_config import build_databases
 from .db_router import ROUTERS as DATABASE_ROUTERS
-
-load_dotenv()
+from .network_defaults import LAN_HOST, lan_browser_origins, merge_unique_origins
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -85,7 +86,8 @@ SIMPLE_JWT = {
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 # CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = [
+# LAN browser origins: LAN_HOST (default 192.168.1.4); subnet in network_defaults.LAN_SUBNET_CIDR (not used as Origin).
+_CORS_BASE = [
     "https://ppaa.or.tz",
     "http://ppaa.or.tz",
     "http://localhost:4001",
@@ -102,29 +104,11 @@ CORS_ALLOWED_ORIGINS = [
     # Docker nginx frontend (ppaa-internal-portal-frontend/docker-compose.yml → 3000:80)
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    # "http://192.168.10.166:8091",
-    # "http://192.168.10.166:8092"
 ]
+CORS_ALLOWED_ORIGINS = merge_unique_origins(_CORS_BASE, lan_browser_origins())
 
 # Make sure these match your CORS settings
-CSRF_TRUSTED_ORIGINS = [
-    "https://ppaa.or.tz",
-    "http://ppaa.or.tz",
-    "http://localhost:4001",
-    "http://127.0.0.1:4001",
-    "http://localhost:4002",
-    "http://127.0.0.1:4002",
-    "http://frontend.approval.ppaa",
-    "http://minio.ppaa",
-    "http://localhost:8091",
-    "http://127.0.0.1:8091",
-    "http://localhost:8092",
-    "http://127.0.0.1:8092",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    # "http://192.168.10.166:8091",
-    # "http://192.168.10.166:8092"
-]
+CSRF_TRUSTED_ORIGINS = merge_unique_origins(_CORS_BASE, lan_browser_origins())
 
 
 
@@ -267,7 +251,16 @@ EMAIL_HOST_PASSWORD = (os.environ.get("EMAIL_HOST_PASSWORD") or "").strip()
 # Accept "True"/"False" or 1/0
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in ("true", "1", "yes")
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False").lower() in ("true", "1", "yes")
+# Docker Compose `environment` can set TLS while `env_file` still sets SSL — Django forbids both.
+if EMAIL_USE_TLS and EMAIL_USE_SSL:
+    if EMAIL_PORT == 465:
+        EMAIL_USE_TLS = False
+    else:
+        EMAIL_USE_SSL = False
 DEFAULT_FROM_EMAIL = (os.environ.get("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "webmaster@localhost").strip()
+
+# Absolute portal URL for links in emails (e.g. Maoni new reply). Override with FRONTEND_URL in production.
+FRONTEND_URL = (os.environ.get("FRONTEND_URL") or f"http://{LAN_HOST}:8091").strip()
 
 # ---------- CELERY / REDIS ----------
 # Default to localhost so manage.py runserver works without Docker hostname "redis".
@@ -286,12 +279,14 @@ if os.environ.get("RMS_REMINDERS_BEAT", "1").lower() not in ("0", "false", "no",
         "schedule": crontab(hour=6, minute=0),
     }
 
+# Celery Beat: Maoni auto-escalation sweep (hourly).
+if os.environ.get("MAONI_AUTO_ESCALATION_BEAT", "1").lower() not in ("0", "false", "no", "off"):
+    CELERY_BEAT_SCHEDULE["maoni-auto-escalation-hourly"] = {
+        "task": "ppaa_portal.tasks.maoni_auto_escalate_overdue_suggestions",
+        "schedule": crontab(minute=0),
+    }
 
-# ---------- MICROSERVICES URLS ---------- 
-AUTH_SERVICE_URL = os.getenv('AUTH_SERVICE_URL', 'http://localhost:8092')
 
+# ---------- MICROSERVICES URLS ----------
+AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8092")
 
-EXTERNAL_REFERRAL_API_URL = os.getenv('EXTERNAL_REFERRAL_API_URL', 'http://localhost:8092')
-EXTERNAL_REFERRAL_API_USERNAME = os.getenv('EXTERNAL_REFERRAL_API_USERNAME', 'admin')
-EXTERNAL_REFERRAL_API_PASSWORD = os.getenv('EXTERNAL_REFERRAL_API_PASSWORD', 'admin')
-EXTERNAL_REFERRAL_API_BEARER_TOKEN = os.getenv('EXTERNAL_REFERRAL_API_BEARER_TOKEN', '')

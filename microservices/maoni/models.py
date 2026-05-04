@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class MaoniCategory(models.Model):
@@ -28,11 +29,19 @@ class MaoniSuggestion(models.Model):
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         SUBMITTED = "SUBMITTED", "Submitted"
-        PENDING_REVIEW = "PENDING_REVIEW", "Pending review"
-        UNDER_CONSIDERATION = "UNDER_CONSIDERATION", "Under consideration"
-        APPROVED = "APPROVED", "Approved"
-        REJECTED = "REJECTED", "Rejected"
-        IMPLEMENTED = "IMPLEMENTED", "Implemented"
+        UNDER_HANDLER_REVIEW = "UNDER_HANDLER_REVIEW", "Under handler review"
+        ESCALATED_TO_REVIEWER = "ESCALATED_TO_REVIEWER", "Escalated to reviewer"
+        RETURNED_TO_HANDLER = "RETURNED_TO_HANDLER", "Returned to handler"
+        HANDLER_RESPONDED_TO_REVIEWER = (
+            "HANDLER_RESPONDED_TO_REVIEWER",
+            "Handler responded to reviewer",
+        )
+        HANDLER_RESPONDED_TO_CONTRIBUTOR = (
+            "HANDLER_RESPONDED_TO_CONTRIBUTOR",
+            "Handler responded to contributor",
+        )
+        CLOSED_APPROVED = "CLOSED_APPROVED", "Closed - approved"
+        CLOSED_REJECTED = "CLOSED_REJECTED", "Closed - rejected"
 
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     title = models.TextField()
@@ -75,6 +84,17 @@ class MaoniSuggestion(models.Model):
 
 
 class MaoniSuggestionComment(models.Model):
+    """Thread message on a suggestion (contributor or staff)."""
+
+    class MessageType(models.TextChoices):
+        GENERAL = "GENERAL", "General reply"
+        CLARIFICATION = "CLARIFICATION", "Clarification request"
+        WORKFLOW = "WORKFLOW", "Workflow / status note"
+
+    class ThreadScope(models.TextChoices):
+        CONTRIBUTOR = "CONTRIBUTOR", "Contributor-visible thread"
+        STAFF = "STAFF", "Staff-only (handler & institutional reviewer)"
+
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     suggestion = models.ForeignKey(
         MaoniSuggestion,
@@ -96,6 +116,18 @@ class MaoniSuggestionComment(models.Model):
         related_name="maoni_comments",
     )
     is_hr_reply = models.BooleanField(default=False)
+    message_type = models.CharField(
+        max_length=40,
+        choices=MessageType.choices,
+        default=MessageType.GENERAL,
+        db_index=True,
+    )
+    thread_scope = models.CharField(
+        max_length=20,
+        choices=ThreadScope.choices,
+        default=ThreadScope.CONTRIBUTOR,
+        db_index=True,
+    )
     comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -105,3 +137,27 @@ class MaoniSuggestionComment(models.Model):
 
     def __str__(self):
         return f"Comment on {self.suggestion_id}"
+
+
+class MaoniWorkflowSettings(models.Model):
+    """
+    Singleton-style Maoni workflow settings.
+    We keep one active row and read the latest by updated_at.
+    """
+
+    escalation_days = models.PositiveIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(365)],
+        help_text="Days a suggestion can remain with handler before escalation is due.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "maoni"
+        ordering = ["-updated_at"]
+        verbose_name = "Maoni workflow settings"
+        verbose_name_plural = "Maoni workflow settings"
+
+    def __str__(self):
+        return f"Escalation: {self.escalation_days} day(s)"

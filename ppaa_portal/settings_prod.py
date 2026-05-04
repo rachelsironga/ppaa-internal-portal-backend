@@ -14,9 +14,10 @@ from datetime import timedelta
 from dotenv import load_dotenv
 import os
 
-from .db_config import build_databases
-
 load_dotenv()
+
+from .db_config import build_databases
+from .network_defaults import LAN_HOST, lan_browser_origins, merge_unique_origins
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -84,12 +85,7 @@ SIMPLE_JWT = {
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 # CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4001",
-    "http://127.0.0.1:4001",
-    "http://localhost:4002",
-    "http://127.0.0.1:4002",
-    "http://frontend.approval.ppaa",
+_CORS_BASE_PROD = [
     "http://minio.ppaa",
     "http://localhost:8091",
     "http://127.0.0.1:8091",
@@ -97,9 +93,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8092",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    # "http://192.168.10.166:8091"
-    # "http://192.168.10.166:8092"
+    f"http://{LAN_HOST}:8091",
+    f"http://{LAN_HOST}:8092",
 ]
+CORS_ALLOWED_ORIGINS = merge_unique_origins(_CORS_BASE_PROD, lan_browser_origins())
+CSRF_TRUSTED_ORIGINS = merge_unique_origins(_CORS_BASE_PROD, lan_browser_origins())
+
+FRONTEND_URL = (os.environ.get("FRONTEND_URL") or f"http://{LAN_HOST}:8091").strip()
 
 
 
