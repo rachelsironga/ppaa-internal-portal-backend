@@ -18,6 +18,9 @@ from .db_router import ROUTERS as DATABASE_ROUTERS
 
 load_dotenv()
 
+from .db_config import build_databases
+from .network_defaults import LAN_HOST, lan_browser_origins, merge_unique_origins
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -41,8 +44,8 @@ if not DEBUG:
 
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-# MinIO configuration
-AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")  # MinIO API port
+# MinIO configuration (S3-compatible API via django-storages + boto3)
+AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
@@ -50,9 +53,15 @@ RMS_REPORTS_BUCKET = os.getenv("RMS_REPORTS_BUCKET", "reports-management")
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
 MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/"
 
+<<<<<<< HEAD
+AWS_DEFAULT_ACL = None
+AWS_S3_ADDRESSING_STYLE = "path"
+AWS_S3_FILE_OVERWRITE = False
+=======
 # Redis (used by ppaa_portal.tasks)
 # Provide a safe default so management commands (migrate, showmigrations, etc.) don't crash
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
 
 # Optional (avoid automatic URL signing)
@@ -85,18 +94,28 @@ SIMPLE_JWT = {
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 # CORS_ALLOW_ALL_ORIGINS = True
+<<<<<<< HEAD
+_CORS_BASE_PROD = [
+=======
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4001",
     "http://127.0.0.1:4001",
     # "http://frontend.approval.mnh",
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     "http://minio.ppaa",
     "http://localhost:8091",
-    "http://http://127.0.0.1:8091",
+    "http://127.0.0.1:8091",
     "http://localhost:8092",
     "http://127.0.0.1:8092",
-    # "http://192.168.10.166:8091"
-    # "http://192.168.10.166:8092"
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    f"http://{LAN_HOST}:8091",
+    f"http://{LAN_HOST}:8092",
 ]
+CORS_ALLOWED_ORIGINS = merge_unique_origins(_CORS_BASE_PROD, lan_browser_origins())
+CSRF_TRUSTED_ORIGINS = merge_unique_origins(_CORS_BASE_PROD, lan_browser_origins())
+
+FRONTEND_URL = (os.environ.get("FRONTEND_URL") or f"http://{LAN_HOST}:8091").strip()
 
 
 
@@ -114,14 +133,25 @@ INSTALLED_APPS = [
     'api',
     'ppaa_portal',
     'ppaa_auth',
+<<<<<<< HEAD
+    'microservices.ppaa_performance',
+=======
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
     'rest_framework_simplejwt.token_blacklist',
     'storages',
+<<<<<<< HEAD
+    'microservices.ppaa_performance',
+    'microservices.maoni',
+    'microservices.reports_management',
+    'microservices.rms_reports',
+=======
     'microservices.ppaa_maoni',  # Maoni microservice
     'microservices.ppaa_reports',  # PPAA Reports module
     'ppaa_performance',  # Performance Dashboard
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 ]
 
 MIDDLEWARE = [
@@ -133,7 +163,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
+    'ppaa_portal.audit_middleware.ApiActivityAuditMiddleware',
 ]
 
 
@@ -173,6 +203,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'ppaa_portal.wsgi.application'
 
 AUTHENTICATION_BACKENDS = [
+    'ppaa_auth.backends.EmailOrUsernameModelBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
 
@@ -181,6 +212,17 @@ AUTHENTICATION_BACKENDS = [
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 AUTH_USER_MODEL = 'ppaa_auth.User'
+<<<<<<< HEAD
+DATABASES = build_databases(
+    reports_keys={
+        "name_key": "REPORTS_MANAGEMENT_DB_NAME",
+        "user_key": "REPORTS_MANAGEMENT_DB_USER",
+        "pwd_key": "REPORTS_MANAGEMENT_DB_PWD",
+        "host_key": "REPORTS_MANAGEMENT_DB_HOST",
+        "port_key": "REPORTS_MANAGEMENT_DB_PORT",
+    },
+)
+=======
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -207,6 +249,7 @@ DATABASES = {
         "PORT": os.getenv("POSTGRES_DB_PORT"),
     },
 }
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
 
 # Password validation

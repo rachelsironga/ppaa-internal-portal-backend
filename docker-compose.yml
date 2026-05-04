@@ -6,7 +6,11 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: P@ssw0rd
+<<<<<<< HEAD
+      POSTGRES_DB: ppaa_internal_portal
+=======
       POSTGRES_DB: ppaa_portal_db
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     ports:
       - "5433:5432"
     volumes:
@@ -19,7 +23,11 @@ services:
     container_name: pgadmin
     restart: always
     environment:
+<<<<<<< HEAD
+      PGADMIN_DEFAULT_EMAIL: admin@ppaa.go.tz
+=======
       PGADMIN_DEFAULT_EMAIL: admin@ppaa.com
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
       PGADMIN_DEFAULT_PASSWORD: P@ssw0rd
     ports:
       - "8099:80"
@@ -29,6 +37,9 @@ services:
       - ppaa-network
     depends_on:
       - postgres
+<<<<<<< HEAD
+
+=======
   # mysql:
     # image: mysql:8.0
     # container_name: mysql
@@ -44,6 +55,7 @@ services:
     #   - /opt/mnh-data/mysql-analytics:/var/lib/mysql
     # networks:
     #   - mnh-network
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
   redis:
     image: redis:7
     container_name: redis
@@ -59,22 +71,45 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-mirror.gcr.io/library/python:3.12-slim}
     networks:
       - ppaa-network
     volumes:
       - ./:/app
       - static_volume:/app/static
       - media_volume:/app/media
-    expose:
-      - "8000"
+    # expose:
+    ports:
+      - "8000:8000"
     environment:
+      DJANGO_SETTINGS_MODULE: ppaa_portal.settings
+
+      # LAN defaults (CORS/CSRF + Maoni email links); override in .env
+      LAN_HOST: "192.168.1.4"
+      LAN_SUBNET_CIDR: "192.168.1.0/24"
+      FRONTEND_URL: "http://192.168.1.4:8091"
+
       # PostgreSQL
+<<<<<<< HEAD
+      POSTGRES_DB_NAME: "ppaa_internal_portal"
+=======
       POSTGRES_DB_NAME: "ppaa_portal_db"
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
       POSTGRES_DB_HOST: "postgres"
       POSTGRES_DB_PORT: 5432
 
+<<<<<<< HEAD
+      # MySQL
+
+
+      # Email: console backend logs messages to the container (no SMTP). Override in .env for real mail
+      # (Gmail needs an App Password; placeholder credentials cause 535 and noisy Celery retries).
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      DEFAULT_FROM_EMAIL: noreply@localhost
+=======
 
 # Maoni Microservice Database
       MAONI_DB_NAME: "maoni_db"
@@ -96,16 +131,22 @@ services:
       EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
       EMAIL_USE_TLS: "True"
       DEFAULT_FROM_EMAIL: ppaa@gmail.com
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
       # 🔥 CELERY + REDIS
       CELERY_BROKER_URL: redis://redis:6379/0
       REDIS_URL: redis://redis:6379/0
+
+      # MinIO (S3 API) — flyers, documents, media use default_storage → must reach the minio service by Docker DNS.
+      # Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in .env to match MINIO_ROOT_USER / MINIO_ROOT_PASSWORD below.
+      AWS_S3_ENDPOINT_URL: "http://minio:9000"
     env_file:
       - .env
     restart: unless-stopped
     depends_on:
       - redis
       - postgres
+      - minio
 
   celery_worker:
     image: ppaa-internal-portal-backend
@@ -113,20 +154,43 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+<<<<<<< HEAD
+      args:
+        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-mirror.gcr.io/library/python:3.12-slim}
+    command: ["celery", "-A", "ppaa_portal.config.celery_app", "worker", "--loglevel=info"]
+=======
     command: celery -A ppaa_portal.config.celery_app worker --loglevel=info
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     volumes:
       - ./:/app
     networks:
       - ppaa-network
     environment:
+      DJANGO_SETTINGS_MODULE: ppaa_portal.settings
+
+      LAN_HOST: "192.168.1.4"
+      LAN_SUBNET_CIDR: "192.168.1.0/24"
+      FRONTEND_URL: "http://192.168.1.4:8091"
+
       # Same DB connection
+<<<<<<< HEAD
+      POSTGRES_DB_NAME: "ppaa_internal_portal"
+=======
       POSTGRES_DB_NAME: "ppaa_portal_db"
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
       POSTGRES_DB_HOST: "postgres"
       POSTGRES_DB_PORT: 5432
 
+<<<<<<< HEAD
+      
+
+      # Same as backend — console email unless .env sets SMTP + valid credentials
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      DEFAULT_FROM_EMAIL: noreply@localhost
+=======
       # PPAA Reports Database
       REPORTS_DB_NAME: "ppaa_reports"
       RMS_REPORTS_BUCKET: "reports-management"
@@ -141,13 +205,50 @@ services:
       EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
       EMAIL_USE_TLS: "True"
       DEFAULT_FROM_EMAIL: ppaa@gmail.com
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
       # Celery + Redis
       CELERY_BROKER_URL: redis://redis:6379/0
       REDIS_URL: redis://redis:6379/0
+
+      AWS_S3_ENDPOINT_URL: "http://minio:9000"
+    env_file:
+      - .env
     depends_on:
       - redis
       - backend
+      - minio
+    restart: unless-stopped
+
+  celery_beat:
+    image: ppaa-internal-portal-backend
+    container_name: celery-beat
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-mirror.gcr.io/library/python:3.12-slim}
+    command: ["celery", "-A", "ppaa_portal.config.celery_app", "beat", "--loglevel=info"]
+    volumes:
+      - ./:/app
+    networks:
+      - ppaa-network
+    environment:
+      DJANGO_SETTINGS_MODULE: ppaa_portal.settings
+      POSTGRES_DB_NAME: "ppaa_internal_portal"
+      POSTGRES_DB_USER: "postgres"
+      POSTGRES_DB_PWD: "P@ssw0rd"
+      POSTGRES_DB_HOST: "postgres"
+      POSTGRES_DB_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
+      AWS_S3_ENDPOINT_URL: "http://minio:9000"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - backend
+      - minio
     restart: unless-stopped
 
   nginx:
@@ -188,4 +289,4 @@ volumes:
 networks:
   ppaa-network:
     driver: bridge
-    external: true
+    # external: true

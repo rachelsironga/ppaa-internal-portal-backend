@@ -96,7 +96,11 @@ class SystemRoleView(APIView):
 
                 # Create audit log for role create/update
                 try:
+<<<<<<< HEAD
+                    from ppaa_portal.models import create_audit_log
+=======
                     from ppaa_portal.views import create_audit_log
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                     action = "UPDATE" if is_update else "CREATE"
                     permission_names = [perm.name for perm in group.permissions.all()]
                     create_audit_log(
@@ -129,7 +133,11 @@ class SystemRoleView(APIView):
 
                 # Create audit log before deletion
                 try:
+<<<<<<< HEAD
+                    from ppaa_portal.models import create_audit_log
+=======
                     from ppaa_portal.views import create_audit_log
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                     create_audit_log(
                         request=request,
                         action="DELETE",
@@ -293,8 +301,13 @@ class SystemAssignRoleUser(APIView):
                 
                 # Create audit log for single role assignment
                 try:
+<<<<<<< HEAD
+                    from ppaa_portal.models import create_audit_log
+                    role = serializer.validated_data.get("_group")
+=======
                     from ppaa_portal.views import create_audit_log
                     role = serializer.validated_data.get("role")
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                     if role:
                         create_audit_log(
                             request=request,
@@ -304,8 +317,13 @@ class SystemAssignRoleUser(APIView):
                             changes={
                                 "action": "Single role assigned",
                                 "role_name": role.name,
+<<<<<<< HEAD
+                                "role_id": role.id,
+                            },
+=======
                                 "role_id": role.id
                             }
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                         )
                 except Exception:
                     pass
@@ -337,7 +355,11 @@ class SystemAssignRoleUser(APIView):
                 
                 # Create audit log before removing role
                 try:
+<<<<<<< HEAD
+                    from ppaa_portal.models import create_audit_log
+=======
                     from ppaa_portal.views import create_audit_log
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                     create_audit_log(
                         request=request,
                         action="UPDATE",
@@ -384,9 +406,17 @@ class SystemAssignRoleListToUser(APIView):
                 
                 # Create audit log for role assignment/removal
                 try:
+<<<<<<< HEAD
+                    from ppaa_portal.models import create_audit_log
+
+                    role_names = [g.name for g in user.groups.all()]
+                    groups_qs = serializer.validated_data["_groups"]
+                    assigned_role_ids = list(groups_qs.values_list("id", flat=True))
+=======
                     from ppaa_portal.views import create_audit_log
                     role_names = [role.name for role in user.groups.all()]
                     assigned_role_ids = list(serializer.validated_data["roles"].values_list("id", flat=True))
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                     create_audit_log(
                         request=request,
                         action="UPDATE",
@@ -395,8 +425,13 @@ class SystemAssignRoleListToUser(APIView):
                         changes={
                             "assigned_roles": role_names,
                             "role_ids": assigned_role_ids,
+<<<<<<< HEAD
+                            "user": f"{user.first_name} {user.last_name} ({user.username})",
+                        },
+=======
                             "user": f"{user.first_name} {user.last_name} ({user.username})"
                         }
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                     )
                 except Exception as e:
                     # Don't fail the request if audit log creation fails

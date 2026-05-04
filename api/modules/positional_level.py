@@ -21,6 +21,25 @@ class PositionalLevelView(APIView):
     serializer_class = PositionalLevelSerializer
     required_permissions = {
         "get": [
+<<<<<<< HEAD
+            "can_view_department",
+            "can_view_positional_level",
+            "view_department",
+        ],
+        "post": [
+            "can_add_department",
+            "can_edit_department",
+            "add_department",
+            "change_department",
+            "can_add_positional_level",
+            "can_edit_positional_level",
+        ],
+        "delete": [
+            "can_delete_department",
+            "delete_department",
+            "can_delete_positional_level",
+        ],
+=======
             "can_view_department",  # Using department permission for now, can be changed later
         ],
         "post": [
@@ -29,6 +48,7 @@ class PositionalLevelView(APIView):
         "delete": [
             "can_delete_department",
         ]
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     }
 
     def get(self, request, uid=None):

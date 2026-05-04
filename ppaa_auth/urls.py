@@ -1,6 +1,52 @@
 from django.urls import path
 
 from ppaa_auth.modules.user_bulk_import import BulkUserImportView
+<<<<<<< HEAD
+from ppaa_auth.modules.user_profile import UserProfileView
+from ppaa_auth.modules.users import (
+    CurrentUserMeView,
+    UserPhotoUpload,
+    UserSignatureUpload,
+    UserView,
+)
+from ppaa_auth.reference_views import CountriesListView, CurrenciesListView
+from ppaa_auth.views import (
+    AdminChangePasswordView,
+    ChangePasswordView,
+    DepartmentView,
+    ForgotPasswordView,
+    LoginNewUser,
+    LoginView,
+    RegistrationView,
+    ResetPasswordView,
+)
+
+urlpatterns = [
+    path("me", CurrentUserMeView.as_view(), name="auth-current-user"),
+    path("login", LoginView.as_view(), name="auth-login"),
+    path("new_login", LoginNewUser.as_view(), name="new_login"),
+    path("register", RegistrationView.as_view(), name="auth-register"),
+    path("forgot-password", ForgotPasswordView.as_view(), name="forgot-password"),
+    path("setup", UserView.as_view(), name="view-user-setup"),
+    path("setup-photo", UserPhotoUpload.as_view(), name="user-setup-photo"),
+    path("setup-signature", UserSignatureUpload.as_view(), name="user-setup-signature"),
+    path("setup/<str:uid>", UserView.as_view(), name="open-user-setup"),
+    path("change-password", ChangePasswordView.as_view(), name="user-change-password"),
+    path("reset-password", ResetPasswordView.as_view(), name="user-reset-password"),
+    path(
+        "reset-update-password",
+        AdminChangePasswordView.as_view(),
+        name="reset-update-user-password",
+    ),
+    path("import-user-excel", BulkUserImportView.as_view(), name="import-user-excel"),
+    path("departments", DepartmentView.as_view(), name="departments"),
+    path("departments/<str:uid>", DepartmentView.as_view(), name="open-department"),
+    path("positions", UserProfileView.as_view(), name="positions"),
+    path("positions/<str:uid>", UserProfileView.as_view(), name="open-positions"),
+    path("countries", CountriesListView.as_view(), name="user-countries"),
+    path("currencies", CurrenciesListView.as_view(), name="user-currencies"),
+]
+=======
 from ppaa_auth.modules.user_profile import UserProfileView, ActingUser
 from ppaa_auth.views import LoginView, RegistrationView, LoginNewUser, ChangePasswordView, ResetPasswordView, DepartmentView, AdminChangePasswordView, ForgotPasswordView
 from ppaa_auth.modules.users import UserView, UserPhotoUpload, UserSignatureUpload
@@ -33,3 +79,4 @@ urlpatterns = [
     path('positions/<str:uid>', UserProfileView.as_view(), name='open-positions'),
 
 ]
+>>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
