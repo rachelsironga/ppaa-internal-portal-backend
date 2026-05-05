@@ -61,7 +61,7 @@ services:
       # LAN defaults (CORS/CSRF + Maoni email links); override in .env
       LAN_HOST: "192.168.1.4"
       LAN_SUBNET_CIDR: "192.168.1.0/24"
-      FRONTEND_URL: "http://192.168.1.4:8091"
+      FRONTEND_URL: "http://192.168.1.4:3000"
 
       # PostgreSQL
       POSTGRES_DB_NAME: "ppaa_internal_portal"
@@ -124,7 +124,7 @@ services:
 
       LAN_HOST: "192.168.1.4"
       LAN_SUBNET_CIDR: "192.168.1.0/24"
-      FRONTEND_URL: "http://192.168.1.4:8091"
+      FRONTEND_URL: "http://192.168.1.4:3000"
 
       # Same DB connection
       POSTGRES_DB_NAME: "ppaa_portal_db"

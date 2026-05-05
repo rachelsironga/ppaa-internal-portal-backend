@@ -97,8 +97,6 @@ _CORS_BASE = [
     "http://127.0.0.1:4002",
     "http://frontend.approval.ppaa",
     "http://minio.ppaa",
-    "http://localhost:8091",
-    "http://127.0.0.1:8091",
     "http://localhost:8092",
     "http://127.0.0.1:8092",
     # Docker nginx frontend (ppaa-internal-portal-frontend/docker-compose.yml → 3000:80)
@@ -260,7 +258,7 @@ if EMAIL_USE_TLS and EMAIL_USE_SSL:
 DEFAULT_FROM_EMAIL = (os.environ.get("DEFAULT_FROM_EMAIL") or EMAIL_HOST_USER or "webmaster@localhost").strip()
 
 # Absolute portal URL for links in emails (e.g. Maoni new reply). Override with FRONTEND_URL in production.
-FRONTEND_URL = (os.environ.get("FRONTEND_URL") or f"http://{LAN_HOST}:8091").strip()
+FRONTEND_URL = (os.environ.get("FRONTEND_URL") or f"http://{LAN_HOST}:3000").strip()
 
 # ---------- CELERY / REDIS ----------
 # Default to localhost so manage.py runserver works without Docker hostname "redis".
@@ -288,5 +286,5 @@ if os.environ.get("MAONI_AUTO_ESCALATION_BEAT", "1").lower() not in ("0", "false
 
 
 # ---------- MICROSERVICES URLS ----------
-AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8092")
+AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8000")
 
