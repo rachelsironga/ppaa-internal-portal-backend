@@ -1,8 +1,10 @@
 """
-Create the MinIO / S3 media bucket if missing.
+Create configured MinIO / S3 buckets if missing.
 
-Portal uploads (PR flyers, documents, popup images, etc.) use ``default_storage``,
-which is configured as S3-compatible storage pointing at MinIO.
+Primary bucket comes from ``AWS_STORAGE_BUCKET_NAME``.
+Optional extra buckets can be provided via:
+  - ``SPM_BUCKET_NAME``
+  - ``RMS_REPORTS_BUCKET``
 
 Usage (Docker):
   docker compose exec backend python manage.py ensure_s3_media_bucket
@@ -15,24 +17,34 @@ from ppaa_portal.services.minio.minio_client import client
 
 
 class Command(BaseCommand):
-    help = "Create AWS_STORAGE_BUCKET_NAME on MinIO/S3 if it does not exist."
+    help = "Create configured MinIO/S3 buckets if they do not exist."
 
     def handle(self, *args, **options):
-        name = (getattr(settings, "AWS_STORAGE_BUCKET_NAME", None) or "").strip()
-        if not name:
+        names = []
+        for key in ("AWS_STORAGE_BUCKET_NAME", "SPM_BUCKET_NAME", "RMS_REPORTS_BUCKET"):
+            value = (getattr(settings, key, None) or "").strip()
+            if value and value not in names:
+                names.append(value)
+
+        if not names:
             self.stderr.write(self.style.ERROR("AWS_STORAGE_BUCKET_NAME is not set."))
             return
         if not getattr(settings, "AWS_S3_ENDPOINT_URL", None):
             self.stderr.write(self.style.ERROR("AWS_S3_ENDPOINT_URL is not set."))
             return
 
-        if client.bucket_exists(name):
-            self.stdout.write(self.style.NOTICE(f"Bucket {name!r} already exists."))
-            return
+        created = 0
+        for name in names:
+            if client.bucket_exists(name):
+                self.stdout.write(self.style.NOTICE(f"Bucket {name!r} already exists."))
+                continue
+            try:
+                client.make_bucket(name)
+            except Exception as e:
+                self.stderr.write(self.style.ERROR(f"Could not create bucket {name!r}: {e}"))
+                raise
+            self.stdout.write(self.style.SUCCESS(f"Created bucket {name!r}."))
+            created += 1
 
-        try:
-            client.make_bucket(name)
-        except Exception as e:
-            self.stderr.write(self.style.ERROR(f"Could not create bucket {name!r}: {e}"))
-            raise
-        self.stdout.write(self.style.SUCCESS(f"Created bucket {name!r}."))
+        if created == 0:
+            self.stdout.write(self.style.NOTICE("No new buckets were created."))

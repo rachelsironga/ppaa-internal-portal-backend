@@ -3,4 +3,3 @@ __pycache__/
 .idea/
 ppaa_portal/settings.py
 virtualenv/
-media/Attendance/
