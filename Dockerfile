@@ -61,6 +61,4 @@ RUN groupadd --gid 1000 app \
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 # Default process (override in compose for Celery)
-# Run using Gunicorn
-
 CMD ["gunicorn", "ppaa_portal.wsgi:application", "--bind", "0.0.0.0:8000"]
