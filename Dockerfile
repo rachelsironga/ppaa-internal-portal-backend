@@ -54,7 +54,6 @@ COPY . .
 
 RUN python manage.py collectstatic --noinput || true
 
-<<<<<<< HEAD
 # Non-root user; own /app after collectstatic so static tree is writable by app at runtime
 RUN groupadd --gid 1000 app \
     && useradd --uid 1000 --gid app --shell /usr/sbin/nologin --home-dir /app app \
@@ -62,7 +61,4 @@ RUN groupadd --gid 1000 app \
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 # Default process (override in compose for Celery)
-=======
-# Run using Gunicorn
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 CMD ["gunicorn", "ppaa_portal.wsgi:application", "--bind", "0.0.0.0:8000"]
