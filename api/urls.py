@@ -54,9 +54,6 @@ from ppaa_portal.performance_views import (
     TargetAssignOfficerView,
     TargetView,
 )
-from ppaa_portal.views import NotificationView
-
-
 urlpatterns = [
     path("internal-portal/dashboard-summary", InternalPortalDashboardSummaryView.as_view(), name="internal-portal-dashboard-summary"),
     path("internal-portal/document-categories", DocumentCategoryView.as_view(), name="document-categories"),
@@ -73,8 +70,6 @@ urlpatterns = [
     path("internal-portal/events/<str:uid>", EventView.as_view(), name="event-detail"),
     path("internal-portal/faqs", FAQView.as_view(), name="faqs"),
     path("internal-portal/faqs/<str:uid>", FAQView.as_view(), name="faq-detail"),
-    path("internal-portal/notifications", NotificationView.as_view(), name="notifications"),
-    path("internal-portal/notifications/<str:uid>", NotificationView.as_view(), name="notification-detail"),
     path("internal-portal/todos", TodoListView.as_view(), name="todos"),
     path("internal-portal/todos/<str:uid>", TodoListView.as_view(), name="todo-detail"),
     path("internal-portal/audit-logs/stats", PortalAuditTrailStatsView.as_view(), name="audit-logs-stats"),
