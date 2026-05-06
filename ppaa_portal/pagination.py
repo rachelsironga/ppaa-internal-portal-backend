@@ -9,18 +9,11 @@ from ppaa_portal.response_codes import CustomResponse
 class CustomPagination(TestCase):
     @staticmethod
     def paginate(view_class, results, request, serializer_context=None):
-<<<<<<< HEAD
-        paginated = request.GET.get('paginated',False)
-        ctx = {"is_auth_view": False, "request": request}
-        if serializer_context:
-            ctx.update(serializer_context)
-=======
         base_context = {"is_auth_view": False, "request": request}
         if serializer_context:
             base_context.update(serializer_context)
 
-        paginated = request.GET.get('paginated', False)
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
+        paginated = request.GET.get("paginated", False)
         if paginated == True or str(paginated).lower() == 'true':
             page = int(request.GET.get("page", 1))
             page_size = int(request.GET.get("page_size", 10))
@@ -32,11 +25,7 @@ class CustomPagination(TestCase):
             serializer = view_class.serializer_class(
                 results[start_num:end_num],
                 many=True,
-<<<<<<< HEAD
-                context=ctx,
-=======
                 context=base_context,
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
             )
 
             return CustomResponse.success(
@@ -52,11 +41,7 @@ class CustomPagination(TestCase):
             serializer = view_class.serializer_class(
                 results,
                 many=True,
-<<<<<<< HEAD
-                context=ctx,
-=======
                 context=base_context,
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
             )
 
             return CustomResponse.success(

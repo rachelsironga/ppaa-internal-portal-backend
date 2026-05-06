@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import re
 
 from django.contrib.auth.models import Group, Permission
@@ -110,7 +109,9 @@ class GroupListSerializer(serializers.ModelSerializer):
 
 class GroupSerializer(serializers.ModelSerializer):
     uid = serializers.SerializerMethodField()
-=======
+#
+# NOTE: conflict-marker residue below was removed; keep the active serializers defined in this file.
+
 from django.conf import settings
 from django.contrib.auth.models import Permission, Group
 from django.db.models import Q
@@ -353,7 +354,6 @@ class GroupListSerializer(serializers.ModelSerializer):
 
 
 class GroupSerializer(serializers.ModelSerializer):
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     permissions = serializers.SerializerMethodField()
     users = serializers.SerializerMethodField()
     last_update_at = serializers.SerializerMethodField()
@@ -362,7 +362,6 @@ class GroupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Group
-<<<<<<< HEAD
         fields = (
             "uid",
             "name",
@@ -739,44 +738,6 @@ class ForgotPasswordSerializer(serializers.Serializer):
     def validate_email(self, value):
         if not User.objects.filter(email__iexact=value, is_deleted=False).exists():
             raise serializers.ValidationError("Unknown email")
-=======
-        fields = [
-            "id", "name", "permissions", "users", "last_update_at", "last_updated_by", "update_count",
-        ]
-        read_only_fields = ["id", "users", "last_update_at", "last_updated_by", "update_count", ]
-
-    def get_permissions(self, obj):
-        # List all permissions assigned to the group
-        return list(obj.permissions.values('id', 'name', 'codename'))
-
-    def get_users(self, obj):
-        return obj.user_set.count()
-
-    def get_last_update_at(self, obj):
-        return (
-            obj.group_profile.updated_at.strftime("%Y-%m-%d")
-            if hasattr(obj, "group_profile") and obj.group_profile.updated_at
-            else None
-        )
-
-    def get_update_count(self, obj):
-        return obj.group_profile.update_count if hasattr(obj, "group_profile") else 0
-
-    def get_last_updated_by(self, obj):
-        return f'{obj.group_profile.updated_by.first_name} {obj.group_profile.updated_by.last_name}' if hasattr(obj,
-                                                                                                                "group_profile") and obj.group_profile.updated_by else None
-
-    def create(self, validated_data):
-        user = self.context['request'].user
-        group = Group.objects.create(**validated_data)
-
-        GroupProfile.objects.create(
-            group=group,
-            created_by=user,
-            updated_by=user,
-            update_count=1
-        )
-        return group
 
     def update(self, instance, validated_data):
         user = self.context['request'].user
@@ -1077,14 +1038,12 @@ class ForgotPasswordSerializer(serializers.Serializer):
         user = User.objects.filter(email=value, is_deleted=False).first()
         if not user:
             raise serializers.ValidationError("No account found with this email address.")
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
         return value
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-<<<<<<< HEAD
         fields = (
             "email",
             "photo",
@@ -1118,32 +1077,3 @@ class FileUploadSerializer(serializers.Serializer):
 class ActingUserSerializer(serializers.Serializer):
     user_uid = serializers.UUIDField()
     delegated_user = serializers.UUIDField(required=False, allow_null=True)
-=======
-        fields = [
-            'email', 'photo', 'phone_number',
-            'alternative_contact', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['created_at', 'updated_at']
-        extra_kwargs = {}
-
-
-class UserIdentitySerializer(ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'guid']
-
-
-class UserImportSerializer(serializers.Serializer):
-    file = serializers.CharField(required=True)
-
-
-class DesignationImportSerializer(serializers.Serializer):
-    file = serializers.CharField(required=True)
-
-
-class DepartmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Department
-        fields = ['uid', 'name', 'code', 'description', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['uid', 'created_at', 'updated_at']
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92

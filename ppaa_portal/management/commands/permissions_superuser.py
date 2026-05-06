@@ -27,9 +27,7 @@ class Command(BaseCommand):
             ("can_view_own_profile", "Can View Own Profile"),
             ("can_change_own_password", "Can Change Own Password"),
             ("can_upload_profile_photo", "Can Upload Profile Photo"),
-<<<<<<< HEAD
             ("can_manage_user_lifecycle", "Can Manage User Lifecycle (retire, block, delete)"),
-=======
             ("can_upload_profile_signature", "Can Upload Profile Signature"),
             ("can_view_quick_link", "Can View Quick Link"),
             ("can_add_quick_link", "Can Add Quick Link"),
@@ -39,17 +37,10 @@ class Command(BaseCommand):
             ("can_add_popup_card", "Can Add Popup Card"),
             ("can_edit_popup_card", "Can Edit Popup Card"),
             ("can_delete_popup_card", "Can Delete Popup Card"),
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
         ]
 
         # Groups and permission mapping for non-admins
         groups_to_permissions = {
-<<<<<<< HEAD
-        
-            "staff": [
-                "can_view_group",
-=======
-          
             "admin": [
                 "can_add_department",
                 "can_view_department",
@@ -63,7 +54,6 @@ class Command(BaseCommand):
                 "import_users",
                 "import_designations",
                 "assign_user_permission",
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
                 "can_view_own_profile",
                 "can_change_own_password",
                 "can_upload_profile_photo",
@@ -84,9 +74,6 @@ class Command(BaseCommand):
                 "can_view_audit_log",
                 "can_view_department",
                 "can_view_department_lookup",
-<<<<<<< HEAD
-            ]
-=======
                 "can_view_document_category",
                 "can_view_document",
                 "can_view_announcement",
@@ -169,7 +156,6 @@ class Command(BaseCommand):
                 "can_delete_todo",
                 "can_view_audit_log",
             ],
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
         }
 
         # Use a default ContentType (fallback to auth.Permission)

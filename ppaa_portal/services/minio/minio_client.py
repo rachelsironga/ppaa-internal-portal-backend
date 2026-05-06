@@ -1,13 +1,5 @@
 from minio import Minio
 from django.conf import settings
-<<<<<<< HEAD
-
-client = Minio(
-    settings.AWS_S3_ENDPOINT_URL.replace("http://", "").replace("https://", ""),
-    access_key=settings.AWS_ACCESS_KEY_ID,
-    secret_key=settings.AWS_SECRET_ACCESS_KEY,
-    secure=settings.AWS_S3_ENDPOINT_URL.startswith("https://"),
-=======
 from urllib.parse import urlparse
 
 # Properly parse the endpoint URL to extract host and port
@@ -31,5 +23,4 @@ client = Minio(
     access_key=settings.AWS_ACCESS_KEY_ID,
     secret_key=settings.AWS_SECRET_ACCESS_KEY,
     secure=endpoint_url.startswith("https://"),
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 )
