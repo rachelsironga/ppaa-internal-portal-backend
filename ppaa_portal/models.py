@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import uuid
 
 from django.conf import settings
@@ -162,31 +161,10 @@ class PortalDocumentCategory(models.Model):
 
     class Meta:
         ordering = ["name"]
-=======
-from decimal import Decimal
-from django.db import models
-from django.utils import timezone
-from django.core.validators import MinValueValidator, MaxValueValidator
-import uuid
-from ppaa_auth.models import BaseModel, Department, User
-
-
-class DocumentCategory(BaseModel):
-    """Categories for organizing documents"""
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'document_categories'
-        verbose_name_plural = 'Document Categories'
-        ordering = ['name']
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     def __str__(self):
         return self.name
 
-
-<<<<<<< HEAD
 class PortalDocument(models.Model):
     class DocStatus(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
@@ -234,35 +212,11 @@ class PortalDocument(models.Model):
 
     class Meta:
         ordering = ["-updated_at"]
-=======
-class Document(BaseModel):
-    """Documents stored in the portal"""
-    STATUS_CHOICES = [
-        ('DRAFT', 'Draft'),
-        ('PUBLISHED', 'Published'),
-        ('ARCHIVED', 'Archived'),
-    ]
-
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True, null=True)
-    file_url = models.CharField(max_length=500, blank=True, null=True)  # Store MinIO object path, presigned URLs generated on-demand
-    category = models.ForeignKey(DocumentCategory, on_delete=models.SET_NULL, null=True, related_name='documents')
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='documents')
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='DRAFT')
-    is_public = models.BooleanField(default=False)
-    download_count = models.IntegerField(default=0)
-    tags = models.CharField(max_length=500, blank=True, null=True)  # Comma-separated tags
-
-    class Meta:
-        db_table = 'documents'
-        ordering = ['-created_at']
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     def __str__(self):
         return self.title
 
 
-<<<<<<< HEAD
 class PortalEvent(models.Model):
     """Staff-facing calendar events (internal portal)."""
 
@@ -307,64 +261,11 @@ class PortalEvent(models.Model):
 
     class Meta:
         ordering = ["-start_date"]
-=======
-class Announcement(BaseModel):
-    """Announcements for the portal"""
-    PRIORITY_CHOICES = [
-        ('LOW', 'Low'),
-        ('MEDIUM', 'Medium'),
-        ('HIGH', 'High'),
-        ('URGENT', 'Urgent'),
-    ]
-
-    title = models.CharField(max_length=200)
-    content = models.TextField()
-    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='MEDIUM')
-    is_pinned = models.BooleanField(default=False)
-    start_date = models.DateTimeField(blank=True, null=True)
-    end_date = models.DateTimeField(blank=True, null=True)
-    # File upload fields - Store MinIO object path, presigned URLs generated on-demand
-    file_url = models.CharField(max_length=500, blank=True, null=True)
-
-    class Meta:
-        db_table = 'announcements'
-        ordering = ['-is_pinned', '-created_at']
 
     def __str__(self):
         return self.title
 
 
-class Event(BaseModel):
-    """Events calendar"""
-    EVENT_TYPE_CHOICES = [
-        ('MEETING', 'Meeting'),
-        ('TRAINING', 'Training'),
-        ('WORKSHOP', 'Workshop'),
-        ('HOLIDAY', 'Holiday'),
-        ('OTHER', 'Other'),
-    ]
-
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True, null=True)
-    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default='MEETING')
-    start_date = models.DateTimeField()
-    end_date = models.DateTimeField()
-    location = models.CharField(max_length=200, blank=True, null=True)
-    is_all_day = models.BooleanField(default=False)
-    is_public = models.BooleanField(default=True)
-    # File upload fields
-    file_url = models.URLField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'events'
-        ordering = ['start_date']
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
-
-    def __str__(self):
-        return self.title
-
-
-<<<<<<< HEAD
 class PortalFAQ(models.Model):
     """Staff-managed FAQs for the internal portal."""
 
@@ -444,83 +345,11 @@ class PortalAnnouncement(models.Model):
 
     class Meta:
         ordering = ["-is_pinned", "-updated_at"]
-=======
-class FAQ(BaseModel):
-    """Frequently Asked Questions"""
-    question = models.TextField()
-    answer = models.TextField()
-
-    class Meta:
-        db_table = 'faqs'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return self.question[:50] + "..." if len(self.question) > 50 else self.question
-
-
-class Notification(BaseModel):
-    """User notifications"""
-    NOTIFICATION_TYPE_CHOICES = [
-        ('INFO', 'Information'),
-        ('SUCCESS', 'Success'),
-        ('WARNING', 'Warning'),
-        ('ERROR', 'Error'),
-        ('ANNOUNCEMENT', 'Announcement'),
-    ]
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
-    title = models.CharField(max_length=200)
-    message = models.TextField()
-    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPE_CHOICES, default='INFO')
-    is_read = models.BooleanField(default=False)
-    read_at = models.DateTimeField(blank=True, null=True)
-    link = models.URLField(blank=True, null=True)
-    related_object_type = models.CharField(max_length=50, blank=True, null=True)  # e.g., "Document", "Announcement"
-    related_object_id = models.UUIDField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'notifications'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.title} - {self.user.username}"
-
-
-class TodoList(BaseModel):
-    """Todo lists for users"""
-    STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('IN_PROGRESS', 'In Progress'),
-        ('COMPLETED', 'Completed'),
-        ('CANCELLED', 'Cancelled'),
-    ]
-
-    PRIORITY_CHOICES = [
-        ('LOW', 'Low'),
-        ('MEDIUM', 'Medium'),
-        ('HIGH', 'High'),
-        ('URGENT', 'Urgent'),
-    ]
-
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
-    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='MEDIUM')
-    start_date = models.DateTimeField(blank=True, null=True)
-    due_date = models.DateTimeField(blank=True, null=True)
-    completed_at = models.DateTimeField(blank=True, null=True)
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='todo_lists')
-
-    class Meta:
-        db_table = 'todo_lists'
-        ordering = ['-priority', 'due_date', '-created_at']
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     def __str__(self):
         return self.title
 
 
-<<<<<<< HEAD
 class PortalTodo(models.Model):
     """Internal portal task list (staff todos)."""
 
@@ -616,7 +445,6 @@ class PortalQuickLink(models.Model):
 
     class Meta:
         ordering = ["name"]
-=======
 class AuditLog(BaseModel):
     """Audit logs for tracking changes"""
     ACTION_CHOICES = [
@@ -658,13 +486,11 @@ class QuickLink(BaseModel):
     class Meta:
         db_table = 'quick_links'
         ordering = ['name']
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     def __str__(self):
         return self.name
 
 
-<<<<<<< HEAD
 class PortalPopupCard(models.Model):
     """Motivational / gratitude content and optional image for the public portal popup."""
 
@@ -1037,7 +863,6 @@ class RmsReportProgressEntry(models.Model):
 
     def __str__(self):
         return f"{self.report_id} @ {self.percentage}%"
-=======
 class PortalPopupCard(BaseModel):
     """Floating popup card for portal: motivational quote, gratitude, ES image."""
     motivational_quote = models.TextField(blank=True, null=True)
@@ -1051,4 +876,3 @@ class PortalPopupCard(BaseModel):
     def __str__(self):
         return f"Popup Card ({self.uid})"
 
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
