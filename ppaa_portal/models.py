@@ -445,50 +445,6 @@ class PortalQuickLink(models.Model):
 
     class Meta:
         ordering = ["name"]
-class AuditLog(BaseModel):
-    """Audit logs for tracking changes"""
-    ACTION_CHOICES = [
-        ('CREATE', 'Create'),
-        ('UPDATE', 'Update'),
-        ('DELETE', 'Delete'),
-        ('VIEW', 'View'),
-        ('DOWNLOAD', 'Download'),
-        ('LOGIN', 'Login'),
-        ('LOGOUT', 'Logout'),
-    ]
-
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
-    model_name = models.CharField(max_length=100)  # e.g., "Document", "Announcement"
-    object_id = models.UUIDField(blank=True, null=True)
-    object_repr = models.CharField(max_length=200, blank=True, null=True)
-    changes = models.JSONField(blank=True, null=True)  # Store before/after changes
-    ip_address = models.GenericIPAddressField(blank=True, null=True)
-    user_agent = models.CharField(max_length=500, blank=True, null=True)
-    department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='audit_logs')
-
-    class Meta:
-        db_table = 'audit_logs'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.action} {self.model_name} by {self.user.username if self.user else 'System'}"
-
-
-class QuickLink(BaseModel):
-    """Quick links management for the portal"""
-    name = models.CharField(max_length=200)
-    url = models.URLField()
-    logo = models.CharField(max_length=500, blank=True, null=True)  # Store MinIO object path, presigned URLs generated on-demand
-    order = models.IntegerField(default=0)
-    total_clicks = models.IntegerField(default=0)  # Total click count across all users
-
-    class Meta:
-        db_table = 'quick_links'
-        ordering = ['name']
-
-    def __str__(self):
-        return self.name
 
 
 class PortalPopupCard(models.Model):
@@ -863,16 +819,4 @@ class RmsReportProgressEntry(models.Model):
 
     def __str__(self):
         return f"{self.report_id} @ {self.percentage}%"
-class PortalPopupCard(BaseModel):
-    """Floating popup card for portal: motivational quote, gratitude, ES image."""
-    motivational_quote = models.TextField(blank=True, null=True)
-    gratitude_message = models.TextField(blank=True, null=True)
-    es_image_path = models.CharField(max_length=500, blank=True, null=True)  # MinIO path, presigned on-demand
-
-    class Meta:
-        db_table = 'portal_popup_cards'
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"Popup Card ({self.uid})"
 

@@ -407,145 +407,10 @@ class Country(BaseModel):
         verbose_name_plural = "Countries"
         ordering = ["name"]
         indexes = [models.Index(fields=["name"])]
-=======
-class Currency(BaseModel):
-    name = models.CharField(max_length=20, unique=True)
-    code = models.CharField(max_length=100)
-    created_at = models.DateTimeField(auto_now_add=True, help_text="Timestamp when the project was created.")
-    updated_at = models.DateTimeField(auto_now=True, help_text="Timestamp when the project was last updated.")
-    is_deleted = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"{self.name}"
-    
-    class Meta:
-        db_table = 'currencies'
-        verbose_name = "Currency"
-        verbose_name_plural = "Currencies"  
-
-
-class Country(BaseModel):
-    """Country model without internationalization"""
-    
-    name = models.CharField(
-        max_length=100,
-        unique=True,
-        validators=[
-            RegexValidator(
-                regex=r'^[a-zA-Z\s\-]+$',
-                message='Country name can only contain letters, spaces and hyphens'
-            )
-        ]
-    )
-    
-    iso_code = models.CharField(
-        max_length=2,
-        blank=True,
-        null=True,
-        validators=[
-            RegexValidator(
-                regex=r'^[A-Z]{2}$',
-                message='ISO code must be 2 uppercase letters'
-            )
-        ],
-        verbose_name="ISO Alpha-2 Code"
-    )
-    
-    latitude = models.FloatField(
-        blank=True,
-        null=True,
-        validators=[
-            MinValueValidator(-90),
-            MaxValueValidator(90)
-        ]
-    )
-    
-    longitude = models.FloatField(
-        blank=True,
-        null=True,
-        validators=[
-            MinValueValidator(-180),
-            MaxValueValidator(180)
-        ]
-    )
-    
-    description = models.TextField(blank=True, null=True)
-    slug = models.SlugField(max_length=100, unique=True, blank=True)
-    
-    # Timestamps and soft delete fields (if using BaseModel)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    is_deleted = models.BooleanField(default=False)
-    
-    def __str__(self):
-        return self.name
-    
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
-    
-    def clean(self):
-        if self.name:
-            self.name = self.name.strip().title()
-        super().clean()
-    
-    class Meta:
-        verbose_name_plural = "Countries"
-        ordering = ['name']
-        indexes = [
-            models.Index(fields=['name']),
-            models.Index(fields=['is_deleted']),
-        ]
-
-
-class GroupProfile(models.Model):
-    group = models.OneToOneField(Group, on_delete=models.CASCADE, related_name="group_profile")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, related_name='group_created')
-    updated_by = models.ForeignKey('User', on_delete=models.SET_NULL, null=True, related_name='group_updated')
-    update_count = models.PositiveIntegerField(default=0)
-
-    class Meta:
-        db_table = 'auth_group_profile'
-
-    def __str__(self):
-        return self.group.name
-
-class Department(BaseModel):
-    name = models.CharField(max_length=150, null=True)
-    code = models.CharField(max_length=100, null=True)
-    description = models.TextField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'departments'
-        ordering = ['name', 'code']
-        verbose_name = "Department"
-        verbose_name_plural = "Departments"
-        indexes = [
-            models.Index(fields=['name', 'code']),
-            models.Index(fields=['uid']),
-        ]
-
-    def __str__(self):
-        return f"{self.name} ({self.code})"
-
-
-class PositionalLevel(BaseModel):
-    """Defines user positions/designations (e.g., Executive Secretary, HEAD OF ICT, Supervisor, Manager, Director)"""
-    name = models.CharField(max_length=200, null=True, help_text="Position/Designation name (e.g., Executive Secretary, HEAD OF ICT)")
-    code = models.CharField(max_length=200, null=True, help_text="Position/Designation code (optional)")
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        db_table = 'positional_levels'
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     def __str__(self):
         return self.name
 
-<<<<<<< HEAD
     def save(self, *args, **kwargs):
         if not self.slug and self.name:
             self.slug = slugify(self.name)[:255]
@@ -589,8 +454,7 @@ class GroupProfile(models.Model):
 
     def __str__(self):
         return f"Profile<{self.group_id}>"
-=======
-
+ 
 class UserProfile(BaseModel):
     uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     user = models.ForeignKey(User, related_name='user_profiles', on_delete=models.SET_NULL, null=True, blank=True)
@@ -680,4 +544,3 @@ def delete_department_from_reports_db(sender, instance, using=None, **kwargs):
         Department.objects.using("ppaa_reports").filter(id=instance.id).delete()
     except (OperationalError, ProgrammingError):
         return
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
