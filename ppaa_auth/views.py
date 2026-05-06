@@ -111,6 +111,7 @@ class RegistrationView(APIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = []
     serializer_class = LoginSerializer
 
     def post(self, request):
@@ -193,6 +194,7 @@ class LoginView(APIView):
 class LoginNewUser(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_classes = []
     serializer_class = NewUserLoginSerializer
 
     def post(self, request):
