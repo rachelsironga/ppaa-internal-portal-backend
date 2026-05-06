@@ -7,6 +7,7 @@ from django.db import DatabaseError, models
 from django.db.models.signals import post_delete, post_save
 from django.db.utils import OperationalError, ProgrammingError
 from django.dispatch import receiver
+from django.utils.connection import ConnectionDoesNotExist
 from django.utils.text import slugify
 
 
@@ -495,7 +496,7 @@ def sync_user_to_reports_db(sender, instance, raw=False, using=None, **kwargs):
         return
     try:
         _sync_user_to_reports_db(instance)
-    except (OperationalError, ProgrammingError):
+    except (OperationalError, ProgrammingError, ConnectionDoesNotExist):
         # RMS DB or auth tables may not be ready yet during early setup/migrations.
         return
 
@@ -506,7 +507,7 @@ def delete_user_from_reports_db(sender, instance, using=None, **kwargs):
         return
     try:
         User.objects.using("ppaa_reports").filter(id=instance.id).delete()
-    except (OperationalError, ProgrammingError):
+    except (OperationalError, ProgrammingError, ConnectionDoesNotExist):
         return
 
 
@@ -516,7 +517,7 @@ def sync_department_to_reports_db(sender, instance, raw=False, using=None, **kwa
         return
     try:
         _sync_department_to_reports_db(instance)
-    except (OperationalError, ProgrammingError):
+    except (OperationalError, ProgrammingError, ConnectionDoesNotExist):
         return
 
 
@@ -526,5 +527,5 @@ def delete_department_from_reports_db(sender, instance, using=None, **kwargs):
         return
     try:
         Department.objects.using("ppaa_reports").filter(id=instance.id).delete()
-    except (OperationalError, ProgrammingError):
+    except (OperationalError, ProgrammingError, ConnectionDoesNotExist):
         return
