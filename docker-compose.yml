@@ -45,7 +45,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-mirror.gcr.io/library/python:3.12-slim}
+        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-public.ecr.aws/docker/library/python:3.12-slim}
     networks:
       - ppaa-network
     volumes:
@@ -56,7 +56,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DJANGO_SETTINGS_MODULE: ppaa_portal.settings
+      # Default to production settings inside containers (override in .env if needed)
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-ppaa_portal.settings_prod}
 
       # LAN defaults (CORS/CSRF + Maoni email links); override in .env
       LAN_HOST: "192.168.1.4"
@@ -81,16 +82,6 @@ services:
       # PPAA Reports Database
       REPORTS_DB_NAME: "ppaa_reports"
       RMS_REPORTS_BUCKET: "reports-management"
-
-
-      # 🔥 EMAIL SETTINGS (LIVE GMAIL)
-      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
-      EMAIL_HOST: smtp.gmail.com
-      EMAIL_PORT: 587
-      EMAIL_HOST_USER: ppaa@gmail.com
-      EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
-      EMAIL_USE_TLS: "True"
-      DEFAULT_FROM_EMAIL: ppaa@gmail.com
 
       # 🔥 CELERY + REDIS
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -120,14 +111,14 @@ services:
     networks:
       - ppaa-network
     environment:
-      DJANGO_SETTINGS_MODULE: ppaa_portal.settings
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-ppaa_portal.settings_prod}
 
       LAN_HOST: "192.168.1.4"
       LAN_SUBNET_CIDR: "192.168.1.0/24"
       FRONTEND_URL: "http://192.168.1.4:3000"
 
       # Same DB connection
-      POSTGRES_DB_NAME: "ppaa_portal_db"
+      POSTGRES_DB_NAME: "ppaa_internal_portal"
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
       POSTGRES_DB_HOST: "postgres"
@@ -136,17 +127,6 @@ services:
       # PPAA Reports Database
       REPORTS_DB_NAME: "ppaa_reports"
       RMS_REPORTS_BUCKET: "reports-management"
-
-  
-
-      # Same EMAIL SETTINGS
-      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
-      EMAIL_HOST: smtp.gmail.com
-      EMAIL_PORT: 587
-      EMAIL_HOST_USER: ppaa@gmail.com
-      EMAIL_HOST_PASSWORD: "fzlf psfi zpmf uiyw"
-      EMAIL_USE_TLS: "True"
-      DEFAULT_FROM_EMAIL: ppaa@gmail.com
 
       # Celery + Redis
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -168,14 +148,14 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-mirror.gcr.io/library/python:3.12-slim}
+        PYTHON_IMAGE: ${DOCKER_PYTHON_IMAGE:-public.ecr.aws/docker/library/python:3.12-slim}
     command: ["celery", "-A", "ppaa_portal.config.celery_app", "beat", "--loglevel=info"]
     volumes:
       - ./:/app
     networks:
       - ppaa-network
     environment:
-      DJANGO_SETTINGS_MODULE: ppaa_portal.settings
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-ppaa_portal.settings_prod}
       POSTGRES_DB_NAME: "ppaa_internal_portal"
       POSTGRES_DB_USER: "postgres"
       POSTGRES_DB_PWD: "P@ssw0rd"
