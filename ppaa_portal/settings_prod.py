@@ -120,13 +120,11 @@ INSTALLED_APPS = [
     # Some routes import from `ppaa_performance.*` (non-microservices package).
     # Keep it installed so Django can register those models.
     'ppaa_performance',
-    'microservices.ppaa_performance',
     'corsheaders',
     'rest_framework_simplejwt',
     'drf_yasg',
     'rest_framework_simplejwt.token_blacklist',
     'storages',
-    'microservices.ppaa_performance',
     'microservices.maoni',
     'microservices.reports_management',
     'microservices.rms_reports',
