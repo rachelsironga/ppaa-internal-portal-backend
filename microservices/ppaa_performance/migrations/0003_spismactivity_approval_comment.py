@@ -4,8 +4,8 @@ from django.db import migrations, models
 
 
 def backfill_return_comments_from_audit(apps, schema_editor):
-    Activity = apps.get_model("ppaa_performance", "SpismActivity")
-    Log = apps.get_model("ppaa_performance", "SpismPerformanceAuditLog")
+    Activity = apps.get_model("micro_ppaa_performance", "SpismActivity")
+    Log = apps.get_model("micro_ppaa_performance", "SpismPerformanceAuditLog")
     for act in Activity.objects.filter(status="RETURNED").iterator():
         if (act.approval_comment or "").strip():
             continue
@@ -26,7 +26,7 @@ def backfill_return_comments_from_audit(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("ppaa_performance", "0002_spism_core"),
+        ("micro_ppaa_performance", "0002_spism_core"),
     ]
 
     operations = [
