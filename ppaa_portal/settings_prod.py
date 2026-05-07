@@ -126,7 +126,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'storages',
     'microservices.maoni',
-    'microservices.reports_management',
+    # Reports module lives in `microservices.ppaa_reports` in this repo.
+    'microservices.ppaa_reports',
     'microservices.rms_reports',
 ]
 
