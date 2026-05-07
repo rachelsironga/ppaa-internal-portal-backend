@@ -22,6 +22,7 @@ from ppaa_auth.serializers import (
     NewUserLoginSerializer,
     PasswordChangeSerializer,
     PasswordNewChangeSerializer,
+    UpdateProfileSerializer,
     RegistrationSerializer,
     UserSerializer,
 )
