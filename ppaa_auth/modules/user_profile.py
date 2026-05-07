@@ -321,37 +321,6 @@ class ActingUser(APIView):
             profile.updated_by = request.user
             profile.save(update_fields=["acting_user", "updated_by", "updated_at"])
         return CustomResponse.success(message="Delegate removed")
-                user_profile = UserProfile.objects.filter(uid=uid, is_deleted=False).first()
-                if not user_profile:
-                    raise NotFound("User Profile not found")
-                return CustomResponse.success(data=self.serializer_class(user_profile).data)
-
-            search_query = request.GET.get('search', '').strip()
-            user_uid = request.GET.get('user_uid', '').strip()
-            old_only = request.GET.get('old_only', False)
-
-            if old_only:
-                user_profiles = UserProfile.objects.filter(is_active=False)
-            else:
-                user_profiles = UserProfile.objects.filter(is_deleted=False)
-
-            if user_uid:
-                user_profiles = user_profiles.filter(user__guid=user_uid).order_by('-updated_at', '-is_active')
-
-            if search_query is not None:
-                user_profiles = user_profiles.filter(
-                    Q(level__name__icontains=search_query) |
-                    Q(level__code__icontains=search_query) |
-                    Q(department__name__icontains=search_query) |
-                    Q(department__code__icontains=search_query)
-                )
-
-            if user_profiles.exists():
-                return CustomPagination.paginate(view_class=self, results=user_profiles, request=request)
-
-            return CustomResponse.errors(message="User Profile not found", data=[])
-        except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Retrieve UserProfiles: {str(e)}', )
 
     def post(self, request):
         try:
