@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ppaa_performance', '0001_initial'),
+        ('micro_ppaa_performance', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -60,7 +60,7 @@ class Migration(migrations.Migration):
                 ('description', models.TextField(blank=True)),
                 ('quarter', models.PositiveSmallIntegerField(blank=True, null=True)),
                 ('financial_year', models.CharField(blank=True, max_length=32)),
-                ('activity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='documents', to='ppaa_performance.spismactivity')),
+                ('activity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='documents', to='micro_ppaa_performance.spismactivity')),
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_created', to=settings.AUTH_USER_MODEL)),
                 ('deleted_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_deleted', to=settings.AUTH_USER_MODEL)),
                 ('updated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_updated', to=settings.AUTH_USER_MODEL)),
@@ -142,7 +142,7 @@ class Migration(migrations.Migration):
                 ('status', models.CharField(choices=[('DRAFT', 'Draft'), ('PENDING', 'Pending'), ('APPROVED', 'Approved'), ('RETURNED', 'Returned')], db_index=True, default='DRAFT', max_length=16)),
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_created', to=settings.AUTH_USER_MODEL)),
                 ('deleted_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_deleted', to=settings.AUTH_USER_MODEL)),
-                ('objective', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='targets', to='ppaa_performance.spismobjective')),
+                ('objective', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='targets', to='micro_ppaa_performance.spismobjective')),
                 ('responsible_officer', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='spism_targets_responsible', to=settings.AUTH_USER_MODEL)),
                 ('updated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_updated', to=settings.AUTH_USER_MODEL)),
             ],
@@ -154,7 +154,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='spismactivity',
             name='target',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='activities', to='ppaa_performance.spismtarget'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='activities', to='micro_ppaa_performance.spismtarget'),
         ),
         migrations.CreateModel(
             name='SpismQuarterlyData',
@@ -169,7 +169,7 @@ class Migration(migrations.Migration):
                 ('quarter', models.PositiveSmallIntegerField()),
                 ('financial_year', models.CharField(db_index=True, max_length=32)),
                 ('actual_value', models.DecimalField(decimal_places=4, max_digits=18)),
-                ('activity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='quarterly_rows', to='ppaa_performance.spismactivity')),
+                ('activity', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='quarterly_rows', to='micro_ppaa_performance.spismactivity')),
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_created', to=settings.AUTH_USER_MODEL)),
                 ('deleted_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_deleted', to=settings.AUTH_USER_MODEL)),
                 ('updated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_updated', to=settings.AUTH_USER_MODEL)),
@@ -197,7 +197,7 @@ class Migration(migrations.Migration):
                 ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_created', to=settings.AUTH_USER_MODEL)),
                 ('deleted_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_deleted', to=settings.AUTH_USER_MODEL)),
                 ('updated_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='%(class)s_updated', to=settings.AUTH_USER_MODEL)),
-                ('target', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='kpi_actuals', to='ppaa_performance.spismtarget')),
+                ('target', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='kpi_actuals', to='micro_ppaa_performance.spismtarget')),
             ],
             options={
                 'db_table': 'spism_kpi_actuals',

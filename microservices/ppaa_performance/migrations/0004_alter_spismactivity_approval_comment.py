@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ppaa_performance', '0003_spismactivity_approval_comment'),
+        ('micro_ppaa_performance', '0003_spismactivity_approval_comment'),
     ]
 
     operations = [

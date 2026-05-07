@@ -9,7 +9,7 @@ from django.db import migrations, models
 
 
 def seed_default_financial_year(apps, schema_editor):
-    SpismFinancialYear = apps.get_model("ppaa_performance", "SpismFinancialYear")
+    SpismFinancialYear = apps.get_model("micro_ppaa_performance", "SpismFinancialYear")
     if SpismFinancialYear.objects.filter(name="2025/2026").exists():
         return
     SpismFinancialYear.objects.create(
