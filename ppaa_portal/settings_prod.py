@@ -128,7 +128,6 @@ INSTALLED_APPS = [
     'microservices.maoni',
     # Reports module lives in `microservices.ppaa_reports` in this repo.
     'microservices.ppaa_reports',
-    'microservices.rms_reports',
 ]
 
 MIDDLEWARE = [
