@@ -380,63 +380,6 @@ class ResetPasswordView(APIView):
             return CustomResponse.server_error(
                 message=f"Failed to Change Change Password: {e!s}"
             )
-                    }
-                )
-
-            # Normal login for existing users
-            user = authenticate(request, username=username, password=password)
-            if user is not None:
-                login(request, user)
-                auth_data = MyTokenObtainPairSerializer.get_tokens_for_user(request)
-                if auth_data['status'] != status.HTTP_200_OK:
-                    logout(request)
-                    return CustomResponse.errors(
-                        message="Unable to authenticate. Please provide valid credentials",
-                    )
-                
-                # Log login action
-                try:
-                    ip_address = request.META.get("REMOTE_ADDR")
-                    user_agent = request.META.get("HTTP_USER_AGENT", "")[:500] if request.META.get("HTTP_USER_AGENT") else ""
-                    department = None
-                    try:
-                        if hasattr(user, "get_position") and callable(user.get_position):
-                            position = user.get_position() or {}
-                            dept_uid = position.get("department_uid")
-                            if dept_uid:
-                                department = Department.objects.filter(uid=dept_uid, is_deleted=False).first()
-                    except Exception:
-                        department = None
-                    
-                    AuditLog.objects.create(
-                        user=user,
-                        action="LOGIN",
-                        model_name="User",
-                        object_id=user.guid,
-                        object_repr=str(user)[:200],
-                        ip_address=ip_address,
-                        user_agent=user_agent,
-                        department=department,
-                        created_by=user,
-                        updated_by=user,
-                    )
-                except Exception:
-                    pass  # Never interrupt login flow
-                
-                return CustomResponse.success(
-                    data={**auth_data['data'], 'user': UserSerializer(user).data},
-                    message="Successfully Logged In",
-                )
-
-            return CustomResponse.unauthorized(
-                message='Incorrect username or password',
-                data=request.data,
-            )
-
-        except Exception as e:
-            return CustomResponse.server_error(
-                message=f"Login failed: {str(e)}"
-            )
 
 
 class ForgotPasswordView(APIView):
