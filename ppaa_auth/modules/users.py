@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import uuid
 
 from django.db import transaction
@@ -17,27 +16,11 @@ from ppaa_portal.services.minio.minio_helpers import (
     PROFILE_MEDIA_PRESIGN_HOURS,
     get_presigned_url,
 )
-=======
-import pandas as pd
-from django.db import transaction, models
-from django.db.models import Q
-from django.utils import timezone
-from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from sqlparse.engine.grouping import group
-
-from api.utils import base64_to_excel_file, generate_acronym
-from ppaa_portal.pagination import CustomPagination
-from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
-from ppaa_auth.models import User, UserProfile
-from ppaa_auth.serializers import UserSerializer, FileUploadSerializer, UserImportSerializer
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
+from django.db import models
 from utils.minio_storage import MinioStorage
 from utils.permissions import HasMethodPermission
 
 
-<<<<<<< HEAD
 def _can_manage_user_lifecycle(user) -> bool:
     """Portal system admins (admin group / explicit permission) and Django superusers."""
     if not user or not user.is_authenticated:
@@ -313,12 +296,6 @@ class UserView(APIView):
         "put": ["can_view_sensitive_data"],
         "delete": ["can_manage_user_lifecycle"],
     }
-=======
-
-class UserView(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission,]
-    serializer_class = UserSerializer
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     def get(self, request, uid=None):
         try:
@@ -326,7 +303,6 @@ class UserView(APIView):
                 user = User.objects.filter(guid=uid, is_deleted=False).first()
                 if not user:
                     raise NotFound("User not found")
-<<<<<<< HEAD
                 ctx = {"is_auth_view": request.GET.get("is_auth_view", "").lower() == "true"}
                 return CustomResponse.success(data=self.serializer_class(user, context=ctx).data)
 
@@ -617,74 +593,6 @@ class UserSignatureUpload(APIView):
             )
         except Exception as e:
             return CustomResponse.server_error(message=str(e))
-=======
-                return CustomResponse.success(data=self.serializer_class(user).data)
-
-            users = User.objects.filter(is_deleted=False)
-
-            group_id = request.GET.get('group_id', '').strip()
-            if group_id:
-                users = users.filter(groups__id=group_id)
-
-            search_query = request.GET.get('search', '').strip()
-            if search_query:
-                # Search only user fields first
-                user_search = Q(
-                    Q(username__icontains=search_query) |
-                    Q(email__icontains=search_query) |
-                    Q(check_number__icontains=search_query) |
-                    Q(first_name__icontains=search_query) |
-                    Q(middle_name__icontains=search_query) |
-                    Q(last_name__icontains=search_query) |
-                    Q(phone_number__icontains=search_query) |
-                    Q(alternative_contact__icontains=search_query) |
-                    Q(status__icontains=search_query)
-                )
-
-                # Search profile fields separately
-                # NOTE: `user_profiles` comes from UserProfile.user related_name='user_profiles'
-                profile_search = (
-                    Q(user_profiles__is_active=True, user_profiles__is_deleted=False)
-                    & (
-                        Q(user_profiles__level__name__icontains=search_query)
-                        | Q(user_profiles__department__name__icontains=search_query)
-                    )
-                )
-
-                users = users.filter(user_search | profile_search).distinct()
-
-            # Add annotations for display only
-            users = users.annotate(
-                current_level_name=models.Subquery(
-                    UserProfile.objects.filter(
-                        user=models.OuterRef('pk'),
-                        is_active=True,
-                        is_deleted=False
-                    ).values('level__name')[:1]
-                ),
-                current_department_name=models.Subquery(
-                    UserProfile.objects.filter(
-                        user=models.OuterRef('pk'),
-                        is_active=True,
-                        is_deleted=False
-                    ).values('department__name')[:1]
-                )
-         
-            )
-
-            if users.exists():
-                context = {"is_auth_view": False}
-                return CustomPagination.paginate(
-                    view_class=self,
-                    results=users,
-                    request=request,
-                    serializer_context=context
-                )
-
-            return CustomResponse.errors(message="User not found", data=[])
-        except Exception as e:
-            print(f"Fail to Retrieve Users {e}")
-            return CustomResponse.server_error(message=f'Failed to Retrieve Users: {str(e)}', )
 
     def post(self, request):
         try:
@@ -934,5 +842,4 @@ class UserSignatureUpload(APIView):
                 return CustomResponse.success(data=user_serializer.data)
 
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Change User signature: {str(e)}', )
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
+            return CustomResponse.server_error(message=f"Failed to Change User signature: {str(e)}")

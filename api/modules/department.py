@@ -32,7 +32,6 @@ class DepartmentView(APIView):
     serializer_class = DepartmentSerializer
     required_permissions = {
         "get": [
-<<<<<<< HEAD
             "view_department",
             "can_view_department",
             "can_view_department_lookup",
@@ -47,17 +46,6 @@ class DepartmentView(APIView):
             "delete_department",
             "can_delete_department",
         ],
-=======
-              "view_department", "can_view_department","can_view_department_lookup"
-            ],
-        "post": [
-            "add_department",
-            "change_department",
-        ],
-        "delete": [
-            "delete_department",
-        ]
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
     }
 
     @swagger_auto_schema(

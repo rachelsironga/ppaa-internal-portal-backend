@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from django.db import DatabaseError, transaction
 from django.db.models import Q
 from rest_framework.exceptions import NotFound
@@ -60,36 +59,10 @@ class UserProfileView(APIView):
         "post": ["can_view_sensitive_data"],
         "put": ["can_view_sensitive_data"],
     }
-=======
-from datetime import datetime
-
-from django.db import transaction
-from django.db.models import Q
-from django.http import Http404
-from django.utils import timezone
-from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from yaml import serialize
-
-from api.serializers import UserProfileSerializer, UserProfileSerializer
-from ppaa_portal.pagination import CustomPagination
-from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
-from ppaa_auth.models import UserProfile, User, Department
-from ppaa_auth.serializers import ActingUserSerializer, UserSerializer
-from utils.permissions import HasMethodPermission
-from ppaa_portal.models import AuditLog
-
-
-class UserProfileView(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission, ]
-    serializer_class = UserProfileSerializer
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     def get(self, request, uid=None):
         try:
             if uid:
-<<<<<<< HEAD
                 profile = UserProfile.objects.filter(uid=uid, is_deleted=False).first()
                 if not profile:
                     raise NotFound("User Profile not found")
@@ -348,7 +321,6 @@ class ActingUser(APIView):
             profile.updated_by = request.user
             profile.save(update_fields=["acting_user", "updated_by", "updated_at"])
         return CustomResponse.success(message="Delegate removed")
-=======
                 user_profile = UserProfile.objects.filter(uid=uid, is_deleted=False).first()
                 if not user_profile:
                     raise NotFound("User Profile not found")
@@ -609,5 +581,4 @@ class ActingUser(APIView):
                 return CustomResponse.success(data=UserSerializer(user).data)
 
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Remove Deligation: {str(e)}', )
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
+                return CustomResponse.server_error(message=f"Failed to Remove Deligation: {str(e)}")

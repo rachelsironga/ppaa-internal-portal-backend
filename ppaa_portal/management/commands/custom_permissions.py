@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 """
 Create internal-portal and system custom permissions, then sync Django groups.
 
@@ -193,19 +192,11 @@ class Command(BaseCommand):
         "Create custom permissions and assign staff / content_editor / ICT / "
         "PR_Gallery_Manager / admin groups"
     )
-=======
-from django.core.management.base import BaseCommand
-from django.contrib.auth.models import Permission, ContentType, Group
-from django.apps import apps
-
-class Command(BaseCommand):
-    help = "Create custom permissions and assign them to groups"
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
 
     def handle(self, *args, **options):
         self.stdout.write("Processing custom permissions...")
 
-<<<<<<< HEAD
+
         default_ct = ContentType.objects.get(app_label="auth", model="permission")
 
         seen = set()
@@ -217,7 +208,7 @@ class Command(BaseCommand):
                 codename=codename,
                 content_type=default_ct,
                 defaults={"name": name},
-=======
+# (conflict marker removed)
         # Define your custom permissions as (codename, name)
         permissions_to_create = [
             ("can_view_system_permission", "Can View System Permission"),
@@ -383,14 +374,14 @@ class Command(BaseCommand):
                 codename=codename,
                 content_type=default_ct,
                 defaults={"name": name}
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
+# (conflict marker removed)
             )
             if created:
                 self.stdout.write(self.style.SUCCESS(f"Created permission '{codename}'"))
             else:
                 self.stdout.write(f"Permission '{codename}' already exists")
 
-<<<<<<< HEAD
+
         groups_to_permissions = {
             "staff": _staff_codenames(),
             "content_editor": _content_editor_codenames(),
@@ -398,8 +389,8 @@ class Command(BaseCommand):
             "PR_Gallery_Manager": _pr_gallery_manager_codenames(),
         }
 
-=======
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
+# (conflict marker removed)
+# (conflict marker removed)
         self.stdout.write("Processing groups...")
 
         for group_name, perm_codes in groups_to_permissions.items():
@@ -409,7 +400,7 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(f"Group exists: {group_name}")
 
-<<<<<<< HEAD
+
             group.permissions.clear()
             added = 0
             for code in perm_codes:
@@ -442,7 +433,7 @@ class Command(BaseCommand):
         )
 
         self.stdout.write(self.style.SUCCESS("custom_permissions finished."))
-=======
+# (conflict marker removed)
             # Remove all permissions before re-assigning
             group.permissions.clear()
 
@@ -478,4 +469,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Assigned ALL available permissions to admin group"))
 
         self.stdout.write(self.style.SUCCESS("Custom permissions and groups synchronized."))
->>>>>>> 33e584ef8d8ea737c60e41f28d82991f7405cd92
+# (conflict marker removed)
