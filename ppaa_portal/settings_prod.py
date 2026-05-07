@@ -240,6 +240,14 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# ---------- CELERY / REDIS ----------
+# Default to localhost so running Django outside Docker doesn't break.
+_redis_default = "redis://127.0.0.1:6379/0"
+REDIS_URL = (os.environ.get("REDIS_URL") or _redis_default).strip() or _redis_default
+CELERY_BROKER_URL = (os.environ.get("CELERY_BROKER_URL") or REDIS_URL).strip() or REDIS_URL
+CELERY_RESULT_BACKEND = (os.environ.get("CELERY_RESULT_BACKEND") or REDIS_URL).strip() or REDIS_URL
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "").lower() in ("true", "1", "yes")
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
