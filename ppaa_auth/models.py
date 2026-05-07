@@ -457,25 +457,6 @@ class GroupProfile(models.Model):
 
     def __str__(self):
         return f"Profile<{self.group_id}>"
- 
-class UserProfile(BaseModel):
-    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    user = models.ForeignKey(User, related_name='user_profiles', on_delete=models.SET_NULL, null=True, blank=True)
-    level = models.ForeignKey(PositionalLevel, on_delete=models.CASCADE)
-    acting_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='acting_user')
-
-    department = models.ForeignKey('Department', on_delete=models.CASCADE, related_name='user_profiles')
-    is_active = models.BooleanField(default=True, null=False, blank=False)
-    end_date = models.DateTimeField(blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
-
-    class Meta:
-        db_table = 'user_profile'
-
-    def __str__(self):
-        return f"{self.user.get_full_name()} ({self.level.code})"
-
-
 def _sync_user_to_reports_db(instance):
     """
     Mirror auth_user rows into the ppaa_reports DB so RMS FK constraints remain valid.
