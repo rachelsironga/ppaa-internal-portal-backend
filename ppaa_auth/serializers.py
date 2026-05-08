@@ -354,6 +354,7 @@ class GroupListSerializer(serializers.ModelSerializer):
 
 
 class GroupSerializer(serializers.ModelSerializer):
+    uid = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
     users = serializers.SerializerMethodField()
     last_update_at = serializers.SerializerMethodField()
@@ -372,7 +373,6 @@ class GroupSerializer(serializers.ModelSerializer):
             "update_count",
         )
         read_only_fields = (
-            "uid",
             "users",
             "last_update_at",
             "last_updated_by",
