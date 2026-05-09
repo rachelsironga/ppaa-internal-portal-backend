@@ -346,13 +346,6 @@ class AssignUserRolesListSerializer(serializers.Serializer):
         return user
 
 
-class GroupListSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Permission
-        fields = ['id', 'name']
-        depth = 1
-
-
 class GroupSerializer(serializers.ModelSerializer):
     uid = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
