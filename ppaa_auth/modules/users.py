@@ -157,7 +157,6 @@ def _summarize_user_update(user_before: User, vd: dict) -> tuple[str, dict]:
         "alternative_contact",
         "check_number",
         "sex",
-        "dob",
     )
     touched = []
     for k in profile_keys:
@@ -249,7 +248,7 @@ def _resolve_user_uuid_string(data) -> str:
 
 class UserSetupViewPermission(BasePermission):
     """
-    GET: ``can_view_sensitive_data`` or ``can_assign_delegate`` (pickers / delegation).
+    GET: ``can_view_sensitive_data``.
 
     POST/PUT: ``can_view_sensitive_data`` (create/edit). Status and ``is_active`` are
     applied only for users who may manage lifecycle (see ``_strip_lifecycle_fields``).
@@ -269,9 +268,7 @@ class UserSetupViewPermission(BasePermission):
         codes = request.user.get_permission_codes()
 
         if method == "get":
-            return (
-                "can_view_sensitive_data" in codes or "can_assign_delegate" in codes
-            )
+            return "can_view_sensitive_data" in codes
 
         if not required_perms:
             return True
@@ -563,7 +560,8 @@ class UserPhotoUpload(APIView):
 class UserSignatureUpload(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = FileUploadSerializer
-    required_permissions = {"post": ["can_upload_profile_signature"]}
+    # Signature upload is treated like other profile self-service actions; keep it authenticated.
+    required_permissions = {}
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)

@@ -256,8 +256,9 @@ class UserProfileView(APIView):
 class ActingUser(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     required_permissions = {
-        "post": ["can_assign_delegate"],
-        "delete": ["can_remove_delegate"],
+        # Delegation is restricted to sensitive-data admins; custom delegate permissions removed.
+        "post": ["can_view_sensitive_data"],
+        "delete": ["can_view_sensitive_data"],
     }
 
     def post(self, request):
@@ -432,10 +433,10 @@ class ActingUser(APIView):
     serializer_class = ActingUserSerializer
     required_permissions = {
         "post": [
-            "can_assign_delegate",
+            "can_view_sensitive_data",
         ],
         "delete": [
-            "can_assign_delegate",
+            "can_view_sensitive_data",
         ]
     }
 
