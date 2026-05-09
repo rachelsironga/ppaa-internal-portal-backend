@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: P@ssw0rd
-      POSTGRES_DB: ppaa_internal_portal
+      POSTGRES_DB: ppaa_internal_portalX
     ports:
       - "5433:5432"
     volumes:
@@ -14,36 +14,6 @@ services:
       - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
     networks:
       - ppaa-network
-
-  # Ensures required databases exist even when the Postgres volume already exists.
-  # Note: docker-entrypoint-initdb.d scripts only run on first init (empty data dir).
-  db_init:
-    image: postgres:16
-    container_name: ppaa-db-init
-    depends_on:
-      - postgres
-    networks:
-      - ppaa-network
-    restart: "no"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: P@ssw0rd
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-    command:
-      [
-        "bash",
-        "-lc",
-        "until pg_isready -h \"$POSTGRES_HOST\" -p \"$POSTGRES_PORT\" -U \"$POSTGRES_USER\"; do echo \"Waiting for postgres...\"; sleep 1; done; \
-         export PGPASSWORD=\"$POSTGRES_PASSWORD\"; \
-         psql -h \"$POSTGRES_HOST\" -p \"$POSTGRES_PORT\" -U \"$POSTGRES_USER\" -d postgres -v ON_ERROR_STOP=1 -c \"SELECT 'ppaa_internal_portal'\" >/dev/null; \
-         for db in ppaa_internal_portal performance_dashboard_db maoni_db reports_management_db; do \
-           echo \"Ensuring database exists: $db\"; \
-           psql -h \"$POSTGRES_HOST\" -p \"$POSTGRES_PORT\" -U \"$POSTGRES_USER\" -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname='$db'\" | grep -q 1 || \
-             psql -h \"$POSTGRES_HOST\" -p \"$POSTGRES_PORT\" -U \"$POSTGRES_USER\" -d postgres -c \"CREATE DATABASE \\\"$db\\\";\"; \
-         done; \
-         echo \"Database init complete.\""
-      ]
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
@@ -127,7 +97,6 @@ services:
       - redis
       - postgres
       - minio
-      - db_init
 
   celery_worker:
     image: ppaa-internal-portal-backend
