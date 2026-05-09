@@ -157,7 +157,6 @@ def _summarize_user_update(user_before: User, vd: dict) -> tuple[str, dict]:
         "alternative_contact",
         "check_number",
         "sex",
-        "dob",
     )
     touched = []
     for k in profile_keys:

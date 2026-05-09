@@ -94,7 +94,6 @@ class User(AbstractUser):
         choices=AccountType.choices,
         default=AccountType.INDIVIDUAL,
     )
-    dob = models.DateField(null=True, blank=True)
     sex = models.CharField(max_length=20, blank=True)
     photo = models.CharField(max_length=512, blank=True)
     signature = models.CharField(max_length=512, blank=True)

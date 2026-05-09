@@ -139,7 +139,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'guid', 'user_guid','username', 'email', 'check_number', 'first_name',
-            'middle_name', 'last_name', 'status', 'account_type', 'dob', 'sex', 'is_active', 'is_staff', 'photo',
+            'middle_name', 'last_name', 'status', 'account_type', 'sex', 'is_active', 'is_staff', 'photo',
             'phone_number', 'alternative_contact', 'created_at', 'updated_at',
             'created_by','updated_by', 'groups', 'user_permissions', 'position', 'current_level_name',
             'current_department_name'
@@ -509,7 +509,6 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "status",
             "account_type",
-            "dob",
             "sex",
             "is_active",
             "is_staff",
