@@ -70,6 +70,8 @@ class MaoniSuggestion(models.Model):
         null=True,
         blank=True,
         related_name="maoni_suggestions",
+        # Users live on ``default`` DB; no ``auth_user`` table in ``maoni_db``.
+        db_constraint=False,
     )
     submitted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -114,6 +116,7 @@ class MaoniSuggestionComment(models.Model):
         null=True,
         blank=True,
         related_name="maoni_comments",
+        db_constraint=False,
     )
     is_hr_reply = models.BooleanField(default=False)
     message_type = models.CharField(
