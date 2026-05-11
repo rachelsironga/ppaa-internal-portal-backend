@@ -784,7 +784,18 @@ class LoginSerializer(serializers.Serializer):
     )
 
 
-class NewUserLoginSerializer(serializers.ModelSerializer):
+class NewUserLoginLegacySerializer(serializers.ModelSerializer):
+    """
+    Legacy serializer kept for compatibility with older clients that posted:
+      - username
+      - password
+      - email
+      - phone_number
+
+    New clients should use ``NewUserLoginSerializer`` (non-model serializer) which expects
+    ``new_password`` + ``confirm_password`` + ``initial_password``.
+    """
+
     username = serializers.CharField(required=True, allow_blank=False, write_only=True)
     password = serializers.CharField(required=True, allow_blank=False, write_only=True)
     email = serializers.CharField(required=True, allow_blank=False, write_only=True)

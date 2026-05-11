@@ -96,6 +96,7 @@ class MaoniSuggestionBriefSerializer(serializers.ModelSerializer):
             "submitted_by_id",
             "submitted_by_name",
             "submitted_at",
+            "department_received_at",
             "created_at",
             "updated_at",
             "comment_count",
@@ -109,16 +110,20 @@ class MaoniSuggestionBriefSerializer(serializers.ModelSerializer):
         return None
 
     def get_submitted_by_id(self, obj):
-        if obj.submitted_by_id:
-            return obj.submitted_by_id
-        return None
+        # Backwards-compatible field name; now returns the user's GUID (string) rather than integer PK.
+        v = getattr(obj, "submitted_by_guid", None)
+        return str(v) if v else None
 
     def get_submitted_by_name(self, obj):
-        u = obj.submitted_by
+        guid = getattr(obj, "submitted_by_guid", None)
+        if not guid:
+            return None
+        users_by_guid = (self.context or {}).get("users_by_guid") or {}
+        u = users_by_guid.get(str(guid))
         if not u:
             return None
         fn = u.get_full_name() if hasattr(u, "get_full_name") else ""
-        return (fn or "").strip() or getattr(u, "username", None) or str(u.pk)
+        return (fn or "").strip() or getattr(u, "username", None) or str(getattr(u, "guid", "") or u.pk)
 
     def get_status(self, obj):
         raw = str(getattr(obj, "status", "")).upper()

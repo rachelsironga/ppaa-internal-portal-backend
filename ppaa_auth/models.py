@@ -371,6 +371,7 @@ class UserProfile(models.Model):
         blank=True,
         related_name="user_profiles_deleted",
     )
+    description = models.TextField(null=True, blank=True)
 
     class Meta:
         ordering = ["-updated_at"]
