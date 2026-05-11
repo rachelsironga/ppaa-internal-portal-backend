@@ -7,10 +7,16 @@ if [ "$(id -u)" = "0" ]; then
   # Maoni & SPISM share ``default`` with ``auth`` (User FKs). Secondary aliases are unused for those apps.
   if [ "$1" = "gunicorn" ]; then
     gosu app python manage.py migrate --noinput --fake-initial
+    # Idempotent: creates AWS_STORAGE_BUCKET_NAME, SPM_BUCKET_NAME, RMS_REPORTS_BUCKET on MinIO/S3.
+    gosu app python manage.py ensure_s3_media_bucket
+    # Default bucket folder markers (documents/, user_photos/, etc.).
+    gosu app python manage.py init_minio_buckets
   fi
   exec gosu app "$@"
 fi
 if [ "$1" = "gunicorn" ]; then
   python manage.py migrate --noinput --fake-initial
+  python manage.py ensure_s3_media_bucket
+  python manage.py init_minio_buckets
 fi
 exec "$@"
