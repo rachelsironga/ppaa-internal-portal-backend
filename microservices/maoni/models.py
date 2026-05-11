@@ -1,6 +1,5 @@
 import uuid
 
-from django.conf import settings
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 
@@ -64,16 +63,16 @@ class MaoniSuggestion(models.Model):
         related_name="suggestions",
     )
     department_uid = models.CharField(max_length=64, blank=True, null=True)
-    submitted_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
+    # Users live on ``default`` DB; Maoni tables live on ``maoni_db``.
+    # Store the user GUID rather than a cross-database FK.
+    submitted_by_guid = models.UUIDField(null=True, blank=True, db_index=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    department_received_at = models.DateTimeField(
         null=True,
         blank=True,
-        related_name="maoni_suggestions",
-        # Users live on ``default`` DB; no ``auth_user`` table in ``maoni_db``.
-        db_constraint=False,
+        db_index=True,
+        help_text="When staff first opened the case (Submitted → Under handler review) for this department queue.",
     )
-    submitted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -110,14 +109,8 @@ class MaoniSuggestionComment(models.Model):
         blank=True,
         related_name="replies",
     )
-    commented_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="maoni_comments",
-        db_constraint=False,
-    )
+    # Store the commenter GUID rather than a cross-database FK.
+    commented_by_guid = models.UUIDField(null=True, blank=True, db_index=True)
     is_hr_reply = models.BooleanField(default=False)
     message_type = models.CharField(
         max_length=40,

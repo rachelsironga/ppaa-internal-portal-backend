@@ -265,7 +265,7 @@ def _thread_scope_for_workflow_body(body: str) -> str:
 def _can_access_suggestion(request_user, suggestion):
     if _is_privileged(request_user):
         return True
-    if suggestion.submitted_by_id and suggestion.submitted_by_id == request_user.id:
+    if getattr(suggestion, "submitted_by_guid", None) and str(suggestion.submitted_by_guid) == str(getattr(request_user, "guid", "")):
         return True
     return False
 
@@ -277,10 +277,10 @@ _latest_thread_comment = (
 
 
 def _annotate_suggestion_qs(qs):
-    return qs.select_related("category", "submitted_by").annotate(
+    return qs.select_related("category").annotate(
         comment_count=Count("comments"),
         last_comment_at=Subquery(_latest_thread_comment.values("created_at")[:1]),
-        last_comment_by_id=Subquery(_latest_thread_comment.values("commented_by_id")[:1]),
+        last_comment_by_id=Subquery(_latest_thread_comment.values("commented_by_guid")[:1]),
     )
 
 
@@ -361,7 +361,7 @@ def _role_kind_for(user, suggestion):
         return "reviewer"
     if _is_handler(user):
         return "handler"
-    if suggestion.submitted_by_id and suggestion.submitted_by_id == user.id:
+    if getattr(suggestion, "submitted_by_guid", None) and str(suggestion.submitted_by_guid) == str(getattr(user, "guid", "")):
         return "contributor"
     return "none"
 
@@ -407,7 +407,7 @@ def _pickup_staff_submitted_to_under_review(user, suggestion):
     current_status = _normalize_status(suggestion.status)
     if current_status != MaoniSuggestion.Status.SUBMITTED:
         return False
-    if not suggestion.submitted_by_id or suggestion.submitted_by_id == user.id:
+    if not getattr(suggestion, "submitted_by_guid", None) or str(suggestion.submitted_by_guid) == str(getattr(user, "guid", "")):
         return False
     role_kind = _role_kind_for(user, suggestion)
     if role_kind not in ("handler", "reviewer"):
@@ -435,12 +435,14 @@ def _pickup_staff_submitted_to_under_review(user, suggestion):
     if role_kind == "reviewer" and sugg_dept and user_dept and sugg_dept != user_dept:
         return False
 
+    now = timezone.now()
     updated = MaoniSuggestion.objects.filter(
         pk=suggestion.pk,
         status=MaoniSuggestion.Status.SUBMITTED,
     ).update(
         status=MaoniSuggestion.Status.UNDER_HANDLER_REVIEW,
-        updated_at=timezone.now(),
+        updated_at=now,
+        department_received_at=now,
     )
     return bool(updated)
 
@@ -455,9 +457,14 @@ def _can_see_staff_internal_thread(user, suggestion):
 
 
 def _build_comment_nodes(suggestion, thread_scope_value):
-    rows = list(
-        suggestion.comments.select_related("commented_by").order_by("created_at")
-    )
+    rows = list(suggestion.comments.order_by("created_at"))
+    try:
+        from ppaa_auth.models import User as PortalUser
+
+        guids = {str(c.commented_by_guid) for c in rows if getattr(c, "commented_by_guid", None)}
+        users_by_guid = {str(u.guid): u for u in PortalUser.objects.filter(guid__in=list(guids))}
+    except Exception:
+        users_by_guid = {}
     rows = [
         c
         for c in rows
@@ -469,10 +476,11 @@ def _build_comment_nodes(suggestion, thread_scope_value):
         by_parent[c.parent_id].append(c)
 
     def node(c):
+        u = users_by_guid.get(str(getattr(c, "commented_by_guid", "") or ""))
         return {
             "uid": str(c.uid),
             "comment": c.comment,
-            "commented_by_name": _display_name(c.commented_by) or "Anonymous",
+            "commented_by_name": _display_name(u) or "Anonymous",
             "is_hr_reply": c.is_hr_reply,
             "message_type": getattr(c, "message_type", None) or "GENERAL",
             "thread_scope": getattr(c, "thread_scope", None)
@@ -486,16 +494,21 @@ def _build_comment_nodes(suggestion, thread_scope_value):
 
 def _staff_internal_comment_list(suggestion):
     """Flat chronological staff-only messages (workflow + internal notes)."""
-    rows = (
-        suggestion.comments.select_related("commented_by")
-        .filter(thread_scope=MaoniSuggestionComment.ThreadScope.STAFF)
-        .order_by("created_at", "id")
+    rows = list(
+        suggestion.comments.filter(thread_scope=MaoniSuggestionComment.ThreadScope.STAFF).order_by("created_at", "id")
     )
+    try:
+        from ppaa_auth.models import User as PortalUser
+
+        guids = {str(c.commented_by_guid) for c in rows if getattr(c, "commented_by_guid", None)}
+        users_by_guid = {str(u.guid): u for u in PortalUser.objects.filter(guid__in=list(guids))}
+    except Exception:
+        users_by_guid = {}
     return [
         {
             "uid": str(c.uid),
             "comment": c.comment,
-            "commented_by_name": _display_name(c.commented_by) or "Anonymous",
+            "commented_by_name": _display_name(users_by_guid.get(str(getattr(c, "commented_by_guid", "") or ""))) or "Anonymous",
             "is_hr_reply": c.is_hr_reply,
             "message_type": getattr(c, "message_type", None) or "GENERAL",
             "thread_scope": MaoniSuggestionComment.ThreadScope.STAFF,
@@ -629,9 +642,9 @@ class MaoniSuggestionsView(APIView):
         # Privileged users (reviewers / admins) see all by default (e.g. dashboard) but can pass
         # only_mine=1 for the personal "My Maoni" page at /ppaa-maoni.
         if not _is_privileged(request.user):
-            qs = qs.filter(submitted_by=request.user)
+            qs = qs.filter(submitted_by_guid=getattr(request.user, "guid", None))
         elif only_mine:
-            qs = qs.filter(submitted_by=request.user)
+            qs = qs.filter(submitted_by_guid=getattr(request.user, "guid", None))
         else:
             # Handler/reviewer/admin boards should not include private drafts by other users.
             qs = qs.exclude(status=MaoniSuggestion.Status.DRAFT)
@@ -639,8 +652,19 @@ class MaoniSuggestionsView(APIView):
         total = qs.count()
         start = (page - 1) * page_size
         rows = qs[start : start + page_size]
+        # Bulk-resolve submitter display names from the default DB.
+        try:
+            from ppaa_auth.models import User as PortalUser
+
+            submitter_guids = {str(r.submitted_by_guid) for r in rows if getattr(r, "submitted_by_guid", None)}
+            users = PortalUser.objects.filter(guid__in=list(submitter_guids))
+            users_by_guid = {str(u.guid): u for u in users}
+        except Exception:
+            users_by_guid = {}
         return CustomResponse.success(
-            data=MaoniSuggestionBriefSerializer(rows, many=True).data,
+            data=MaoniSuggestionBriefSerializer(
+                rows, many=True, context={"users_by_guid": users_by_guid}
+            ).data,
             pagination={"total": total, "page": page, "page_size": page_size},
         )
 
@@ -662,7 +686,7 @@ class MaoniSuggestionsView(APIView):
             status=status_val,
             category=v.get("category"),
             department_uid=v.get("department_uid") or None,
-            submitted_by=request.user,
+            submitted_by_guid=getattr(request.user, "guid", None),
         )
         if status_val == MaoniSuggestion.Status.SUBMITTED:
             inst.submitted_at = timezone.now()
@@ -780,6 +804,7 @@ class MaoniSuggestionDetailView(APIView):
                 code=STATUS_CODES["VALIDATION_ERROR"],
             )
         prev_status = obj.status
+        prev_n = _normalize_status(prev_status)
         inst = ser.save()
         if (
             inst.status == MaoniSuggestion.Status.SUBMITTED
@@ -789,6 +814,14 @@ class MaoniSuggestionDetailView(APIView):
             inst.save(update_fields=["submitted_at", "updated_at"])
         elif inst.status != MaoniSuggestion.Status.SUBMITTED and not inst.submitted_at:
             pass
+        next_n = _normalize_status(inst.status)
+        if (
+            prev_n == MaoniSuggestion.Status.SUBMITTED
+            and next_n == MaoniSuggestion.Status.UNDER_HANDLER_REVIEW
+            and not getattr(inst, "department_received_at", None)
+        ):
+            inst.department_received_at = timezone.now()
+            inst.save(update_fields=["department_received_at", "updated_at"])
         obj = self.get_object(uid)
         return CustomResponse.success(
             data=_detail_payload(obj, request.user),
@@ -905,7 +938,7 @@ class MaoniSuggestionReplyView(APIView):
         MaoniSuggestionComment.objects.create(
             suggestion=suggestion,
             parent=parent,
-            commented_by=request.user,
+            commented_by_guid=getattr(request.user, "guid", None),
             is_hr_reply=is_official_reply,
             message_type=msg_type,
             thread_scope=thread_scope,
@@ -921,10 +954,16 @@ class MaoniSuggestionReplyView(APIView):
         if (
             is_official_reply
             and thread_scope == MaoniSuggestionComment.ThreadScope.CONTRIBUTOR
-            and suggestion.submitted_by_id
-            and suggestion.submitted_by_id != request.user.id
+            and getattr(suggestion, "submitted_by_guid", None)
+            and str(suggestion.submitted_by_guid) != str(getattr(request.user, "guid", ""))
         ):
-            submitter = suggestion.submitted_by
+            submitter = None
+            try:
+                from ppaa_auth.models import User as PortalUser
+
+                submitter = PortalUser.objects.filter(guid=suggestion.submitted_by_guid).first()
+            except Exception:
+                submitter = None
             to_email = (getattr(submitter, "email", None) or "").strip()
             if to_email:
                 try:
