@@ -1,4 +1,5 @@
 services:
+  # Backend/Celery load `env_file: .env` from this directory. File must be named `.env` (not only `env`).
   postgres:
     image: postgres:16
     container_name: postgres
@@ -90,6 +91,8 @@ services:
       # MinIO (S3 API) — flyers, documents, media use default_storage → must reach the minio service by Docker DNS.
       # Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in .env to match MINIO_ROOT_USER / MINIO_ROOT_PASSWORD below.
       AWS_S3_ENDPOINT_URL: "http://minio:9000"
+    # Compose loads this path relative to this file — file name must be ".env" (not "env").
+    # If you only have `env`, copy it: cp env .env
     env_file:
       - .env
     restart: unless-stopped
