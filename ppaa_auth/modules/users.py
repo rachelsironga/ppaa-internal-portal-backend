@@ -89,6 +89,17 @@ def _reject_retired_if_not_allowed(user: User, validated_data: dict):
     )
 
 
+def _may_upload_profile_media_for_target(request, target: User) -> bool:
+    """Own profile: any authenticated user. Another user: superuser or can_upload_profile_photo."""
+    if not request.user or not request.user.is_authenticated:
+        return False
+    if str(target.guid) == str(request.user.guid):
+        return True
+    if request.user.is_superuser:
+        return True
+    return "can_upload_profile_photo" in request.user.get_permission_codes()
+
+
 def _user_display_name(u: User) -> str:
     parts = [u.first_name or "", u.middle_name or "", u.last_name or ""]
     name = " ".join(p for p in parts if p).strip()
@@ -527,317 +538,126 @@ class UserView(APIView):
 class UserPhotoUpload(APIView):
     permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = FileUploadSerializer
-    required_permissions = {"post": ["can_upload_profile_photo"]}
-
-    def post(self, request):
-        serializer = self.serializer_class(data=request.data)
-        if not serializer.is_valid():
-            return CustomResponse.errors(
-                message="Invalid upload",
-                data=serializer.errors,
-                code=STATUS_CODES["VALIDATION_ERROR"],
-            )
-        try:
-            storage = MinioStorage()
-            raw = serializer.validated_data["based64_file"]
-            path = storage.upload_base64_file(
-                raw,
-                folder="profile_photos",
-                file_name=str(request.user.guid),
-                old_file_path=request.user.photo or "",
-            )
-            request.user.photo = path
-            request.user.save(update_fields=["photo", "updated_at"])
-            photo_url = get_presigned_url(path, expires_hours=PROFILE_MEDIA_PRESIGN_HOURS)
-            return CustomResponse.success(
-                data={"photo": photo_url},
-                message="Photo updated",
-            )
-        except Exception as e:
-            return CustomResponse.server_error(message=str(e))
-
-
-class UserSignatureUpload(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission]
-    serializer_class = FileUploadSerializer
-    # Signature upload is treated like other profile self-service actions; keep it authenticated.
+    # Per-user checks in post(): own photo allowed for any authenticated user;
+    # changing someone else's photo requires can_upload_profile_photo (or superuser).
     required_permissions = {}
 
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
             return CustomResponse.errors(
-                message="Invalid upload",
+                message="Validation failed, please try again",
                 data=serializer.errors,
                 code=STATUS_CODES["VALIDATION_ERROR"],
             )
-        try:
-            storage = MinioStorage()
-            raw = serializer.validated_data["based64_file"]
-            path = storage.upload_base64_file(
-                raw,
-                folder="signatures",
-                file_name=str(request.user.guid),
-                old_file_path=request.user.signature or "",
-            )
-            request.user.signature = path
-            request.user.save(update_fields=["signature", "updated_at"])
-            signature_url = get_presigned_url(
-                path, expires_hours=PROFILE_MEDIA_PRESIGN_HOURS
-            )
-            return CustomResponse.success(
-                data={"signature": signature_url},
-                message="Signature updated",
-            )
-        except Exception as e:
-            return CustomResponse.server_error(message=str(e))
+        uid = serializer.validated_data.get("uid")
+        if uid:
+            instance = User.objects.filter(guid=uid, is_deleted=False).first()
+            if not instance:
+                return CustomResponse.errors(
+                    message="User not found",
+                    code=STATUS_CODES["VALIDATION_ERROR"],
+                )
+        else:
+            instance = request.user
 
-    def post(self, request):
+        if not _may_upload_profile_media_for_target(request, instance):
+            return CustomResponse.errors(
+                message="You do not have permission to update this user's profile photo",
+                code=STATUS_CODES["FORBIDDEN"],
+            )
+
         try:
             with transaction.atomic():
-                # Accept both user_guid and guid (frontend may send either); treat empty string as missing
-                raw_guid = request.data.get("user_guid") or request.data.get("guid")
-                user_guid = (raw_guid or "").strip() or None
-                instance = None
-                is_update = False
-
-                # ----------- Determine Update or Create -----------
-                if user_guid:
-                    print("-------------user_guid------------", user_guid)
-                    try:
-                        instance = User.objects.get(guid=user_guid)
-                    except User.DoesNotExist:
-                        return CustomResponse.errors(message="User not found")
-
-                    if instance.is_deleted:
-                        return CustomResponse.errors(message="User already deleted")
-
-                    if not instance.is_active:
-                        return CustomResponse.errors(message="Cannot update disabled user")
-
-                    is_update = True
-
-                # ----------- Prepare Data Before Validation -----------
-                data = request.data.copy()
-
-                # Uppercase formatting
-                if "first_name" in data:
-                    data["first_name"] = data["first_name"].strip().upper()
-
-                if "middle_name" in data:
-                    m = data.get("middle_name")
-                    data["middle_name"] = m.strip().upper() if m else ""
-
-                if "last_name" in data:
-                    data["last_name"] = data["last_name"].strip().upper()
-
-                # Set username for creation
-                if not is_update:
-                    if "first_name" in data and "last_name" in data:
-                        data["username"] = f"{data['first_name']}.{data['last_name']}".lower()
-
-                    data["status"] = "NEW"
-                    data["created_by"] = request.user.id
-
-                data["updated_by"] = request.user.id
-
-                # ----------- Serializer -----------
-                serializer = UserSerializer(
-                    instance=instance,
-                    data=data,
-                    partial=is_update,
-                    context={"request": request}
-                )
-
-                if not serializer.is_valid():
-                    return CustomResponse.errors(
-                        message="Validation failed",
-                        data=serializer.errors
-                    )
-                user = serializer.save()
-                # ----------- Set password on creation -----------
-                print(is_update)
-                if not is_update:
-                    password = data.get("check_number", "")
-                    user.set_password(password)
-                    user.save(update_fields=["password"])
-
-                # Create audit log for user create/update
-                try:
-                    from ppaa_portal.views import create_audit_log
-                    action = "CREATE" if not is_update else "UPDATE"
-                    create_audit_log(
-                        request=request,
-                        action=action,
-                        model_name="User",
-                        obj=user,
-                        changes=serializer.data if is_update else None
-                    )
-                except Exception:
-                    # Don't fail the request if audit log creation fails
-                    pass
-
-                return CustomResponse.success(data=serializer.data)
-
-        except Exception as e:
-            return CustomResponse.server_error(message=f"Failed to Change User: {str(e)}")
-
-    def delete(self, request, uid):
-        try:
-            with transaction.atomic():
-                user = User.objects.filter(uid=uid, is_deleted=False).first()
-                if not User:
-                    return CustomResponse.errors(message="User Not Found or Already Deleted", )
-
-                user.is_deleted = True
-                user.deleted_at = timezone.datetime.now()
-                user.deleted_by = request.user
-                user.save()
-                
-                # Create audit log for user deletion
-                try:
-                    from ppaa_portal.views import create_audit_log
-                    create_audit_log(
-                        request=request,
-                        action="DELETE",
-                        model_name="User",
-                        obj=user,
-                        changes={"deleted_by": request.user.username}
-                    )
-                except Exception:
-                    # Don't fail the request if audit log creation fails
-                    pass
-                
-                return CustomResponse.success(message='User deleted successfully')
-
-        except SystemError as e:
-            print(f'Failed to Perform Action: {str(e)}')
-            return CustomResponse.server_error(message="Something went wrong While Deleting User")
-
-class UserPhotoUpload(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission,]
-    serializer_class = FileUploadSerializer
-
-    def post(self, request):
-        try:
-            with (transaction.atomic()):
-                serializer = self.serializer_class(
-                    instance=None,
-                    data=request.data,
-                    partial=False
-                )
-
-                if not serializer.is_valid():
-                    return CustomResponse.errors(
-                        message="Validation failed, please try again"
-                            if request.data.get('uid', None)
-                            else "You can't update. You must Specify User to Update Photo",
-                        data=serializer.errors,
-                        code=STATUS_CODES["VALIDATION_ERROR"],
-                    )
-
-                try:
-                    instance = User.objects.get(guid=serializer.validated_data.get('uid'))
-                    if instance.is_deleted:
-                        return CustomResponse.errors(message="You can't update. Deleted User")
-                except User.DoesNotExist:
-                    return CustomResponse.errors(message="You can't update. You must Specify User to Update Photo")
-
-                photo_base64 = serializer.validated_data.get('based64_file', '')
-                minio = MinioStorage()
-                file_name = instance.guid
-                photo_url = minio.upload_base64_file(
-                    photo_base64,
+                storage = MinioStorage()
+                raw = serializer.validated_data["based64_file"]
+                path = storage.upload_base64_file(
+                    raw,
                     folder="user_photos",
-                    file_name=file_name,
-                    old_file_path=instance.photo
+                    file_name=str(instance.guid),
+                    old_file_path=instance.photo or "",
                 )
-                instance.photo = photo_url
-                # User.updated_by is an IntegerField in ppaa_auth.models.User
-                instance.updated_by = request.user.id
+                instance.photo = path
+                instance.updated_by = request.user
                 instance.updated_at = timezone.now()
-                instance.save(update_fields=["photo",'updated_by','updated_at'])
-                
-                # Create audit log for photo upload
+                instance.save(update_fields=["photo", "updated_by", "updated_at"])
                 try:
                     from ppaa_portal.views import create_audit_log
+
                     create_audit_log(
                         request=request,
                         action="UPDATE",
                         model_name="UserPhoto",
                         obj=instance,
-                        changes={"photo_updated": True, "photo_url": photo_url}
+                        changes={"photo_updated": True, "photo_path": path},
                     )
                 except Exception:
-                    # Don't fail the request if audit log creation fails
                     pass
-                
-                user_serializer = UserSerializer(instance)
-                return CustomResponse.success(data=user_serializer.data)
-
+                return CustomResponse.success(data=UserSerializer(instance).data)
         except Exception as e:
-            return CustomResponse.server_error(message=f'Failed to Change User Photo: {str(e)}', )
+            return CustomResponse.server_error(
+                message=f"Failed to Change User Photo: {e!s}",
+            )
+
 
 class UserSignatureUpload(APIView):
-    permission_classes = [IsAuthenticated, HasMethodPermission,]
+    permission_classes = [IsAuthenticated, HasMethodPermission]
     serializer_class = FileUploadSerializer
+    required_permissions = {}
 
     def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return CustomResponse.errors(
+                message="Validation failed, please try again",
+                data=serializer.errors,
+                code=STATUS_CODES["VALIDATION_ERROR"],
+            )
+        uid = serializer.validated_data.get("uid")
+        if uid:
+            instance = User.objects.filter(guid=uid, is_deleted=False).first()
+            if not instance:
+                return CustomResponse.errors(
+                    message="User not found",
+                    code=STATUS_CODES["VALIDATION_ERROR"],
+                )
+        else:
+            instance = request.user
+
+        if not _may_upload_profile_media_for_target(request, instance):
+            return CustomResponse.errors(
+                message="You do not have permission to update this user's signature",
+                code=STATUS_CODES["FORBIDDEN"],
+            )
+
         try:
-            with (transaction.atomic()):
-                serializer = self.serializer_class(
-                    instance=None,
-                    data=request.data,
-                    partial=False
-                )
-
-                if not serializer.is_valid():
-                    return CustomResponse.errors(
-                        message="Validation failed, please try again"
-                            if request.data.get('uid', None)
-                            else "You can't update. You must Specify User to Update Photo",
-                        data=serializer.errors,
-                        code=STATUS_CODES["VALIDATION_ERROR"],
-                    )
-
-                try:
-                    instance = User.objects.get(guid=serializer.validated_data.get('uid'))
-                    if instance.is_deleted:
-                        return CustomResponse.errors(message="You can't update. Deleted User")
-                except User.DoesNotExist:
-                    return CustomResponse.errors(message="You can't update. You must Specify User to Update Signature")
-
-                file_base64 = serializer.validated_data.get('based64_file', '')
-                minio = MinioStorage()
-                file_name = instance.guid
-                file_url = minio.upload_base64_file(
-                    file_base64,
+            with transaction.atomic():
+                storage = MinioStorage()
+                raw = serializer.validated_data["based64_file"]
+                path = storage.upload_base64_file(
+                    raw,
                     folder="user_signatures",
-                    file_name=file_name,
-                    old_file_path=instance.signature
+                    file_name=str(instance.guid),
+                    old_file_path=instance.signature or "",
                 )
-                instance.signature = file_url
-                # User.updated_by is an IntegerField in ppaa_auth.models.User
-                instance.updated_by = request.user.id
+                instance.signature = path
+                instance.updated_by = request.user
                 instance.updated_at = timezone.now()
-                instance.save(update_fields=["signature",'updated_by','updated_at'])
-                
-                # Create audit log for signature upload
+                instance.save(update_fields=["signature", "updated_by", "updated_at"])
                 try:
                     from ppaa_portal.views import create_audit_log
+
                     create_audit_log(
                         request=request,
                         action="UPDATE",
                         model_name="UserSignature",
                         obj=instance,
-                        changes={"signature_updated": True, "signature_url": file_url}
+                        changes={"signature_updated": True, "signature_path": path},
                     )
                 except Exception:
-                    # Don't fail the request if audit log creation fails
                     pass
-                
-                user_serializer = UserSerializer(instance)
-                return CustomResponse.success(data=user_serializer.data)
-
+                return CustomResponse.success(data=UserSerializer(instance).data)
         except Exception as e:
-            return CustomResponse.server_error(message=f"Failed to Change User signature: {str(e)}")
+            return CustomResponse.server_error(
+                message=f"Failed to Change User signature: {e!s}",
+            )
