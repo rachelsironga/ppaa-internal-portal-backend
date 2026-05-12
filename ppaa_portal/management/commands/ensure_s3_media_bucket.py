@@ -12,8 +12,18 @@ Usage (Docker):
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from minio.error import S3Error
 
 from ppaa_portal.services.minio.minio_client import client
+
+
+def _signature_help():
+    return (
+        "MinIO returned SignatureDoesNotMatch: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in the "
+        "backend environment must exactly match MINIO_ROOT_USER / MINIO_ROOT_PASSWORD for the "
+        "MinIO container (see docker-compose.yml `minio` service). After fixing .env, recreate "
+        "or restart the backend container."
+    )
 
 
 class Command(BaseCommand):
@@ -35,11 +45,23 @@ class Command(BaseCommand):
 
         created = 0
         for name in names:
-            if client.bucket_exists(name):
+            try:
+                exists = client.bucket_exists(name)
+            except S3Error as e:
+                code = getattr(e, "code", None) or ""
+                if code == "SignatureDoesNotMatch" or "SignatureDoesNotMatch" in str(e):
+                    self.stderr.write(self.style.ERROR(_signature_help()))
+                raise
+            if exists:
                 self.stdout.write(self.style.NOTICE(f"Bucket {name!r} already exists."))
                 continue
             try:
                 client.make_bucket(name)
+            except S3Error as e:
+                code = getattr(e, "code", None) or ""
+                if code == "SignatureDoesNotMatch" or "SignatureDoesNotMatch" in str(e):
+                    self.stderr.write(self.style.ERROR(_signature_help()))
+                raise
             except Exception as e:
                 self.stderr.write(self.style.ERROR(f"Could not create bucket {name!r}: {e}"))
                 raise
