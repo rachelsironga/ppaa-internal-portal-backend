@@ -68,9 +68,8 @@ class PortalDocumentSerializer(serializers.ModelSerializer):
         )
 
     def get_file_url(self, obj):
-        # Downloads use JWT-authenticated GET …/documents/<uid>/download (streams via
-        # default_storage — same key resolution as upload). Presigned MinIO URLs were
-        # fragile for keys with spaces/special chars and AWS_LOCATION mismatches.
+        # Authenticated downloads: GET …/documents/<uid>/download (streams via
+        # ``_binary_stream_for_storage_key`` — MinIO SDK first, then django-storages).
         return None
 
     def _parse_category_uid(self, raw):
