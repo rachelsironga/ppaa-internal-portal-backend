@@ -64,6 +64,14 @@ AWS_QUERYSTRING_AUTH = False
 
 
 ALLOWED_HOSTS = ['*']
+
+# Internal portal sends documents as JSON + base64; default Django limit is 2.5 MiB (too small).
+# Keep slightly above nginx ``client_max_body_size`` (50m) so the API can read the body after nginx accepts it.
+_DATA_UPLOAD_MAX_MB = int(os.environ.get("DATA_UPLOAD_MAX_MB", "55"))
+_DATA_UPLOAD_MAX_BYTES = _DATA_UPLOAD_MAX_MB * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = _DATA_UPLOAD_MAX_BYTES
+FILE_UPLOAD_MAX_MEMORY_SIZE = _DATA_UPLOAD_MAX_BYTES
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
