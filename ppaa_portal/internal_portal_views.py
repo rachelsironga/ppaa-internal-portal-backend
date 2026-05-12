@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 from urllib.parse import quote
 
+from django.conf import settings as django_settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import DatabaseError
@@ -58,14 +59,33 @@ from ppaa_portal.portal_audit_utils import (
 from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
 
 
+def _minio_storage_configured() -> bool:
+    """True when MinIO/S3 env matches ``MinioStorage`` (same bucket as django-storages)."""
+    if not (getattr(django_settings, "AWS_S3_ENDPOINT_URL", None) or "").strip():
+        return False
+    if not (getattr(django_settings, "AWS_ACCESS_KEY_ID", None) or "").strip():
+        return False
+    if not (getattr(django_settings, "AWS_SECRET_ACCESS_KEY", None) or "").strip():
+        return False
+    if not (getattr(django_settings, "AWS_STORAGE_BUCKET_NAME", None) or "").strip():
+        return False
+    return True
+
+
 def _store_uploaded_data_url(
     data_url: str,
     preferred_name: str,
     *,
     storage_subdir: str = "documents",
     max_bytes: int | None = None,
+    old_file_path: str | None = None,
 ) -> tuple[str, str]:
-    """Decode a data URL and persist bytes via ``default_storage`` (S3Boto3Storage → MinIO when configured)."""
+    """
+    Decode a data URL and persist bytes.
+
+    When MinIO/S3 credentials are set, uses ``MinioStorage`` (native put_object to the media bucket).
+    Otherwise falls back to ``default_storage`` (filesystem or S3Boto3, depending on settings).
+    """
     if not data_url or ";base64," not in data_url:
         return "", ""
     _, b64 = data_url.split(";base64,", 1)
@@ -96,7 +116,28 @@ def _store_uploaded_data_url(
         ".webp",
     }
     ext = suf if suf in allowed_ext and len(suf) <= 12 else ""
-    # S3-safe object key; original name kept on the model for display/download filename hints.
+    old = (old_file_path or "").strip()
+
+    if _minio_storage_configured():
+        from utils.minio_storage import MinioStorage
+
+        try:
+            minio = MinioStorage()
+            stored = minio.upload_base64_file(
+                data_url,
+                folder=f"internal_portal/{storage_subdir}",
+                file_name=uuid.uuid4().hex,
+                old_file_path=old,
+            )
+            return stored, display_name
+        except Exception as e:
+            raise ValueError(str(e)) from e
+
+    if old:
+        try:
+            default_storage.delete(old)
+        except Exception:
+            pass
     key = f"internal_portal/{storage_subdir}/{uuid.uuid4().hex}{ext}"
     stored = default_storage.save(key, ContentFile(raw))
     return stored, display_name
@@ -525,12 +566,11 @@ class PortalDocumentView(APIView):
         instance = ser.save(updated_by=request.user)
         if file_b64:
             try:
-                if instance.file_key:
-                    try:
-                        default_storage.delete(instance.file_key)
-                    except Exception:
-                        pass
-                key, oname = _store_uploaded_data_url(file_b64, file_name)
+                key, oname = _store_uploaded_data_url(
+                    file_b64,
+                    file_name,
+                    old_file_path=instance.file_key or None,
+                )
                 if key:
                     instance.file_key = key
                     instance.original_filename = oname
@@ -944,16 +984,12 @@ class PortalQuickLinkView(APIView):
                     code=STATUS_CODES["VALIDATION_ERROR"],
                 )
             try:
-                if instance.logo_key:
-                    try:
-                        default_storage.delete(instance.logo_key)
-                    except Exception:
-                        pass
                 key, oname = _store_uploaded_data_url(
                     logo_b64,
                     logo_name,
                     storage_subdir="quick_links",
                     max_bytes=5 * 1024 * 1024,
+                    old_file_path=instance.logo_key or None,
                 )
                 if key:
                     instance.logo_key = key
@@ -1103,16 +1139,12 @@ class PortalPopupCardView(APIView):
                     code=STATUS_CODES["VALIDATION_ERROR"],
                 )
             try:
-                if instance.es_image_key:
-                    try:
-                        default_storage.delete(instance.es_image_key)
-                    except Exception:
-                        pass
                 key, oname = _store_uploaded_data_url(
                     img_b64,
                     img_name,
                     storage_subdir="popup_cards",
                     max_bytes=5 * 1024 * 1024,
+                    old_file_path=instance.es_image_key or None,
                 )
                 if key:
                     instance.es_image_key = key
@@ -1295,16 +1327,12 @@ class PortalPrFlyerView(APIView):
                     code=STATUS_CODES["VALIDATION_ERROR"],
                 )
             try:
-                if instance.image_key:
-                    try:
-                        default_storage.delete(instance.image_key)
-                    except Exception:
-                        pass
                 key, oname = _store_uploaded_data_url(
                     img_b64,
                     img_name,
                     storage_subdir="pr_flyers",
                     max_bytes=8 * 1024 * 1024,
+                    old_file_path=instance.image_key or None,
                 )
                 if key:
                     instance.image_key = key
@@ -1433,13 +1461,11 @@ class PortalAnnouncementView(APIView):
         instance = ser.save(updated_by=request.user)
         if file_b64:
             try:
-                if instance.file_key:
-                    try:
-                        default_storage.delete(instance.file_key)
-                    except Exception:
-                        pass
                 key, oname = _store_uploaded_data_url(
-                    file_b64, file_name, storage_subdir="announcements"
+                    file_b64,
+                    file_name,
+                    storage_subdir="announcements",
+                    old_file_path=instance.file_key or None,
                 )
                 if key:
                     instance.file_key = key
