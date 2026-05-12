@@ -65,6 +65,12 @@ AWS_QUERYSTRING_AUTH = False
 
 
 ALLOWED_HOSTS = ['*']
+
+_PUBLIC_API_ORIGIN = (os.environ.get("PUBLIC_API_ORIGIN") or "").strip().rstrip("/")
+if not _PUBLIC_API_ORIGIN:
+    _PUBLIC_API_ORIGIN = f"http://{LAN_HOST}:8092"
+PUBLIC_API_ORIGIN = _PUBLIC_API_ORIGIN
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
