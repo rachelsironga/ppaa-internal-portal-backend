@@ -2,6 +2,7 @@ import re
 import uuid as uuid_mod
 from urllib.parse import parse_qs, urlparse
 
+from django.conf import settings as django_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import serializers
@@ -242,13 +243,29 @@ class PortalAnnouncementSerializer(serializers.ModelSerializer):
         return attrs
 
 
+def _absolute_public_portal_asset_url(path: str, request) -> str:
+    """
+    Full URL for anonymous GET routes registered on the API site (e.g. ``/public/quick-links/…/logo/``).
+
+    ``request.build_absolute_uri`` follows ``Host`` / proxy headers and often omits the API port or
+    uses https on LAN → broken ``<img src>``. Prefer ``settings.PUBLIC_API_ORIGIN`` (see .env).
+    """
+    if not path:
+        return ""
+    p = path if str(path).startswith("/") else f"/{path}"
+    origin = (getattr(django_settings, "PUBLIC_API_ORIGIN", None) or "").strip().rstrip("/")
+    if origin:
+        return f"{origin}{p}"
+    if request:
+        return request.build_absolute_uri(path)
+    return p
+
+
 def _absolute_public_quick_link_logo_url(obj, request):
     if not obj.logo_key:
         return ""
     path = reverse("public-quick-link-logo", kwargs={"uid": str(obj.uid)})
-    if request:
-        return request.build_absolute_uri(path)
-    return path
+    return _absolute_public_portal_asset_url(path, request)
 
 
 class PortalQuickLinkBriefSerializer(serializers.ModelSerializer):
@@ -287,9 +304,7 @@ def _absolute_public_popup_es_image_url(obj, request):
     if not obj.es_image_key:
         return ""
     path = reverse("public-popup-card-es-image", kwargs={"uid": str(obj.uid)})
-    if request:
-        return request.build_absolute_uri(path)
-    return path
+    return _absolute_public_portal_asset_url(path, request)
 
 
 class PortalPopupCardSerializer(serializers.ModelSerializer):
@@ -316,9 +331,7 @@ def _absolute_public_pr_flyer_image_url(obj, request):
     if not obj.image_key:
         return ""
     path = reverse("public-portal-pr-flyer-image", kwargs={"uid": str(obj.uid)})
-    if request:
-        return request.build_absolute_uri(path)
-    return path
+    return _absolute_public_portal_asset_url(path, request)
 
 
 def _youtube_video_id_from_url(url: str) -> str:

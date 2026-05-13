@@ -65,6 +65,14 @@ AWS_QUERYSTRING_AUTH = False
 
 ALLOWED_HOSTS = ['*']
 
+# Browser <img src> for anonymous public routes (quick-link logos, popup/PR images) must use the
+# same origin users use for the API (e.g. http://192.168.1.4:8092). ``request.build_absolute_uri``
+# often yields https://192.168.1.4 without port → broken images. Override with PUBLIC_API_ORIGIN in .env.
+_PUBLIC_API_ORIGIN = (os.environ.get("PUBLIC_API_ORIGIN") or "").strip().rstrip("/")
+if not _PUBLIC_API_ORIGIN:
+    _PUBLIC_API_ORIGIN = f"http://{LAN_HOST}:8092"
+PUBLIC_API_ORIGIN = _PUBLIC_API_ORIGIN
+
 # Internal portal sends documents as JSON + base64; default Django limit is 2.5 MiB (too small).
 # Keep slightly above nginx ``client_max_body_size`` (50m) so the API can read the body after nginx accepts it.
 _DATA_UPLOAD_MAX_MB = int(os.environ.get("DATA_UPLOAD_MAX_MB", "55"))
