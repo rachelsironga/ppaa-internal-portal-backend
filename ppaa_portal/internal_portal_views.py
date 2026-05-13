@@ -1,12 +1,12 @@
 import base64
 import binascii
+import io
 import mimetypes
 import posixpath
 import uuid
 from pathlib import Path
 from urllib.parse import quote
 
-from django.conf import settings as django_settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import DatabaseError
@@ -57,19 +57,7 @@ from ppaa_portal.portal_audit_utils import (
     stats_payload as portal_audit_stats_payload,
 )
 from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
-
-
-def _minio_storage_configured() -> bool:
-    """True when MinIO/S3 env matches ``MinioStorage`` (same bucket as django-storages)."""
-    if not (getattr(django_settings, "AWS_S3_ENDPOINT_URL", None) or "").strip():
-        return False
-    if not (getattr(django_settings, "AWS_ACCESS_KEY_ID", None) or "").strip():
-        return False
-    if not (getattr(django_settings, "AWS_SECRET_ACCESS_KEY", None) or "").strip():
-        return False
-    if not (getattr(django_settings, "AWS_STORAGE_BUCKET_NAME", None) or "").strip():
-        return False
-    return True
+from utils.storage_env import minio_media_env_configured
 
 
 def _store_uploaded_data_url(
@@ -118,7 +106,7 @@ def _store_uploaded_data_url(
     ext = suf if suf in allowed_ext and len(suf) <= 12 else ""
     old = (old_file_path or "").strip()
 
-    if _minio_storage_configured():
+    if minio_media_env_configured():
         from utils.minio_storage import MinioStorage
 
         try:
@@ -129,6 +117,15 @@ def _store_uploaded_data_url(
                 file_name=uuid.uuid4().hex,
                 old_file_path=old,
             )
+            if not stored:
+                raise ValueError("Storage returned no object key after upload")
+            # Same SDK/bucket as public routes — fail fast if object is not readable
+            probe = minio.get_object_bytes(stored)
+            if not probe:
+                raise ValueError(
+                    "Upload failed verification (empty object in MinIO). "
+                    "Check AWS_STORAGE_BUCKET_NAME, AWS_S3_ENDPOINT_URL, and credentials."
+                )
             return stored, display_name
         except Exception as e:
             raise ValueError(str(e)) from e
@@ -141,6 +138,32 @@ def _store_uploaded_data_url(
     key = f"internal_portal/{storage_subdir}/{uuid.uuid4().hex}{ext}"
     stored = default_storage.save(key, ContentFile(raw))
     return stored, display_name
+
+
+def _binary_stream_for_storage_key(storage_key: str):
+    """
+    Readable binary stream for an object key.
+
+    Internal portal uploads often use ``MinioStorage`` (native SDK) into
+    ``AWS_STORAGE_BUCKET_NAME``; ``default_storage.open`` (boto3) can still 404 on
+    some stacks. Prefer MinIO when env is complete, then django-storages.
+    """
+    key = (storage_key or "").strip()
+    if not key:
+        return None
+    if minio_media_env_configured():
+        try:
+            from utils.minio_storage import MinioStorage
+
+            raw = MinioStorage().get_object_bytes(key)
+            if raw:
+                return io.BytesIO(raw)
+        except Exception:
+            pass
+    try:
+        return default_storage.open(key, "rb")
+    except Exception:
+        return None
 
 
 def _parse_optional_datetime(raw: str):
@@ -409,9 +432,8 @@ class PortalDocumentDownloadView(APIView):
                     status=http_status.HTTP_404_NOT_FOUND,
                 )
 
-        try:
-            file_handle = default_storage.open(row.file_key, "rb")
-        except Exception:
+        file_handle = _binary_stream_for_storage_key(row.file_key)
+        if file_handle is None:
             return Response(
                 {
                     "status": STATUS_CODES["DATA_NOT_FOUND"],
@@ -464,9 +486,8 @@ class PortalAnnouncementDownloadView(APIView):
                 status=http_status.HTTP_404_NOT_FOUND,
             )
 
-        try:
-            file_handle = default_storage.open(row.file_key, "rb")
-        except Exception:
+        file_handle = _binary_stream_for_storage_key(row.file_key)
+        if file_handle is None:
             return Response(
                 {
                     "status": STATUS_CODES["DATA_NOT_FOUND"],
@@ -1013,6 +1034,13 @@ class PortalQuickLinkView(APIView):
                 message="Quick link not found", code=STATUS_CODES["DATA_NOT_FOUND"]
             )
         if row.logo_key:
+            if minio_media_env_configured():
+                try:
+                    from utils.minio_storage import MinioStorage
+
+                    MinioStorage().remove_file(row.logo_key)
+                except Exception:
+                    pass
             try:
                 default_storage.delete(row.logo_key)
             except Exception:

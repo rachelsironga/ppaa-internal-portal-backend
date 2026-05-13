@@ -3,6 +3,7 @@ Unauthenticated JSON endpoints for the public PPAA portal landing page (PortalPa
 
 Wire under /public/… so TokenAuthMiddleware skips token checks (see ppaa_portal/middleware.py).
 """
+import io
 import mimetypes
 import posixpath
 
@@ -13,6 +14,8 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from utils.storage_env import minio_media_env_configured
 
 from ppaa_portal.internal_portal_serializers import (
     PortalAnnouncementBriefSerializer,
@@ -35,6 +38,46 @@ from ppaa_portal.models import (
     PortalQuickLink,
     PortalTodo,
 )
+
+
+def _file_response_from_storage_key(
+    storage_key: str, original_filename: str, fallback_basename: str
+) -> FileResponse:
+    """
+    Serve bytes for a storage object key.
+
+    Quick-link logos (and similar) are often written with ``MinioStorage`` while this
+    view historically used ``default_storage`` (boto3). When MinIO env is complete,
+    read with the native MinIO client first so the same bucket/object names resolve.
+    """
+    key = (storage_key or "").strip()
+    if not key:
+        raise Http404()
+
+    base_name = (
+        (original_filename or "").strip()
+        or posixpath.basename(key)
+        or fallback_basename
+    )
+    content_type, _ = mimetypes.guess_type(base_name)
+    if not content_type:
+        content_type = "image/png"
+
+    if minio_media_env_configured():
+        try:
+            from utils.minio_storage import MinioStorage
+
+            raw = MinioStorage().get_object_bytes(key)
+            if raw:
+                return FileResponse(io.BytesIO(raw), content_type=content_type)
+        except Exception:
+            pass
+
+    try:
+        fh = default_storage.open(key, "rb")
+    except Exception:
+        raise Http404() from None
+    return FileResponse(fh, content_type=content_type)
 
 
 class PublicPpaaDashboardView(APIView):
@@ -145,21 +188,11 @@ class PublicQuickLinkLogoView(APIView):
         )
         if not row:
             raise Http404()
-        try:
-            file_handle = default_storage.open(row.logo_key, "rb")
-        except Exception:
-            raise Http404() from None
-
-        base_name = (
-            (row.logo_original_filename or "").strip()
-            or posixpath.basename(row.logo_key)
-            or "logo.png"
+        return _file_response_from_storage_key(
+            row.logo_key,
+            row.logo_original_filename or "",
+            "logo.png",
         )
-        content_type, _ = mimetypes.guess_type(base_name)
-        if not content_type:
-            content_type = "image/png"
-
-        return FileResponse(file_handle, content_type=content_type)
 
 
 class PublicPopupCardEsImageView(APIView):
@@ -176,21 +209,11 @@ class PublicPopupCardEsImageView(APIView):
         )
         if not row:
             raise Http404()
-        try:
-            file_handle = default_storage.open(row.es_image_key, "rb")
-        except Exception:
-            raise Http404() from None
-
-        base_name = (
-            (row.es_image_original_filename or "").strip()
-            or posixpath.basename(row.es_image_key)
-            or "image.png"
+        return _file_response_from_storage_key(
+            row.es_image_key,
+            row.es_image_original_filename or "",
+            "image.png",
         )
-        content_type, _ = mimetypes.guess_type(base_name)
-        if not content_type:
-            content_type = "image/png"
-
-        return FileResponse(file_handle, content_type=content_type)
 
 
 class PublicPortalPrFlyerImageView(APIView):
@@ -210,21 +233,11 @@ class PublicPortalPrFlyerImageView(APIView):
         )
         if not row:
             raise Http404()
-        try:
-            file_handle = default_storage.open(row.image_key, "rb")
-        except Exception:
-            raise Http404() from None
-
-        base_name = (
-            (row.image_original_filename or "").strip()
-            or posixpath.basename(row.image_key)
-            or "flyer.png"
+        return _file_response_from_storage_key(
+            row.image_key,
+            row.image_original_filename or "",
+            "flyer.png",
         )
-        content_type, _ = mimetypes.guess_type(base_name)
-        if not content_type:
-            content_type = "image/png"
-
-        return FileResponse(file_handle, content_type=content_type)
 
 
 class PublicQuickLinkClickView(APIView):
