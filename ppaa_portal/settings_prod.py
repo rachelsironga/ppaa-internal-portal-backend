@@ -114,6 +114,7 @@ _CORS_BASE_PROD = [
     f"http://{LAN_HOST}:8092",
 ]
 CORS_ALLOWED_ORIGINS = merge_unique_origins(_CORS_BASE_PROD, lan_browser_origins())
+CORS_ALLOW_PRIVATE_NETWORK = True
 CSRF_TRUSTED_ORIGINS = merge_unique_origins(_CORS_BASE_PROD, lan_browser_origins())
 
 FRONTEND_URL = (os.environ.get("FRONTEND_URL") or f"http://{LAN_HOST}:3000").strip()

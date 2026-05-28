@@ -234,6 +234,8 @@ def _strip_pr_flyer_image_fields(data):
 
 class InternalPortalDashboardSummaryView(APIView):
     permission_classes = [AllowAny]
+    # Dashboard loads multiple widgets on page load; do not throttle this endpoint.
+    throttle_classes = []
 
     def get(self, request):
         docs = (

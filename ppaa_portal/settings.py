@@ -113,6 +113,10 @@ _CORS_BASE = [
 ]
 CORS_ALLOWED_ORIGINS = merge_unique_origins(_CORS_BASE, lan_browser_origins())
 
+# Chrome "Private Network Access": SPA on localhost calling API on LAN (e.g. 192.168.x.x) is blocked
+# unless preflight gets Access-Control-Allow-Private-Network: true (django-cors-headers 4.3+).
+CORS_ALLOW_PRIVATE_NETWORK = True
+
 # Make sure these match your CORS settings
 CSRF_TRUSTED_ORIGINS = merge_unique_origins(_CORS_BASE, lan_browser_origins())
 
