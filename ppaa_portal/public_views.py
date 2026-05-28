@@ -85,6 +85,8 @@ class PublicPpaaDashboardView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
+    # Public landing page can be refreshed often; avoid anon throttling on this aggregate endpoint.
+    throttle_classes = []
 
     def get(self, request):
         # Documents: only published + marked public (PortalPage.jsx also filters client-side).
