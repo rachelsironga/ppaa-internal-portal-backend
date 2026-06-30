@@ -140,16 +140,50 @@ class User(AbstractUser):
     def __str__(self):
         return self.username or str(self.guid)
 
+    def _is_portal_superuser(self):
+        return self.is_superuser or str(
+            getattr(self, "account_type", "") or ""
+        ).upper() == "SUPER_USER"
+
+    def ensure_portal_role_membership(self):
+        """Persist admin group + superuser flags for portal RBAC (login / profile refresh)."""
+        if not self._is_portal_superuser():
+            return
+        from django.contrib.auth.models import Group
+
+        changed = False
+        if self.account_type == "SUPER_USER" and not self.is_superuser:
+            self.is_superuser = True
+            self.is_staff = True
+            changed = True
+        admin_group, _ = Group.objects.get_or_create(name="admin")
+        if not self.groups.filter(pk=admin_group.pk).exists():
+            self.groups.add(admin_group)
+        if changed:
+            self.save(update_fields=["is_superuser", "is_staff", "updated_at"])
+
     def get_groups(self):
-        return [g.name.lower() for g in self.groups.all()]
+        names = [g.name.lower() for g in self.groups.all()]
+        if self._is_portal_superuser():
+            for role in ("superuser", "admin"):
+                if role not in names:
+                    names.append(role)
+        return names
 
     def get_group_names(self):
-        return list(self.groups.values_list("name", flat=True))
+        names = list(self.groups.values_list("name", flat=True))
+        lower = {n.lower() for n in names}
+        if self._is_portal_superuser():
+            if "superuser" not in lower:
+                names.append("superuser")
+            if "admin" not in lower:
+                names.append("admin")
+        return names
 
     def get_permission_codes(self):
         from django.contrib.auth.models import Permission
 
-        if self.is_superuser:
+        if self._is_portal_superuser():
             return list(Permission.objects.values_list("codename", flat=True))
         user_perm = self.user_permissions.values_list("codename", flat=True)
         group_perm = Permission.objects.filter(group__user=self).values_list(

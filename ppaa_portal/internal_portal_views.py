@@ -1,14 +1,8 @@
-import base64
-import binascii
-import io
 import mimetypes
 import posixpath
 import uuid
-from pathlib import Path
 from urllib.parse import quote
 
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 from django.db import DatabaseError
 from django.db.models import F, Q
 from django.http import FileResponse
@@ -57,113 +51,20 @@ from ppaa_portal.portal_audit_utils import (
     stats_payload as portal_audit_stats_payload,
 )
 from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
-from utils.storage_env import minio_media_env_configured
+from utils.storage_files import (
+    delete_storage_key,
+    open_storage_stream,
+    store_uploaded_data_url,
+)
 
 
-def _store_uploaded_data_url(
-    data_url: str,
-    preferred_name: str,
-    *,
-    storage_subdir: str = "documents",
-    max_bytes: int | None = None,
-    old_file_path: str | None = None,
-) -> tuple[str, str]:
-    """
-    Decode a data URL and persist bytes.
-
-    When MinIO/S3 credentials are set, uses ``MinioStorage`` (native put_object to the media bucket).
-    Otherwise falls back to ``default_storage`` (filesystem or S3Boto3, depending on settings).
-    """
-    if not data_url or ";base64," not in data_url:
-        return "", ""
-    _, b64 = data_url.split(";base64,", 1)
-    try:
-        raw = base64.b64decode(b64, validate=True)
-    except (binascii.Error, ValueError):
-        raise ValueError("Invalid file encoding")
-    limit = 20 * 1024 * 1024 if max_bytes is None else max_bytes
-    if len(raw) > limit:
-        raise ValueError(f"File too large (max {limit // (1024 * 1024)}MB)")
-    display_name = (preferred_name or "document").strip() or "document"
-    suf = Path(display_name).suffix.lower()
-    allowed_ext = {
-        ".pdf",
-        ".doc",
-        ".docx",
-        ".xls",
-        ".xlsx",
-        ".ppt",
-        ".pptx",
-        ".txt",
-        ".csv",
-        ".zip",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".gif",
-        ".webp",
-    }
-    ext = suf if suf in allowed_ext and len(suf) <= 12 else ""
-    old = (old_file_path or "").strip()
-
-    if minio_media_env_configured():
-        from utils.minio_storage import MinioStorage
-
-        try:
-            minio = MinioStorage()
-            stored = minio.upload_base64_file(
-                data_url,
-                folder=f"internal_portal/{storage_subdir}",
-                file_name=uuid.uuid4().hex,
-                old_file_path=old,
-            )
-            if not stored:
-                raise ValueError("Storage returned no object key after upload")
-            # Same SDK/bucket as public routes — fail fast if object is not readable
-            probe = minio.get_object_bytes(stored)
-            if not probe:
-                raise ValueError(
-                    "Upload failed verification (empty object in MinIO). "
-                    "Check AWS_STORAGE_BUCKET_NAME, AWS_S3_ENDPOINT_URL, and credentials."
-                )
-            return stored, display_name
-        except Exception as e:
-            raise ValueError(str(e)) from e
-
-    if old:
-        try:
-            default_storage.delete(old)
-        except Exception:
-            pass
-    key = f"internal_portal/{storage_subdir}/{uuid.uuid4().hex}{ext}"
-    stored = default_storage.save(key, ContentFile(raw))
-    return stored, display_name
+def _store_uploaded_data_url(*args, **kwargs):
+    """Backward-compatible alias — all uploads go to MinIO via ``store_uploaded_data_url``."""
+    return store_uploaded_data_url(*args, **kwargs)
 
 
 def _binary_stream_for_storage_key(storage_key: str):
-    """
-    Readable binary stream for an object key.
-
-    Internal portal uploads often use ``MinioStorage`` (native SDK) into
-    ``AWS_STORAGE_BUCKET_NAME``; ``default_storage.open`` (boto3) can still 404 on
-    some stacks. Prefer MinIO when env is complete, then django-storages.
-    """
-    key = (storage_key or "").strip()
-    if not key:
-        return None
-    if minio_media_env_configured():
-        try:
-            from utils.minio_storage import MinioStorage
-
-            raw = MinioStorage().get_object_bytes(key)
-            if raw:
-                return io.BytesIO(raw)
-        except Exception:
-            pass
-    try:
-        return default_storage.open(key, "rb")
-    except Exception:
-        return None
+    return open_storage_stream(storage_key)
 
 
 def _parse_optional_datetime(raw: str):
@@ -1036,17 +937,7 @@ class PortalQuickLinkView(APIView):
                 message="Quick link not found", code=STATUS_CODES["DATA_NOT_FOUND"]
             )
         if row.logo_key:
-            if minio_media_env_configured():
-                try:
-                    from utils.minio_storage import MinioStorage
-
-                    MinioStorage().remove_file(row.logo_key)
-                except Exception:
-                    pass
-            try:
-                default_storage.delete(row.logo_key)
-            except Exception:
-                pass
+            delete_storage_key(row.logo_key)
         row.is_deleted = True
         row.updated_by = request.user
         row.save(update_fields=["is_deleted", "updated_at", "updated_by"])
@@ -1202,10 +1093,7 @@ class PortalPopupCardView(APIView):
                 message="Popup card not found", code=STATUS_CODES["DATA_NOT_FOUND"]
             )
         if row.es_image_key:
-            try:
-                default_storage.delete(row.es_image_key)
-            except Exception:
-                pass
+            delete_storage_key(row.es_image_key)
         row.is_deleted = True
         row.updated_by = request.user
         row.save(update_fields=["is_deleted", "updated_at", "updated_by"])
@@ -1390,10 +1278,7 @@ class PortalPrFlyerView(APIView):
                 message="PR flyer not found", code=STATUS_CODES["DATA_NOT_FOUND"]
             )
         if row.image_key:
-            try:
-                default_storage.delete(row.image_key)
-            except Exception:
-                pass
+            delete_storage_key(row.image_key)
         row.is_deleted = True
         row.updated_by = request.user
         row.save(update_fields=["is_deleted", "updated_at", "updated_by"])

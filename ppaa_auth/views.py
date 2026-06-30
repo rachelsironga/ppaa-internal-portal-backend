@@ -157,6 +157,7 @@ class LoginView(APIView):
                 )
 
             login(request, user)
+            user.ensure_portal_role_membership()
             auth_data = MyTokenObtainPairSerializer.get_tokens_for_user(request)
             if auth_data.get("status") != status.HTTP_200_OK:
                 logout(request)
@@ -241,6 +242,7 @@ class LoginNewUser(APIView):
             user,
             backend=django_settings.AUTHENTICATION_BACKENDS[0],
         )
+        user.ensure_portal_role_membership()
         auth_data = MyTokenObtainPairSerializer.get_tokens_for_user(request)
         merged = {**auth_data.get("data", {}), "user": UserSerializer(user).data}
         return CustomResponse.success(data=merged, message="Password updated")

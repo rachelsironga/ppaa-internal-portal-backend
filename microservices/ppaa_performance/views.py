@@ -6,7 +6,7 @@ from .models import (
     SpismObjective,
     SpismTarget,
 )
-from .reporting import build_report
+from .reporting import build_report, build_objective_report, build_quarterly_report
 from .serializers import SpismFinancialYearSerializer, SpismObjectiveListSerializer
 from .spism_permissions import SpismProtectedAPIView, spism_dept_head_targets_scope_only
 from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
@@ -24,7 +24,92 @@ def _empty_analytics_payload():
         "quarterly_trend": [],
         "objective_performance": [],
         "progress_status": [],
+        "kpi_targets_top": [],
+        "kpi_targets_bottom": [],
+        "kpi_needs_attention_count": 0,
     }
+
+
+def _status_chart_color(status: str) -> str:
+    s = (status or "").upper()
+    if s == "APPROVED":
+        return "bg-success"
+    if s in ("PENDING", "SUBMITTED"):
+        return "bg-warning"
+    if s in ("RETURNED", "REJECTED"):
+        return "bg-danger"
+    return "bg-secondary"
+
+
+def _enrich_analytics_for_fy(payload: dict, fy: str) -> None:
+    """Populate charts/metrics from submitted quarterly + KPI data for the selected FY."""
+    quarterly = build_quarterly_report(fy)
+    objective_report = build_objective_report(fy)
+    objectives = objective_report.get("objectives") or []
+
+    inst = quarterly.get("institutional_performance")
+    if inst is None:
+        scores = [o["score"] for o in objectives if o.get("score") is not None]
+        inst = round(sum(scores) / len(scores), 2) if scores else 0
+    payload["institutional_performance"] = inst or 0
+    payload["quarterly_trend"] = quarterly.get("quarterly_trend") or []
+
+    objective_performance = []
+    for o in objectives:
+        score = o.get("score")
+        if score is None:
+            continue
+        title = o.get("title") or "Objective"
+        short = title[:40] + ("..." if len(title) > 40 else "")
+        objective_performance.append(
+            {
+                "category": short,
+                "label": short,
+                "full_label": title,
+                "value": float(score),
+                "count": float(score),
+            }
+        )
+    payload["objective_performance"] = objective_performance
+
+    kpi_targets = []
+    for o in objectives:
+        for t in o.get("targets") or []:
+            kpi_score = t.get("kpi_score")
+            if kpi_score is None:
+                continue
+            title = t.get("title") or "Target"
+            short = title[:50] + ("..." if len(title) > 50 else "")
+            kpi_targets.append(
+                {
+                    "uid": t.get("uid"),
+                    "title": short,
+                    "full_title": title,
+                    "objective_title": o.get("title") or "",
+                    "value": float(kpi_score),
+                    "count": float(kpi_score),
+                    "category": short,
+                    "label": short,
+                }
+            )
+
+    kpi_sorted = sorted(kpi_targets, key=lambda x: x["value"], reverse=True)
+    payload["kpi_targets_top"] = kpi_sorted[:5]
+    payload["kpi_targets_bottom"] = list(reversed(kpi_sorted[-5:])) if kpi_sorted else []
+    payload["kpi_needs_attention_count"] = sum(
+        1 for t in kpi_targets if (t.get("value") or 0) < 70
+    )
+
+    obj_status = payload["status_distribution"].get("objectives") or []
+    payload["progress_status"] = [
+        {
+            "label": r["status"],
+            "value": r["count"],
+            "color": _status_chart_color(r["status"]),
+        }
+        for r in obj_status
+        if r.get("count")
+    ]
 
 
 class FinancialYearListCreateView(SpismProtectedAPIView):
@@ -156,6 +241,8 @@ class PerformanceAnalyticsView(SpismProtectedAPIView):
             {"status": r["status"], "count": r["c"]}
             for r in act_qs.values("status").annotate(c=Count("id"))
         ]
+        if fy:
+            _enrich_analytics_for_fy(payload, fy)
         return CustomResponse.success(data=payload, message="Success")
 
 

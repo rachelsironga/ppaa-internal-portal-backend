@@ -89,7 +89,7 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       REDIS_URL: redis://redis:6379/0
 
-      # MinIO (S3 API) — flyers, documents, media use default_storage → must reach the minio service by Docker DNS.
+      # MinIO (S3 API) — all portal files are stored in MinIO via MinioStorage (see utils/storage_files.py).
       # Set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in .env to match MINIO_ROOT_USER / MINIO_ROOT_PASSWORD below.
       AWS_S3_ENDPOINT_URL: "http://minio:9000"
     # Compose loads this path relative to this file — file name must be ".env" (not "env").

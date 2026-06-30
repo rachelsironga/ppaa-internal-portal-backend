@@ -43,10 +43,8 @@ from .spism_common import (
     parse_filters_param,
     to_decimal,
 )
-from ppaa_portal.internal_portal_views import (
-    _attachment_content_disposition,
-    _store_uploaded_data_url,
-)
+from ppaa_portal.internal_portal_views import _attachment_content_disposition
+from utils.storage_files import open_storage_stream, store_uploaded_data_url
 from ppaa_portal.response_codes import CustomResponse, STATUS_CODES
 from django.contrib.auth import get_user_model
 
@@ -839,7 +837,7 @@ class SpismActivityDocumentListCreateView(SpismProtectedAPIView):
         if not b64:
             return CustomResponse.errors(message="file_base64 required", code=STATUS_CODES["VALIDATION_ERROR"])
         try:
-            key, oname = _store_uploaded_data_url(str(b64), fname, storage_subdir="spism/activity_docs")
+            key, oname = store_uploaded_data_url(str(b64), fname, storage_subdir="spism/activity_docs")
         except ValueError as e:
             return CustomResponse.errors(message=str(e), code=STATUS_CODES["VALIDATION_ERROR"])
         if not key:
@@ -880,7 +878,7 @@ class SpismActivityDocumentDetailView(SpismProtectedAPIView):
         b64 = request.data.get("file_base64")
         if b64:
             try:
-                key, oname = _store_uploaded_data_url(
+                key, oname = store_uploaded_data_url(
                     str(b64), request.data.get("file_name") or doc.original_filename, storage_subdir="spism/activity_docs"
                 )
                 if key:
@@ -924,8 +922,6 @@ class SpismActivityDocumentDownloadView(SpismProtectedAPIView):
     }
 
     def get(self, request, uid):
-        from django.core.files.storage import default_storage
-
         doc = (
             SpismActivityDocument.objects.filter(uid=uid, is_deleted=False)
             .select_related("activity", "activity__target")
@@ -950,7 +946,9 @@ class SpismActivityDocumentDownloadView(SpismProtectedAPIView):
                 status=http_status.HTTP_403_FORBIDDEN,
             )
         try:
-            fh = default_storage.open(doc.file_key, "rb")
+            fh = open_storage_stream(doc.file_key)
+            if not fh:
+                raise OSError("missing")
         except Exception:
             return Response(
                 {

@@ -281,3 +281,8 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 EMAIL_PORT = os.getenv("EMAIL_PORT")
 APPEND_SLASH=False
 DEFAULT_FROM_EMAIL=os.getenv("DEFAULT_FROM_EMAIL")
+
+# All portal uploads (documents, flyers, logos, etc.) must use MinIO.
+from utils.storage_env import require_minio_media_configured
+
+require_minio_media_configured()
