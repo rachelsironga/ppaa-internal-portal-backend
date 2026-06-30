@@ -107,6 +107,9 @@ urlpatterns = [
     path("api/reports/financial-periods/", RmsFinancialPeriodsListView.as_view()),
     # RMS: register before generic path("api/", include(...)) so /api/reports/* always hits this app.
     path("api/reports/", include("ppaa_portal.reports_management_urls")),
+    # SPISM — must register before path("api/", include("api.urls")) so microservices
+    # views (spism_* tables on default DB) win over legacy api/performance-dashboard/* routes.
+    path("api/performance-dashboard/", include("microservices.ppaa_performance.urls")),
     *(
         [path("api/", include("microservices.maoni.urls"))]
         if "microservices.maoni" in settings.INSTALLED_APPS
@@ -115,7 +118,6 @@ urlpatterns = [
     path("api/", include("ppaa_auth.common_provider_urls")),
     path("api/", include("api.urls")),
     path("api/internal-portal/", include("ppaa_portal.internal_portal_urls")),
-    path("api/performance-dashboard/", include("microservices.ppaa_performance.urls")),
     path("token/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui"),

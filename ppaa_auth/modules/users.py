@@ -292,6 +292,7 @@ class CurrentUserMeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        request.user.ensure_portal_role_membership()
         return CustomResponse.success(data=UserSerializer(request.user).data)
 
 

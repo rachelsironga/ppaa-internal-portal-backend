@@ -7,7 +7,6 @@ import io
 import mimetypes
 import posixpath
 
-from django.core.files.storage import default_storage
 from django.db.models import F
 from django.http import FileResponse, Http404
 from rest_framework import status
@@ -15,7 +14,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from utils.storage_env import minio_media_env_configured
+from utils.storage_files import open_storage_stream, storage_display_name
 
 from ppaa_portal.internal_portal_serializers import (
     PortalAnnouncementBriefSerializer,
@@ -43,41 +42,20 @@ from ppaa_portal.models import (
 def _file_response_from_storage_key(
     storage_key: str, original_filename: str, fallback_basename: str
 ) -> FileResponse:
-    """
-    Serve bytes for a storage object key.
-
-    Quick-link logos (and similar) are often written with ``MinioStorage`` while this
-    view historically used ``default_storage`` (boto3). When MinIO env is complete,
-    read with the native MinIO client first so the same bucket/object names resolve.
-    """
+    """Serve bytes for a MinIO object key."""
     key = (storage_key or "").strip()
     if not key:
         raise Http404()
 
-    base_name = (
-        (original_filename or "").strip()
-        or posixpath.basename(key)
-        or fallback_basename
-    )
+    base_name = storage_display_name(key, original_filename, fallback_basename)
     content_type, _ = mimetypes.guess_type(base_name)
     if not content_type:
         content_type = "image/png"
 
-    if minio_media_env_configured():
-        try:
-            from utils.minio_storage import MinioStorage
-
-            raw = MinioStorage().get_object_bytes(key)
-            if raw:
-                return FileResponse(io.BytesIO(raw), content_type=content_type)
-        except Exception:
-            pass
-
-    try:
-        fh = default_storage.open(key, "rb")
-    except Exception:
-        raise Http404() from None
-    return FileResponse(fh, content_type=content_type)
+    stream = open_storage_stream(key)
+    if not stream:
+        raise Http404()
+    return FileResponse(stream, content_type=content_type)
 
 
 class PublicPpaaDashboardView(APIView):
@@ -226,11 +204,8 @@ class PublicPortalPrFlyerImageView(APIView):
 
     def get(self, request, uid):
         row = (
-            PortalPrFlyer.filter_visible_at(
-                PortalPrFlyer.objects.filter(
-                    uid=uid, is_deleted=False, is_active=True
-                ).exclude(image_key="")
-            )
+            PortalPrFlyer.objects.filter(uid=uid, is_deleted=False)
+            .exclude(image_key="")
             .first()
         )
         if not row:

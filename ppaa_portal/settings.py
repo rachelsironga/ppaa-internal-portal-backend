@@ -300,3 +300,7 @@ if os.environ.get("MAONI_AUTO_ESCALATION_BEAT", "1").lower() not in ("0", "false
 # ---------- MICROSERVICES URLS ----------
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://localhost:8000")
 
+# All portal uploads (documents, flyers, logos, etc.) must use MinIO.
+from utils.storage_env import require_minio_media_configured
+
+require_minio_media_configured()
