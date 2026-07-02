@@ -5,6 +5,11 @@ Run (from ppaa-internal-portal-backend):
 
     python manage.py custom_permissions
 
+Docker (stack must be running):
+
+    docker compose exec backend python manage.py custom_permissions
+    # or: ./run_custom_permissions.sh
+
 Groups:
   - admin: all Permission rows (unchanged)
   - staff: baseline portal access (profile, lookups)

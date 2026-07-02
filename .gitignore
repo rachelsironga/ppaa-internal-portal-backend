@@ -4,3 +4,8 @@ __pycache__/
 ppaa_portal/settings.py
 docker-compose.yml
 virtualenv/
+
+# Runtime uploads and collectstatic output — owned by Docker (root); never commit.
+# media/
+# static/
+# staticfiles/

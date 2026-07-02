@@ -24,8 +24,34 @@ python manage.py migrate
 
 ### 3. Create Custom Permissions
 
+**All modules (recommended after migrations):**
+
+```bash
+docker compose exec backend python manage.py sync_all_permissions
+```
+
+Or: `./run_all_permissions.sh`
+
+This runs, in order: `custom_permissions`, `maoni_permissions`, `rms_permission`, `ensure_spism_groups`, `spism_permissions`, `ppaa_performance_permissions`.
+
+**Internal portal only:**
+
+**Local (venv):**
+
 ```bash
 python manage.py custom_permissions
+```
+
+**Docker** (from `ppaa-internal-portal-backend`, with `docker compose up -d` already running):
+
+```bash
+docker compose exec backend python manage.py custom_permissions
+```
+
+Or use the helper script:
+
+```bash
+./run_custom_permissions.sh
 ```
 
 This creates all the custom permissions for:
