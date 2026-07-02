@@ -61,10 +61,12 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-ppaa_portal.settings_prod}
 
       # LAN / public URLs for CORS, email links, and <img src> (PUBLIC_API_ORIGIN). Override in .env.
-      LAN_HOST: ${LAN_HOST:-localhost}
-      LAN_SUBNET_CIDR: ${LAN_SUBNET_CIDR:-192.168.0.0/24}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-http://localhost:8092}
+      # Single source of truth: LAN_HOST (set once, e.g. via ../deploy.sh). FRONTEND_URL / PUBLIC_API_ORIGIN
+      # default to that host, so you only change the IP in ONE place. Override individually only if ports differ.
+      LAN_HOST: ${LAN_HOST:-192.168.1.4}
+      LAN_SUBNET_CIDR: ${LAN_SUBNET_CIDR:-192.168.1.0/24}
+      FRONTEND_URL: ${FRONTEND_URL:-http://${LAN_HOST:-192.168.1.4}:3000}
+      PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-http://${LAN_HOST:-192.168.1.4}:8092}
 
       # PostgreSQL
       POSTGRES_DB_NAME: "ppaa_internal_portal"
@@ -117,10 +119,12 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-ppaa_portal.settings_prod}
 
-      LAN_HOST: ${LAN_HOST:-localhost}
-      LAN_SUBNET_CIDR: ${LAN_SUBNET_CIDR:-192.168.0.0/24}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-http://localhost:8092}
+      # Single source of truth: LAN_HOST (set once, e.g. via ../deploy.sh). FRONTEND_URL / PUBLIC_API_ORIGIN
+      # default to that host, so you only change the IP in ONE place. Override individually only if ports differ.
+      LAN_HOST: ${LAN_HOST:-192.168.1.4}
+      LAN_SUBNET_CIDR: ${LAN_SUBNET_CIDR:-192.168.1.0/24}
+      FRONTEND_URL: ${FRONTEND_URL:-http://${LAN_HOST:-192.168.1.4}:3000}
+      PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-http://${LAN_HOST:-192.168.1.4}:8092}
 
       # Same DB connection
       POSTGRES_DB_NAME: "ppaa_internal_portal"

@@ -105,19 +105,24 @@ SIMPLE_JWT = {
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 # CORS_ALLOW_ALL_ORIGINS = True
+FRONTEND_URL = (os.environ.get("FRONTEND_URL") or f"http://{LAN_HOST}:3000").strip()
+
+# Origins configured for THIS deployment via .env (production reverse proxy / real server host).
+# Always trusted so login/API works wherever you deploy, without editing code.
+_ENV_ORIGINS = [o for o in (FRONTEND_URL, PUBLIC_API_ORIGIN) if o]
+
 _CORS_BASE_PROD = [
     "http://minio.ppaa",
-    "http://localhost:8092",
+    "http://192.168.1.4:8092",
     "http://127.0.0.1:8092",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     f"http://{LAN_HOST}:8092",
+    f"http://{LAN_HOST}:3000",
 ]
-CORS_ALLOWED_ORIGINS = merge_unique_origins(_CORS_BASE_PROD, lan_browser_origins())
+CORS_ALLOWED_ORIGINS = merge_unique_origins(_ENV_ORIGINS, _CORS_BASE_PROD, lan_browser_origins())
 CORS_ALLOW_PRIVATE_NETWORK = True
-CSRF_TRUSTED_ORIGINS = merge_unique_origins(_CORS_BASE_PROD, lan_browser_origins())
-
-FRONTEND_URL = (os.environ.get("FRONTEND_URL") or f"http://{LAN_HOST}:3000").strip()
+CSRF_TRUSTED_ORIGINS = merge_unique_origins(_ENV_ORIGINS, _CORS_BASE_PROD, lan_browser_origins())
 
 
 
