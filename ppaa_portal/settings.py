@@ -107,6 +107,7 @@ _CORS_BASE = [
     "http://minio.ppaa",
     "http://localhost:8092",
     "http://127.0.0.1:8092",
+    "http://192.168.1.4:8092",
     # Docker nginx frontend (ppaa-internal-portal-frontend/docker-compose.yml → 3000:80)
     "http://localhost:3000",
     "http://127.0.0.1:3000",
