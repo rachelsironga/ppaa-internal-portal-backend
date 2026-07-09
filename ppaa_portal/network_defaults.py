@@ -11,12 +11,20 @@ import os
 LAN_SUBNET_CIDR = (os.environ.get("LAN_SUBNET_CIDR") or "192.168.1.0/24").strip()
 LAN_HOST = (os.environ.get("LAN_HOST") or "192.168.1.4").strip()
 
-# Ports used across this repo: SPA nginx (8091), API nginx (8092), Vite / docker SPA (3000, 4001, 4002), Django dev (8000)
-LAN_HTTP_PORTS = (8091, 8092, 3000, 4001, 4002, 8000)
+# Ports used across this repo: host nginx (80), SPA nginx (8091), API nginx (8092),
+# Vite / docker SPA (3000, 4001, 4002), Django dev (8000)
+LAN_HTTP_PORTS = (80, 8091, 8092, 3000, 4001, 4002, 8000)
 
 
 def lan_browser_origins():
-    return [f"http://{LAN_HOST}:{p}" for p in LAN_HTTP_PORTS]
+    """Origins browsers may send when opening the portal on this LAN."""
+    origins = []
+    for p in LAN_HTTP_PORTS:
+        if p == 80:
+            origins.append(f"http://{LAN_HOST}")
+        else:
+            origins.append(f"http://{LAN_HOST}:{p}")
+    return origins
 
 
 def merge_unique_origins(*iterables):

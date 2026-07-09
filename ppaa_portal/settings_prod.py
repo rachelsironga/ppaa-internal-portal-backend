@@ -113,10 +113,13 @@ _ENV_ORIGINS = [o for o in (FRONTEND_URL, PUBLIC_API_ORIGIN) if o]
 
 _CORS_BASE_PROD = [
     "http://minio.ppaa",
+    "http://192.168.1.4",
     "http://192.168.1.4:8092",
+    "http://192.168.1.4:3000",
     "http://127.0.0.1:8092",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    f"http://{LAN_HOST}",
     f"http://{LAN_HOST}:8092",
     f"http://{LAN_HOST}:3000",
 ]
